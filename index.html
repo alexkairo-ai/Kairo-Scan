@@ -405,7 +405,9 @@ function compareReports(a,b,mode){
  const asc = mode.indexOf('_asc') !== -1;
  if(typeof av==='number') return asc ? (av-bv):(bv-av);
  const s1=String(av).toLowerCase(), s2=String(bv).toLowerCase();
- if(s1<s2) return asc?-1:1; if(s1>s2) return asc?1:-1; return0;
+ if(s1<s2) return asc ? -1 :1;
+ if(s1>s2) return asc ?1 : -1;
+ return0;
 }
 
 function renderReports(){
