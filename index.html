@@ -186,6 +186,20 @@ button:active{transform:translateY(1px)}
  </select>
  </div>
 
+ <div class="tools" style="margin-top:8px;">
+ <input type="date" id="statsDate">
+ <select id="statsStage">
+ <option value="all">Этап: все</option>
+ <option value="pila">Пила</option>
+ <option value="hdf">ХДФ</option>
+ <option value="kromka">Кромка</option>
+ <option value="prisadka">Присадка</option>
+ <option value="upakovka">Упаковка</option>
+ </select>
+ <button id="statsBtn" style="width:auto;font-size:12px;padding:6px8px;border-radius:10px;">Посчитать</button>
+ <span id="statsResult" class="small" style="margin-left:6px;"></span>
+ </div>
+
  <div id="reportsStatus" class="small" style="margin-top:8px;">Найдено:0</div>
  <div style="overflow:auto;margin-top:10px;">
  <table class="table" id="reportsTable">
@@ -228,6 +242,11 @@ const editReportsBtn = document.getElementById("editReports");
 
 const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
+
+const statsDate = document.getElementById("statsDate");
+const statsStage = document.getElementById("statsStage");
+const statsBtn = document.getElementById("statsBtn");
+const statsResult = document.getElementById("statsResult");
 
 let stream = null;
 let locked = false;
@@ -411,7 +430,7 @@ function loadReports(filter, force){
  }
  rawReports = res.data || [];
  applyFilterSort();
- }, function(errMsg){
+ }, function(){
  reportsLoading = false;
  });
 }
@@ -539,11 +558,29 @@ function renderReports(){
  reportsStatus.textContent = '✅ Удалено';
 
  loadReports(currentFilter, true);
- }, function(errMsg){
+ }, function(){
  });
  };
  });
  }
+}
+
+function ymdToShort(ymd){
+ if (!ymd) return '';
+ const parts = ymd.split('-');
+ if (parts.length !==3) return '';
+ const yy = parts[0].slice(-2);
+ return parts[2] + '.' + parts[1] + '.' + yy;
+}
+
+function countUniqueOrders(data, datePrefix, stage){
+ const set = new Set();
+ data.forEach(function(r){
+ const okDate = datePrefix ? String(r.date || '').startsWith(datePrefix) : true;
+ const okStage = (stage === 'all') ? true : (String(r.stage || '').toLowerCase() === stage);
+ if (okDate && okStage) set.add(String(r.order || '').trim());
+ });
+ return set.size;
 }
 
 document.querySelectorAll('.filters button').forEach(function(btn){
@@ -558,6 +595,29 @@ searchInput.addEventListener('input', function(){
 sortSelect.onchange = function(){
  sortMode = sortSelect.value;
  applyFilterSort();
+};
+
+statsBtn.onclick = function(){
+ const d = statsDate.value;
+ const stage = statsStage.value;
+ const prefix = ymdToShort(d);
+ if (!prefix){
+ statsResult.textContent = 'Выберите дату';
+ return;
+ }
+ statsResult.textContent = 'Считаю...';
+
+ callApi({ action:'reports', filter:'all' }, function(res){
+ if (!res.ok){
+ statsResult.textContent = 'Ошибка';
+ return;
+ }
+ const data = res.data || [];
+ const cnt = countUniqueOrders(data, prefix, stage);
+ statsResult.textContent = 'Уникальных заказов: ' + cnt;
+ }, function(){
+ statsResult.textContent = 'Нет ответа';
+ });
 };
 
 openReportsBtn.onclick = openReports;
