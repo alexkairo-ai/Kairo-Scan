@@ -616,13 +616,11 @@ function buildSummary(data){
  }));
 
  rows.sort((a,b)=>{
- if(a.date<b.date) return -1;
- if(a.date>b.date) return1;
- if(a.stage<b.stage) return -1;
- if(a.stage>b.stage) return1;
- if(a.name<b.name) return -1;
- if(a.name>b.name) return1;
- return0;
+ const d = a.date.localeCompare(b.date,'ru');
+ if(d!==0) return d;
+ const s = a.stage.localeCompare(b.stage,'ru');
+ if(s!==0) return s;
+ return a.name.localeCompare(b.name,'ru');
  });
 
  return rows;
