@@ -301,7 +301,7 @@ function callApi(params, cb, onError){
  done = true;
  if (onError) onError("⚠️ Нет ответа от сервера");
  }
- },8000);
+ },12000);
 
  window[cbName] = function(res){
  if (done) return;
@@ -413,7 +413,7 @@ function loadReports(filter, force){
  applyFilterSort();
  }, function(errMsg){
  reportsLoading = false;
- reportsStatus.textContent = errMsg;
+ // тихий режим: оставляем последнее "Найдено"
  });
 }
 
@@ -541,8 +541,7 @@ function renderReports(){
 
  loadReports(currentFilter, true);
  }, function(errMsg){
- reportsStatus.textContent = errMsg;
- });
+ // тихий режим });
  };
  });
  }
