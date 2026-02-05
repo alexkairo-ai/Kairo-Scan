@@ -556,27 +556,13 @@ function parseYmdToMs(ymd){
  return new Date(y,m-1,d,0,0,0).getTime();
 }
 
-function arrayBufferToBase64(buffer){
- let binary = '';
- const bytes = new Uint8Array(buffer);
- for (let i=0;i<bytes.byteLength;i++) binary += String.fromCharCode(bytes[i]);
- return btoa(binary);
-}
-async function loadTtfBase64(url){
- const res = await fetch(url);
- if(!res.ok) throw new Error("Font download failed");
- const buf = await res.arrayBuffer();
- if(buf.byteLength <1000) throw new Error("Font too small");
- return arrayBufferToBase64(buf);
-}
-async function loadImageAsDataURL(url){
- const res = await fetch(url, {mode:'cors'});
- const blob = await res.blob();
- return await new Promise(resolve=>{
- const reader = new FileReader();
- reader.onload = () => resolve(reader.result);
- reader.readAsDataURL(blob);
- });
+function escapeHtml(str){
+ return String(str)
+ .replace(/&/g,'&amp;')
+ .replace(/</g,'&lt;')
+ .replace(/>/g,'&gt;')
+ .replace(/"/g,'&quot;')
+ .replace(/'/g,'&#39;');
 }
 
 exportPdfBtn.onclick=async ()=>{
@@ -590,66 +576,71 @@ exportPdfBtn.onclick=async ()=>{
 
  if(!data.length){ alert("Нет данных для выбранного периода"); return; }
 
- const { jsPDF } = window.jspdf;
- const doc = new jsPDF();
-
- // ✅ Шрифт по ссылке (TTF, кириллица) + fallback let pdfFont = "Helvetica";
- const fontUrls = [
- "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf",
- "https://raw.githubusercontent.com/google/fonts/main/apache/opensans/OpenSans-Regular.ttf"
- ];
-
- for (const url of fontUrls){
- try{
- const fontBase64 = await loadTtfBase64(url);
- if(fontBase64 && fontBase64.length >1000){
- doc.addFileToVFS("Custom-Regular.ttf", fontBase64);
- doc.addFont("Custom-Regular.ttf", "Custom", "normal");
- pdfFont = "Custom";
- doc.setFont(pdfFont);
- break;
- }
- }catch(e){}
- }
-
- // ✅ Логотип (без try/catch)
- const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
- const logo = await loadImageAsDataURL(logoUrl).catch(()=>null);
- if(logo){
- const img = new Image();
- img.src = logo;
- await new Promise(r=>img.onload=r);
- const maxW=25, maxH=25;
- let w=img.width, h=img.height;
- const ratio = Math.min(maxW/w, maxH/h);
- w*=ratio; h*=ratio;
- doc.addImage(logo, "PNG",14,10,w,h);
- }
-
- doc.setFontSize(14);
- const title = "Отчёт";
  const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
- doc.text(title + (period.trim()?(' ('+period+')'):''),
-45,20);
+ const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
 
- const rows = data.map(r=>[
- r.order || '',
- r.date || '',
- r.time || '',
- r.stage || '',
- r.name || '',
- r.db || ''
- ]);
+ const rowsHtml = data.map(r=>`
+ <tr>
+ <td>${escapeHtml(r.order||'')}</td>
+ <td>${escapeHtml(r.date||'')}</td>
+ <td>${escapeHtml(r.time||'')}</td>
+ <td>${escapeHtml(r.stage||'')}</td>
+ <td>${escapeHtml(r.name||'')}</td>
+ <td>${escapeHtml(r.db||'')}</td>
+ </tr>
+ `).join('');
 
- doc.autoTable({
- head: [['Заказ','Дата','Время','Этап','Сотрудник','Таблица']],
- body: rows,
- startY:35,
- styles:{ fontSize:8, font: pdfFont },
- headStyles:{ font: pdfFont }
- });
+ const html = `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Отчёт</title>
+<style>
+@page { margin:12mm; }
+body{ font-family: Arial, "Segoe UI", "DejaVu Sans", sans-serif; color:#111; }
+.header{ display:flex; align-items:center; gap:10px; }
+.header img{ width:28px; height:28px; object-fit:contain; }
+h1{ font-size:16px; margin:0; }
+small{ color:#555; }
+table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:11px; }
+th, td{ border:1px solid #ccc; padding:6px5px; text-align:left; }
+th{ background:#f2f2f2; }
+</style>
+</head>
+<body>
+<div class="header">
+ <img src="${logoUrl}" alt="logo">
+ <div>
+ <h1>Отчёт ${period ? '('+period+')' : ''}</h1>
+ <small>Сформировано: ${new Date().toLocaleString()}</small>
+ </div>
+</div>
+<table>
+ <thead>
+ <tr>
+ <th>Заказ</th><th>Дата</th><th>Время</th><th>Этап</th><th>Сотрудник</th><th>Таблица</th>
+ </tr>
+ </thead>
+ <tbody>
+ ${rowsHtml}
+ </tbody>
+</table>
+</body>
+</html>
+ `;
 
- doc.save('reports.pdf');
+ const w = window.open('', '_blank');
+ if(!w){ alert('Разрешите всплывающие окна для экспорта PDF'); return; }
+ w.document.open();
+ w.document.write(html);
+ w.document.close();
+
+ w.onload = ()=>{ setTimeout(()=>{
+ w.focus();
+ w.print();
+ },500);
+ };
 };
 
 openReportsBtn.onclick=openReports;
