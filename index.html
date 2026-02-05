@@ -272,9 +272,7 @@ let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
 const deletedTombstones = new Map();
-function reportId(r){
- return String(r.db || '') + ':' + String(r.row || '');
-}
+function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
@@ -558,6 +556,17 @@ function parseYmdToMs(ymd){
  return new Date(y,m-1,d,0,0,0).getTime();
 }
 
+function arrayBufferToBase64(buffer){
+ let binary = '';
+ const bytes = new Uint8Array(buffer);
+ for (let i=0;i<bytes.byteLength;i++) binary += String.fromCharCode(bytes[i]);
+ return btoa(binary);
+}
+async function loadTtfBase64(url){
+ const res = await fetch(url);
+ const buf = await res.arrayBuffer();
+ return arrayBufferToBase64(buf);
+}
 async function loadImageAsDataURL(url){
  const res = await fetch(url, {mode:'cors'});
  const blob = await res.blob();
@@ -583,9 +592,23 @@ exportPdfBtn.onclick=async ()=>{
  const doc = new jsPDF();
 
  try{
+ const fontBase64 = await loadTtfBase64('https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf');
+ doc.addFileToVFS("DejaVuSans.ttf", fontBase64);
+ doc.addFont("DejaVuSans.ttf", "DejaVuSans", "normal");
+ doc.setFont("DejaVuSans");
+ }catch(e){}
+
+ try{
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
  const logo = await loadImageAsDataURL(logoUrl);
- doc.addImage(logo, "PNG",14,10,25,25);
+ const img = new Image();
+ img.src = logo;
+ await new Promise(r=>img.onload=r);
+ const maxW=25, maxH=25;
+ let w=img.width, h=img.height;
+ const ratio = Math.min(maxW/w, maxH/h);
+ w*=ratio; h*=ratio;
+ doc.addImage(logo, "PNG",14,10,w,h);
  }catch(e){}
 
  doc.setFontSize(14);
