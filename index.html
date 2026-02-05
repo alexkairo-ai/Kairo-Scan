@@ -593,18 +593,24 @@ exportPdfBtn.onclick=async ()=>{
  const { jsPDF } = window.jspdf;
  const doc = new jsPDF();
 
- // ✅ Шрифт по ссылке (Open Sans)
- let pdfFont = "Helvetica";
+ // ✅ Шрифт по ссылке (Open Sans Cyrillic) + fallback let pdfFont = "Helvetica";
+ const fontUrls = [
+ "https://unpkg.com/@fontsource/open-sans@5.0.22/files/open-sans-cyrillic-400-normal.ttf",
+ "https://cdnjs.cloudflare.com/ajax/libs/fontsource-open-sans/5.0.22/files/open-sans-cyrillic-400-normal.ttf"
+ ];
+
+ for (const url of fontUrls){
  try{
- const fontUrl = "https://cdn.jsdelivr.net/gh/google/fonts@main/apache/opensans/OpenSans-Regular.ttf";
- const fontBase64 = await loadTtfBase64(fontUrl);
+ const fontBase64 = await loadTtfBase64(url);
  if(fontBase64 && fontBase64.length >1000){
  doc.addFileToVFS("OpenSans-Regular.ttf", fontBase64);
  doc.addFont("OpenSans-Regular.ttf", "OpenSans", "normal");
  pdfFont = "OpenSans";
  doc.setFont(pdfFont);
+ break;
  }
  }catch(e){}
+ }
 
  // ✅ Логотип (без try/catch)
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
