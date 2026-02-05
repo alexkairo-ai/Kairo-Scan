@@ -388,7 +388,8 @@ function scan(){
  requestAnimationFrame(scan);
 }
 
-// --- Показ только одного этапа через ?only= и авто-переход к отчётам ---const params = new URLSearchParams(location.search);
+// --- Показ только одного этапа через ?only= и авто-переход к отчётам ---
+const params = new URLSearchParams(location.search);
 const only = (params.get('only') || '').toLowerCase();
 const view = (params.get('view') || '').toLowerCase();
 
@@ -422,7 +423,222 @@ if (view === 'reports') {
  setTimeout(openReports,0);
 }
 
-// ... (остальной JS без изменений из рабочего варианта) ...
+function loadReports(filter, force){
+ if (!force && reportsLoading) return;
+ reportsLoading = true;
+ currentFilter = filter;
+
+ callApi({ action:'reports', filter:filter }, function(res){
+ reportsLoading = false;
+ if (!res.ok){
+ reportsStatus.textContent = '⚠️ ' + res.msg;
+ return;
+ }
+ rawReports = res.data || [];
+ applyFilterSort();
+ }, function(){
+ reportsLoading = false;
+ });
+}
+
+function applyFilterSort(){
+ currentReports = rawReports.slice();
+
+ const t = (filterTerm || '').toLowerCase().trim();
+ if (t){
+ const words = t.split(/\s+/).filter(Boolean);
+ currentReports = currentReports.filter(function(r){
+ const line = (r.order + ' ' + r.date + ' ' + r.time + ' ' + r.stage + ' ' + r.name + ' ' + r.db).toLowerCase();
+ for (let i=0; i<words.length; i++){
+ if (line.indexOf(words[i]) !== -1) return true;
+ }
+ return false;
+ });
+ }
+
+ currentReports.sort(function(a,b){
+ return compareReports(a,b, sortMode);
+ });
+
+ reportsStatus.textContent = 'Найдено: ' + currentReports.length + (t ? (' | Поиск: ' + t) : '');
+ renderReports();
+}
+
+function parseDateTime(r){
+ const datePart = (r.date || '').split(' ')[0];
+ const parts = datePart.split('.');
+ if (parts.length <3) return0;
+ const dd = parseInt(parts[0],10) ||0;
+ const mm = parseInt(parts[1],10) ||0;
+ const yy = parseInt(parts[2],10) ||0;
+ const year =2000 + yy;
+ const timeParts = (r.time || '00:00').split(':');
+ const hh = parseInt(timeParts[0],10) ||0;
+ const mi = parseInt(timeParts[1],10) ||0;
+ return new Date(year, mm-1, dd, hh, mi,0).getTime();
+}
+
+function compareReports(a,b,mode){
+ const av = (mode.indexOf('order')===0) ? (a.order||'') :
+ (mode.indexOf('db')===0) ? (a.db||'') :
+ (mode.indexOf('date')===0) ? parseDateTime(a) :
+ (mode.indexOf('time')===0) ? parseDateTime(a) : '';
+ const bv = (mode.indexOf('order')===0) ? (b.order||'') :
+ (mode.indexOf('db')===0) ? (b.db||'') :
+ (mode.indexOf('date')===0) ? parseDateTime(b) :
+ (mode.indexOf('time')===0) ? parseDateTime(b) : '';
+
+ const asc = mode.indexOf('_asc') !== -1;
+
+ if (typeof av === 'number'){
+ return asc ? (av - bv) : (bv - av);
+ } else {
+ const s1 = String(av).toLowerCase();
+ const s2 = String(bv).toLowerCase();
+ if (s1 < s2) return asc ? -1 :1;
+ if (s1 > s2) return asc ?1 : -1;
+ return0;
+ }
+}
+
+function renderReports(){
+ reportsTableBody.innerHTML = '';
+ currentReports.forEach(function(r){
+ const tr = document.createElement('tr');
+
+ const orderTd = document.createElement('td');
+ const dateTd = document.createElement('td');
+ const timeTd = document.createElement('td');
+ const stageTd = document.createElement('td');
+ const nameTd = document.createElement('td');
+ const dbTd = document.createElement('td');
+ const actionTd = document.createElement('td');
+
+ orderTd.textContent = r.order;
+ dateTd.textContent = r.date;
+ timeTd.textContent = r.time;
+ stageTd.textContent = r.stage;
+ nameTd.textContent = r.name;
+ dbTd.textContent = r.db || '';
+
+ if (editMode){
+ const btn = document.createElement('button');
+ btn.textContent = 'Удалить';
+ btn.dataset.db = r.db;
+ btn.dataset.row = r.row;
+ actionTd.classList.add('row-actions');
+ actionTd.appendChild(btn);
+ } else {
+ actionTd.textContent = '';
+ }
+
+ tr.appendChild(orderTd);
+ tr.appendChild(dateTd);
+ tr.appendChild(timeTd);
+ tr.appendChild(stageTd);
+ tr.appendChild(nameTd);
+ tr.appendChild(dbTd);
+ tr.appendChild(actionTd);
+
+ reportsTableBody.appendChild(tr);
+ });
+
+ if (editMode){
+ reportsTableBody.querySelectorAll('button').forEach(function(btn){
+ btn.onclick = function(){
+ if (!confirm('Удалить строку?')) return;
+ const db = btn.dataset.db;
+ const row = btn.dataset.row;
+
+ const payload = { action:'delete_report', db: db, row: row };
+ callApi(payload, function(res){
+ if (!res.ok){
+ reportsStatus.textContent = '⚠️ ' + res.msg;
+ return;
+ }
+
+ rawReports = rawReports.filter(function(r){
+ return !(String(r.db) === String(db) && String(r.row) === String(row));
+ });
+ applyFilterSort();
+ reportsStatus.textContent = '✅ Удалено';
+
+ loadReports(currentFilter, true);
+ }, function(){
+ });
+ };
+ });
+ }
+}
+
+function ymdToShort(ymd){
+ if (!ymd) return '';
+ const parts = ymd.split('-');
+ if (parts.length !==3) return '';
+ const yy = parts[0].slice(-2);
+ return parts[2] + '.' + parts[1] + '.' + yy;
+}
+
+function countUniqueOrders(data, datePrefix, stage){
+ const set = new Set();
+ data.forEach(function(r){
+ const okDate = datePrefix ? String(r.date || '').startsWith(datePrefix) : true;
+ const okStage = (stage === 'all') ? true : (String(r.stage || '').toLowerCase() === stage);
+ if (okDate && okStage) set.add(String(r.order || '').trim());
+ });
+ return set.size;
+}
+
+document.querySelectorAll('.filters button').forEach(function(btn){
+ btn.onclick = function(){ loadReports(btn.dataset.filter); };
+});
+
+searchInput.addEventListener('input', function(){
+ filterTerm = searchInput.value.trim();
+ applyFilterSort();
+});
+
+sortSelect.onchange = function(){
+ sortMode = sortSelect.value;
+ applyFilterSort();
+});
+
+statsBtn.onclick = function(){
+ const d = statsDate.value;
+ const stage = statsStage.value;
+ const prefix = ymdToShort(d);
+ if (!prefix){
+ statsResult.textContent = 'Выберите дату';
+ return;
+ }
+ statsResult.textContent = 'Считаю...';
+
+ callApi({ action:'reports', filter:'all' }, function(res){
+ if (!res.ok){
+ statsResult.textContent = 'Ошибка';
+ return;
+ }
+ const data = res.data || [];
+ const cnt = countUniqueOrders(data, prefix, stage);
+ statsResult.textContent = 'Уникальных заказов: ' + cnt;
+ }, function(){
+ statsResult.textContent = 'Нет ответа';
+ });
+};
+
+openReportsBtn.onclick = openReports;
+closeReportsBtn.onclick = closeReports;
+
+editReportsBtn.onclick = function(){
+ const p = prompt('Пароль:');
+ if (p === EDIT_PASS){
+ editMode = !editMode;
+ editReportsBtn.textContent = editMode ? 'Выход' : 'Редактировать';
+ renderReports();
+ } else {
+ alert('Неверный пароль');
+ }
+};
 </script>
 </body>
 </html>
