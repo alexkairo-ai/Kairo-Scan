@@ -249,7 +249,8 @@ let stream=null, locked=false, starting=false, stopTimer=null, editMode=false;
 let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
-const deletedTombstones = new Map(); // id -> timefunction reportId(r){
+const deletedTombstones = new Map();
+function reportId(r){
  return String(r.db || '') + ':' + String(r.row || '');
 }
 
