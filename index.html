@@ -1,0 +1,458 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Готовность производства</title>
+<style>
+:root{
+ --glass:rgba(28,30,34,.78);
+ --gold:#caa24f;
+ --gold-hi:#f4e3a1;
+ --text:#f7f8fb;
+ --muted:#d2c59f;
+}
+*{box-sizing:border-box}
+body{
+ margin:0;
+ color:var(--text);
+ font-family:"SF Pro Display","Inter",system-ui,Arial,sans-serif;
+ background:
+ linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
+ url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover fixed no-repeat;
+}
+.wrap{max-width:900px;margin:0 auto;padding:clamp(12px,3vw,20px)}
+.card{
+ background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
+ border:2px solid var(--gold);
+ border-radius:22px;
+ padding:clamp(14px,3vw,22px);
+ margin-bottom:clamp(10px,3vw,16px);
+ box-shadow:012px28px rgba(0,0,0,.4), inset01px0 rgba(255,255,255,.2);
+ position:relative;
+}
+.card:before{
+ content:"";
+ position:absolute;
+ inset:2px;
+ border-radius:20px;
+ border:1px solid rgba(255,255,255,.07);
+ pointer-events:none;
+}
+h2{font-size:clamp(22px,5vw,32px);margin:006px}
+h3{font-size:clamp(18px,4vw,24px);margin:6px010px;color:var(--muted)}
+video{width:100%;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:#000;pointer-events:none}
+input{
+ font-size:clamp(16px,4.2vw,22px);
+ padding:clamp(10px,3vw,14px) clamp(12px,3vw,16px);
+ width:100%;
+ border-radius:14px;
+ border:2px solid var(--gold);
+ background:rgba(6,8,12,.6);
+ color:#fff;
+ margin-top:8px;
+ outline:none;
+}
+input:focus{border-color:var(--gold-hi);box-shadow:003px rgba(244,227,161,.18)}
+button{
+ font-size:clamp(18px,4.6vw,26px);
+ font-weight:800;
+ letter-spacing:.3px;
+ padding:clamp(12px,3.2vw,16px);
+ width:100%;
+ border-radius:16px;
+ margin-top:10px;
+ color:#f7f0d4;
+ text-shadow:01px1px rgba(0,0,0,.7);
+ background:
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ url("https://i.pinimg.com/1200x/ab/60/f9/ab60f9ee3911eab2ca23f391a5fd9622.jpg") center/cover no-repeat;
+ border:2px solid var(--gold);
+ box-shadow:08px18px rgba(0,0,0,.35), inset01px0 rgba(255,255,255,.2);
+}
+button:active{transform:translateY(1px)}
+#startCam{display:block}
+.small{font-size:clamp(12px,3.2vw,16px);color:var(--muted)}
+#status{
+ margin-top:10px;
+ font-weight:700;
+ font-size:clamp(14px,3.6vw,18px);
+ min-height:20px;
+ padding:6px8px;
+ background:rgba(0,0,0,.25);
+ border-radius:10px;
+ border:1px solid rgba(255,255,255,.08);
+}
+.badge{
+ display:inline-block;
+ font-size:clamp(12px,3vw,16px);
+ padding:6px10px;
+ border-radius:999px;
+ background:rgba(255,255,255,.08);
+ border:1px solid var(--gold);
+ color:var(--gold-hi);
+}
+.grid{display:grid;gap:8px}
+
+/* Reports table */
+.table{width:100%;border-collapse:collapse;font-size:14px}
+.table th,.table td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px6px;text-align:left}
+.table th{color:var(--muted)}
+.table tr:hover{background:rgba(255,255,255,.03)}
+.row-actions button{width:auto;padding:6px10px;font-size:14px;margin:0}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters button{width:auto;font-size:14px;padding:8px12px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="mainView">
+ <div class="card">
+ <div class="badge">Готовность производства</div>
+ <h2>Сканируйте QR заказа</h2>
+ <video id="video" autoplay playsinline muted></video>
+ <canvas id="canvas" style="display:none;"></canvas>
+ <div id="msg" class="small"></div>
+ <button id="startCam">СКАНИРОВАТЬ</button>
+ </div>
+
+ <div class="card">
+ <div class="grid">
+ <input id="order" placeholder="QR / номер заказа" autofocus />
+ <input id="worker" placeholder="Имя сотрудника" />
+ </div>
+ </div>
+
+ <div class="card">
+ <h3>Выберите этап:</h3>
+ <div id="stageButtons">
+ <button data-stage="pila">Пила</button>
+ <button data-stage="hdf">ХДФ</button>
+ <button data-stage="kromka">Кромка</button>
+ <button data-stage="prisadka">Присадка</button>
+ <button data-stage="upakovka">Упаковка</button>
+ <button data-stage="hdf" data-only="pila-hdf" data-color="#f39931">ПИЛА ХДФ</button>
+ </div>
+ <div id="status">Готово к работе</div>
+ </div>
+
+ <div class="card">
+ <button id="openReports">ОТЧЁТЫ</button>
+ </div>
+</div>
+
+<div id="reportsView" class="hidden">
+ <div class="card">
+ <div class="badge">Отчёты</div>
+ <div class="filters">
+ <button data-filter="day">За день</button>
+ <button data-filter="week">За неделю</button>
+ <button data-filter="month">За месяц</button>
+ <button data-filter="all">Все</button>
+ </div>
+ <div id="reportsStatus" class="small" style="margin-top:8px;">Загрузка...</div>
+ <div style="overflow:auto;margin-top:10px;">
+ <table class="table" id="reportsTable">
+ <thead>
+ <tr>
+ <th>Заказ</th><th>Дата</th><th>Время</th><th>Этап</th><th>Сотрудник</th><th>Таблица</th><th class="row-actions">Действия</th>
+ </tr>
+ </thead>
+ <tbody></tbody>
+ </table>
+ </div>
+ <button id="editReports">Редактировать</button>
+ <button id="closeReports" style="margin-top:8px;">Назад</button>
+ </div>
+</div>
+
+</div>
+
+<script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
+const EDIT_PASS = '1990';
+
+const orderInput = document.getElementById("order");
+const workerInput = document.getElementById("worker");
+const statusEl = document.getElementById("status");
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const startBtn = document.getElementById("startCam");
+const msg = document.getElementById("msg");
+
+const mainView = document.getElementById("mainView");
+const reportsView = document.getElementById("reportsView");
+const openReportsBtn = document.getElementById("openReports");
+const closeReportsBtn = document.getElementById("closeReports");
+const reportsStatus = document.getElementById("reportsStatus");
+const reportsTableBody = document.querySelector("#reportsTable tbody");
+const editReportsBtn = document.getElementById("editReports");
+
+let stream = null;
+let locked = false;
+let starting = false;
+let stopTimer = null;
+let editMode = false;
+let currentReports = [];
+
+function isStreamActive(){
+ return stream && stream.getTracks().some(function(t){ return t.readyState === "live"; });
+}
+function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
+function stopCamera(){
+ if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
+ stream = null;
+ if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+ showScanButton(true);
+}
+function freezeCamera(){
+ if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
+ locked = true;
+ if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+ showScanButton(true);
+}
+
+async function startCamera(){
+ if (starting) return;
+ starting = true;
+ try{
+ stream = await navigator.mediaDevices.getUserMedia({
+ video: { facingMode: { ideal: "environment" }, width: { ideal:1280 }, height:{ ideal:720 } },
+ audio: false });
+ video.srcObject = stream;
+ await video.play();
+ locked = false;
+ showScanButton(false);
+
+ if (stopTimer) clearTimeout(stopTimer);
+ stopTimer = setTimeout(function(){
+ if (!locked) { msg.innerHTML = "Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera(); }
+ },20000);
+
+ scan();
+ }catch(e){
+ msg.innerHTML = "Камера не запустилась. Откройте сайт в Chrome/Safari и дайте доступ.";
+ showScanButton(true);
+ console.log(e);
+ }finally{
+ starting = false;
+ }
+}
+
+startBtn.addEventListener("click", startCamera);
+
+function callApi(params, cb){
+ const cbName = 'cb_' + Math.random().toString(36).slice(2);
+ let done = false;
+
+ const timeout = setTimeout(function(){
+ if (!done) {
+ done = true;
+ statusEl.innerHTML = "⚠️ Нет ответа от сервера";
+ if (window[cbName]) delete window[cbName];
+ }
+ },8000);
+
+ window[cbName] = function(res){
+ if (done) return;
+ done = true;
+ clearTimeout(timeout);
+ cb(res);
+ delete window[cbName];
+ script.remove();
+ };
+
+ const query = new URLSearchParams(params);
+ query.set('api','1');
+ query.set('callback', cbName);
+ query.set('_ts', Date.now().toString());
+
+ const script = document.createElement('script');
+ script.src = API_URL + '?' + query.toString();
+ script.onerror = function(){
+ if (done) return;
+ done = true;
+ clearTimeout(timeout);
+ statusEl.innerHTML = "⚠️ Ошибка связи с сервером";
+ script.remove();
+ };
+ document.body.appendChild(script);
+}
+
+function sendStage(stage, color){
+ let raw = orderInput.value.trim();
+ let name = workerInput.value.trim();
+ if(!raw){ statusEl.innerHTML="Введите/сканируйте номер"; return; }
+ if(!name){ statusEl.innerHTML="Введите имя"; return; }
+ statusEl.innerHTML="Отправка...";
+
+ callApi({
+ action:'mark',
+ stage:stage,
+ order:raw,
+ name:name,
+ color: color || '',
+ db:''
+ }, function(res){
+ statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg;
+ });
+}
+
+function scan(){
+ if(locked) return;
+ if(!isStreamActive()){ startCamera(); return; }
+
+ if(video.readyState===video.HAVE_ENOUGH_DATA){
+ canvas.width=video.videoWidth;
+ canvas.height=video.videoHeight;
+ ctx.drawImage(video,0,0,canvas.width,canvas.height);
+ const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+ const code=jsQR(imageData.data,imageData.width,imageData.height, { inversionAttempts:"attemptBoth" });
+ if(code){
+ orderInput.value=code.data;
+ msg.innerHTML="QR найден: " + code.data;
+ if (navigator.vibrate) navigator.vibrate(80);
+ freezeCamera();
+ return;
+ }
+ }
+ requestAnimationFrame(scan);
+}
+
+// --- Показ только одного этапа через ?only= ---
+const params = new URLSearchParams(location.search);
+const only = (params.get('only') || '').toLowerCase();
+
+document.querySelectorAll('#stageButtons button').forEach(function(btn){
+ const stage = btn.dataset.stage;
+ const key = (btn.dataset.only || stage).toLowerCase();
+ const color = btn.dataset.color || '';
+
+ btn.onclick = function(){ sendStage(stage, color); };
+
+ if (only && key !== only) btn.style.display = 'none';
+});
+
+// ---- Reports UI ----function openReports(){
+ mainView.classList.add('hidden');
+ reportsView.classList.remove('hidden');
+ loadReports('day');
+}
+
+function closeReports(){
+ reportsView.classList.add('hidden');
+ mainView.classList.remove('hidden');
+}
+
+function loadReports(filter){
+ reportsStatus.textContent = 'Загрузка...';
+ callApi({ action:'reports', filter:filter }, function(res){
+ if (!res.ok){
+ reportsStatus.textContent = '⚠️ ' + res.msg;
+ return;
+ }
+ currentReports = res.data || [];
+ reportsStatus.textContent = 'Найдено: ' + currentReports.length;
+ renderReports();
+ });
+}
+
+function renderReports(){
+ reportsTableBody.innerHTML = '';
+ currentReports.forEach(function(r){
+ const tr = document.createElement('tr');
+
+ const orderTd = document.createElement('td');
+ const dateTd = document.createElement('td');
+ const timeTd = document.createElement('td');
+ const stageTd = document.createElement('td');
+ const nameTd = document.createElement('td');
+ const dbTd = document.createElement('td');
+ const actionTd = document.createElement('td');
+
+ if (editMode){
+ const i1 = document.createElement('input'); i1.value = r.order || '';
+ const i2 = document.createElement('input'); i2.value = r.date || '';
+ const i3 = document.createElement('input'); i3.value = r.time || '';
+ const i4 = document.createElement('input'); i4.value = r.stage || '';
+ const i5 = document.createElement('input'); i5.value = r.name || '';
+
+ orderTd.appendChild(i1);
+ dateTd.appendChild(i2);
+ timeTd.appendChild(i3);
+ stageTd.appendChild(i4);
+ nameTd.appendChild(i5);
+
+ const btn = document.createElement('button');
+ btn.textContent = 'Сохранить';
+ btn.dataset.db = r.db;
+ btn.dataset.row = r.row;
+ actionTd.classList.add('row-actions');
+ actionTd.appendChild(btn);
+ } else {
+ orderTd.textContent = r.order;
+ dateTd.textContent = r.date;
+ timeTd.textContent = r.time;
+ stageTd.textContent = r.stage;
+ nameTd.textContent = r.name;
+ actionTd.textContent = '';
+ }
+
+ dbTd.textContent = r.db || '';
+
+ tr.appendChild(orderTd);
+ tr.appendChild(dateTd);
+ tr.appendChild(timeTd);
+ tr.appendChild(stageTd);
+ tr.appendChild(nameTd);
+ tr.appendChild(dbTd);
+ tr.appendChild(actionTd);
+
+ reportsTableBody.appendChild(tr);
+ });
+
+ if (editMode){
+ reportsTableBody.querySelectorAll('button').forEach(function(btn){
+ btn.onclick = function(){
+ const tr = btn.closest('tr');
+ const inputs = tr.querySelectorAll('input');
+ const payload = {
+ action:'update_report',
+ db: btn.dataset.db,
+ row: btn.dataset.row,
+ order: inputs[0].value.trim(),
+ date: inputs[1].value.trim(),
+ time: inputs[2].value.trim(),
+ stage: inputs[3].value.trim(),
+ name: inputs[4].value.trim()
+ };
+ callApi(payload, function(res){
+ reportsStatus.textContent = res.ok ? '✅ Сохранено' : ('⚠️ ' + res.msg);
+ });
+ };
+ });
+ }
+}
+
+document.querySelectorAll('.filters button').forEach(function(btn){
+ btn.onclick = function(){ loadReports(btn.dataset.filter); };
+});
+
+openReportsBtn.onclick = openReports;
+closeReportsBtn.onclick = closeReports;
+
+editReportsBtn.onclick = function(){
+ const p = prompt('Пароль:');
+ if (p === EDIT_PASS){
+ editMode = true;
+ renderReports();
+ } else {
+ alert('Неверный пароль');
+ }
+};
+</script>
+</body>
+</html>
