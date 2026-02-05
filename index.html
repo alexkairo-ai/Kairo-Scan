@@ -186,7 +186,7 @@ button:active{transform:translateY(1px)}
  </select>
  </div>
 
- <div id="reportsStatus" class="small" style="margin-top:8px;">Загрузка...</div>
+ <div id="reportsStatus" class="small" style="margin-top:8px;">Найдено:0</div>
  <div style="overflow:auto;margin-top:10px;">
  <table class="table" id="reportsTable">
  <thead>
@@ -402,7 +402,6 @@ function loadReports(filter){
  if (reportsLoading) return;
  reportsLoading = true;
  currentFilter = filter;
- reportsStatus.textContent = 'Загрузка...';
 
  callApi({ action:'reports', filter:filter }, function(res){
  reportsLoading = false;
