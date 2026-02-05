@@ -120,6 +120,12 @@ button:active{transform:translateY(1px)}
  color:#fff;
 }
 
+.stage-active{
+ border-color:var(--gold-hi) !important;
+ box-shadow:003px rgba(244,227,161,.2);
+ transform:translateY(-1px);
+}
+
 .hidden{display:none}
 </style>
 </head>
@@ -200,6 +206,12 @@ button:active{transform:translateY(1px)}
  <span id="statsResult" class="small" style="margin-left:6px;"></span>
  </div>
 
+ <div class="tools" style="margin-top:8px;">
+ <input type="date" id="pdfFrom">
+ <input type="date" id="pdfTo">
+ <button id="exportPdf" style="width:auto;font-size:12px;padding:6px8px;border-radius:10px;">Экспорт PDF</button>
+ </div>
+
  <div id="reportsStatus" class="small" style="margin-top:8px;">Найдено:0</div>
  <div style="overflow:auto;margin-top:10px;">
  <table class="table" id="reportsTable">
@@ -219,6 +231,9 @@ button:active{transform:translateY(1px)}
 </div>
 
 <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js"></script>
+
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
 const EDIT_PASS = '1990';
@@ -248,19 +263,25 @@ const statsStage = document.getElementById("statsStage");
 const statsBtn = document.getElementById("statsBtn");
 const statsResult = document.getElementById("statsResult");
 
+const pdfFrom = document.getElementById("pdfFrom");
+const pdfTo = document.getElementById("pdfTo");
+const exportPdfBtn = document.getElementById("exportPdf");
+
 let stream=null, locked=false, starting=false, stopTimer=null, editMode=false;
 let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
 const deletedTombstones = new Map();
-function reportId(r){
- return String(r.db || '') + ':' + String(r.row || '');
-}
+function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
+
+// автозаполнение имениconst savedName = localStorage.getItem('workerName') || '';
+if(savedName) workerInput.value = savedName;
+workerInput.addEventListener('input', ()=>localStorage.setItem('workerName', workerInput.value.trim()));
 
 async function startCamera(){
  if (starting) return;
@@ -314,11 +335,17 @@ function callApi(params, cb, onError){
  document.body.appendChild(script);
 }
 
-function sendStage(stage, color){
+function flashStage(btn){
+ btn.classList.add('stage-active');
+ setTimeout(()=>btn.classList.remove('stage-active'),700);
+}
+
+function sendStage(stage, color, btn){
  let raw=orderInput.value.trim();
  let name=workerInput.value.trim();
  if(!raw){ statusEl.innerHTML="Введите/сканируйте номер"; return; }
  if(!name){ statusEl.innerHTML="Введите имя"; return; }
+ if(btn) flashStage(btn);
  statusEl.innerHTML="Отправка...";
  callApi({action:'mark',stage,order:raw,name, color:color||'', db:''},
  res=>{ statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
@@ -371,7 +398,7 @@ document.querySelectorAll('#stageButtons button').forEach(btn=>{
  const stage = btn.dataset.stage;
  const key = (btn.dataset.only || stage).toLowerCase();
  const color = btn.dataset.color || '';
- btn.onclick = function(){ sendStage(stage, color); };
+ btn.onclick = () => sendStage(stage, color, btn);
  if (only && key !== only) btn.style.display = 'none';
 });
 if (only) stageTitle.textContent = "Этап:";
@@ -519,6 +546,69 @@ statsBtn.onclick=()=>{
  const cnt=countUniqueOrders(res.data||[], prefix, stage);
  statsResult.textContent='Уникальных заказов: '+cnt;
  }, ()=>{ statsResult.textContent='Нет ответа'; });
+};
+
+function parseYmdToMs(ymd){
+ if(!ymd) return null;
+ const p=ymd.split('-');
+ if(p.length!==3) return null;
+ const y=parseInt(p[0],10), m=parseInt(p[1],10), d=parseInt(p[2],10);
+ return new Date(y,m-1,d,0,0,0).getTime();
+}
+
+async function loadImageAsDataURL(url){
+ const res = await fetch(url, {mode:'cors'});
+ const blob = await res.blob();
+ return await new Promise(resolve=>{
+ const reader = new FileReader();
+ reader.onload = () => resolve(reader.result);
+ reader.readAsDataURL(blob);
+ });
+}
+
+exportPdfBtn.onclick=async ()=>{
+ const fromMs = parseYmdToMs(pdfFrom.value);
+ const toMs = parseYmdToMs(pdfTo.value);
+ const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
+
+ let data = rawReports.slice();
+ if(fromMs!==null) data = data.filter(r=>parseDateTime(r)>=fromMs);
+ if(toEnd!==null) data = data.filter(r=>parseDateTime(r)<=toEnd);
+
+ if(!data.length){ alert("Нет данных для выбранного периода"); return; }
+
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF();
+
+ try{
+ const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
+ const logo = await loadImageAsDataURL(logoUrl);
+ doc.addImage(logo, "PNG",14,10,25,25);
+ }catch(e){}
+
+ doc.setFontSize(14);
+ const title = "Отчёт";
+ const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
+ doc.text(title + (period.trim()?(' ('+period+')'):''),
+45,20);
+
+ const rows = data.map(r=>[
+ r.order || '',
+ r.date || '',
+ r.time || '',
+ r.stage || '',
+ r.name || '',
+ r.db || ''
+ ]);
+
+ doc.autoTable({
+ head: [['Заказ','Дата','Время','Этап','Сотрудник','Таблица']],
+ body: rows,
+ startY:35,
+ styles:{ fontSize:8 }
+ });
+
+ doc.save('reports.pdf');
 };
 
 openReportsBtn.onclick=openReports;
