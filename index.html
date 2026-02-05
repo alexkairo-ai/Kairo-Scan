@@ -607,33 +607,33 @@ exportPdfBtn.onclick=async ()=>{
 
  const rowsHtml = data.map(r=>`
  <tr>
- <td>${escapeHtml(r.order||'')}</td>
- <td>${escapeHtml(r.date||'')}</td>
- <td>${escapeHtml(r.time||'')}</td>
- <td>${escapeHtml(r.stage||'')}</td>
- <td>${escapeHtml(r.name||'')}</td>
- <td>${escapeHtml(r.db||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.stage||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db||'')}</td>
  </tr>
  `).join('');
 
  printArea.innerHTML = `
-<div style="padding:14px16px; font-family:Arial, 'Segoe UI', sans-serif;">
- <div style="display:flex; align-items:center; gap:10px;">
- ${logoData ? `<img src="${logoData}" style="width:28px;height:28px;object-fit:contain;">` : ''}
+<div style="width:794px; padding:28px30px; font-family:Arial, 'Segoe UI', sans-serif; box-sizing:border-box;">
+ <div style="display:flex; align-items:center; gap:14px;">
+ ${logoData ? `<img src="${logoData}" style="width:64px;height:64px;object-fit:contain;">` : ''}
  <div>
- <div style="font-size:16px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
- <div style="font-size:11px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
+ <div style="font-size:20px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
+ <div style="font-size:12px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
  </div>
  </div>
- <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11px;">
+ <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;">
  <thead>
  <tr>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Заказ</th>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Дата</th>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Время</th>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Этап</th>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
- <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Таблица</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Заказ</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
  </tr>
  </thead>
  <tbody>
@@ -643,13 +643,45 @@ exportPdfBtn.onclick=async ()=>{
 </div>
 `;
 
- const canvas = await html2canvas(printArea, {scale:2, useCORS:true, backgroundColor:'#ffffff'});
- const imgData = canvas.toDataURL('image/png');
+ const fullCanvas = await html2canvas(printArea, {
+ scale:2,
+ useCORS:true,
+ backgroundColor:'#ffffff'
+ });
 
  const { jsPDF } = window.jspdf;
- const doc = new jsPDF({unit:'px', format:[canvas.width, canvas.height]});
- doc.addImage(imgData, 'PNG',0,0, canvas.width, canvas.height);
- doc.save('reports.pdf');
+ const pdf = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
+ const pageWidth =210;
+ const pageHeight =297;
+
+ const pageHeightPx = Math.floor(fullCanvas.width * (pageHeight / pageWidth));
+ let y =0;
+ let pageIndex =0;
+
+ while (y < fullCanvas.height){
+ const pageCanvas = document.createElement('canvas');
+ pageCanvas.width = fullCanvas.width;
+ pageCanvas.height = Math.min(pageHeightPx, fullCanvas.height - y);
+ const pageCtx = pageCanvas.getContext('2d');
+
+ pageCtx.fillStyle = '#ffffff';
+ pageCtx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
+ pageCtx.drawImage(
+ fullCanvas,
+0, y, pageCanvas.width, pageCanvas.height,
+0,0, pageCanvas.width, pageCanvas.height );
+
+ const imgData = pageCanvas.toDataURL('image/png');
+ const imgHeightMm = (pageCanvas.height / pageCanvas.width) * pageWidth;
+
+ if (pageIndex >0) pdf.addPage();
+ pdf.addImage(imgData, 'PNG',0,0, pageWidth, imgHeightMm);
+
+ y += pageHeightPx;
+ pageIndex++;
+ }
+
+ pdf.save('reports.pdf');
 };
 
 openReportsBtn.onclick=openReports;
