@@ -398,8 +398,8 @@ function closeReports(){
  if (reportsTimer) { clearInterval(reportsTimer); reportsTimer = null; }
 }
 
-function loadReports(filter){
- if (reportsLoading) return;
+function loadReports(filter, force){
+ if (!force && reportsLoading) return;
  reportsLoading = true;
  currentFilter = filter;
 
@@ -523,10 +523,23 @@ function renderReports(){
  reportsTableBody.querySelectorAll('button').forEach(function(btn){
  btn.onclick = function(){
  if (!confirm('Удалить строку?')) return;
- const payload = { action:'delete_report', db: btn.dataset.db, row: btn.dataset.row };
+ const db = btn.dataset.db;
+ const row = btn.dataset.row;
+
+ const payload = { action:'delete_report', db: db, row: row };
  callApi(payload, function(res){
- reportsStatus.textContent = res.ok ? '✅ Удалено' : ('⚠️ ' + res.msg);
- loadReports(currentFilter);
+ if (!res.ok){
+ reportsStatus.textContent = '⚠️ ' + res.msg;
+ return;
+ }
+
+ rawReports = rawReports.filter(function(r){
+ return !(String(r.db) === String(db) && String(r.row) === String(row));
+ });
+ applyFilterSort();
+ reportsStatus.textContent = '✅ Удалено';
+
+ loadReports(currentFilter, true);
  }, function(errMsg){
  reportsStatus.textContent = errMsg;
  });
