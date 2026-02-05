@@ -3,6 +3,13 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Готовность производства</title>
+
+<!-- Иконки -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
 <style>
 :root{
  --glass:rgba(28,30,34,.78);
@@ -98,8 +105,8 @@ button:active{transform:translateY(1px)}
 .table th{color:var(--muted)}
 .table tr:hover{background:rgba(255,255,255,.03)}
 .row-actions button{width:auto;padding:6px10px;font-size:14px;margin:0}
-.filters{display:flex;gap:8px;flex-wrap:wrap}
-.filters button{width:auto;font-size:14px;padding:8px12px}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
 .hidden{display:none}
 </style>
 </head>
@@ -369,35 +376,23 @@ function renderReports(){
  const dbTd = document.createElement('td');
  const actionTd = document.createElement('td');
 
- if (editMode){
- const i1 = document.createElement('input'); i1.value = r.order || '';
- const i2 = document.createElement('input'); i2.value = r.date || '';
- const i3 = document.createElement('input'); i3.value = r.time || '';
- const i4 = document.createElement('input'); i4.value = r.stage || '';
- const i5 = document.createElement('input'); i5.value = r.name || '';
-
- orderTd.appendChild(i1);
- dateTd.appendChild(i2);
- timeTd.appendChild(i3);
- stageTd.appendChild(i4);
- nameTd.appendChild(i5);
-
- const btn = document.createElement('button');
- btn.textContent = 'Сохранить';
- btn.dataset.db = r.db;
- btn.dataset.row = r.row;
- actionTd.classList.add('row-actions');
- actionTd.appendChild(btn);
- } else {
  orderTd.textContent = r.order;
  dateTd.textContent = r.date;
  timeTd.textContent = r.time;
  stageTd.textContent = r.stage;
  nameTd.textContent = r.name;
+ dbTd.textContent = r.db || '';
+
+ if (editMode){
+ const btn = document.createElement('button');
+ btn.textContent = 'Удалить';
+ btn.dataset.db = r.db;
+ btn.dataset.row = r.row;
+ actionTd.classList.add('row-actions');
+ actionTd.appendChild(btn);
+ } else {
  actionTd.textContent = '';
  }
-
- dbTd.textContent = r.db || '';
 
  tr.appendChild(orderTd);
  tr.appendChild(dateTd);
@@ -413,20 +408,14 @@ function renderReports(){
  if (editMode){
  reportsTableBody.querySelectorAll('button').forEach(function(btn){
  btn.onclick = function(){
- const tr = btn.closest('tr');
- const inputs = tr.querySelectorAll('input');
+ if (!confirm('Удалить строку?')) return;
  const payload = {
- action:'update_report',
+ action:'delete_report',
  db: btn.dataset.db,
- row: btn.dataset.row,
- order: inputs[0].value.trim(),
- date: inputs[1].value.trim(),
- time: inputs[2].value.trim(),
- stage: inputs[3].value.trim(),
- name: inputs[4].value.trim()
- };
+ row: btn.dataset.row };
  callApi(payload, function(res){
- reportsStatus.textContent = res.ok ? '✅ Сохранено' : ('⚠️ ' + res.msg);
+ reportsStatus.textContent = res.ok ? '✅ Удалено' : ('⚠️ ' + res.msg);
+ loadReports('all');
  });
  };
  });
@@ -443,7 +432,8 @@ closeReportsBtn.onclick = closeReports;
 editReportsBtn.onclick = function(){
  const p = prompt('Пароль:');
  if (p === EDIT_PASS){
- editMode = true;
+ editMode = !editMode;
+ editReportsBtn.textContent = editMode ? 'Выход' : 'Редактировать';
  renderReports();
  } else {
  alert('Неверный пароль');
