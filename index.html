@@ -111,7 +111,7 @@ button:active{transform:translateY(1px)}
 .filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
 
 .tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.tools select{
+.tools select, .tools input{
  font-size:12px;
  padding:6px8px;
  border-radius:10px;
@@ -173,11 +173,7 @@ button:active{transform:translateY(1px)}
  </div>
 
  <div class="tools">
- <select id="filterSelect">
- <option value="none">Фильтр: нет</option>
- <option value="ask">Фильтр: ввести слово</option>
- </select>
-
+ <input id="searchInput" placeholder="Поиск..." />
  <select id="sortSelect">
  <option value="time_desc">Сортировка: время ↓</option>
  <option value="time_asc">Сортировка: время ↑</option>
@@ -185,8 +181,6 @@ button:active{transform:translateY(1px)}
  <option value="date_asc">Сортировка: дата ↑</option>
  <option value="order_asc">Сортировка: заказ ↑</option>
  <option value="order_desc">Сортировка: заказ ↓</option>
- <option value="name_asc">Сортировка: сотрудник ↑</option>
- <option value="name_desc">Сортировка: сотрудник ↓</option>
  <option value="db_asc">Сортировка: таблица ↑</option>
  <option value="db_desc">Сортировка: таблица ↓</option>
  </select>
@@ -232,7 +226,7 @@ const reportsStatus = document.getElementById("reportsStatus");
 const reportsTableBody = document.querySelector("#reportsTable tbody");
 const editReportsBtn = document.getElementById("editReports");
 
-const filterSelect = document.getElementById("filterSelect");
+const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
 
 let stream = null;
@@ -300,11 +294,12 @@ function callApi(params, cb, onError){
  const cbName = 'cb_' + Math.random().toString(36).slice(2);
  let done = false;
 
+ window[cbName] = function(){};
+
  const timeout = setTimeout(function(){
  if (!done) {
  done = true;
  if (onError) onError("⚠️ Нет ответа от сервера");
- window[cbName] && delete window[cbName];
  }
  },8000);
 
@@ -313,8 +308,7 @@ function callApi(params, cb, onError){
  done = true;
  clearTimeout(timeout);
  cb(res);
- delete window[cbName];
- script.remove();
+ setTimeout(function(){ delete window[cbName]; },30000);
  };
 
  const query = new URLSearchParams(params);
@@ -329,7 +323,6 @@ function callApi(params, cb, onError){
  done = true;
  clearTimeout(timeout);
  if (onError) onError("⚠️ Ошибка связи с сервером");
- script.remove();
  };
  document.body.appendChild(script);
 }
@@ -428,8 +421,9 @@ function loadReports(filter){
 function applyFilterSort(){
  currentReports = rawReports.slice();
 
- if (filterTerm){
- const words = filterTerm.toLowerCase().split(/\s+/).filter(Boolean);
+ const t = (filterTerm || '').toLowerCase().trim();
+ if (t){
+ const words = t.split(/\s+/).filter(Boolean);
  currentReports = currentReports.filter(function(r){
  const line = (r.order + ' ' + r.date + ' ' + r.time + ' ' + r.stage + ' ' + r.name + ' ' + r.db).toLowerCase();
  for (let i=0; i<words.length; i++){
@@ -443,7 +437,7 @@ function applyFilterSort(){
  return compareReports(a,b, sortMode);
  });
 
- reportsStatus.textContent = 'Найдено: ' + currentReports.length + (filterTerm ? (' | Фильтр: ' + filterTerm) : '');
+ reportsStatus.textContent = 'Найдено: ' + currentReports.length + (t ? (' | Поиск: ' + t) : '');
  renderReports();
 }
 
@@ -463,12 +457,10 @@ function parseDateTime(r){
 
 function compareReports(a,b,mode){
  const av = (mode.indexOf('order')===0) ? (a.order||'') :
- (mode.indexOf('name')===0) ? (a.name||'') :
  (mode.indexOf('db')===0) ? (a.db||'') :
  (mode.indexOf('date')===0) ? parseDateTime(a) :
  (mode.indexOf('time')===0) ? parseDateTime(a) : '';
  const bv = (mode.indexOf('order')===0) ? (b.order||'') :
- (mode.indexOf('name')===0) ? (b.name||'') :
  (mode.indexOf('db')===0) ? (b.db||'') :
  (mode.indexOf('date')===0) ? parseDateTime(b) :
  (mode.indexOf('time')===0) ? parseDateTime(b) : '';
@@ -548,20 +540,10 @@ document.querySelectorAll('.filters button').forEach(function(btn){
  btn.onclick = function(){ loadReports(btn.dataset.filter); };
 });
 
-filterSelect.onchange = function(){
- if (filterSelect.value === 'ask'){
- const t = prompt('Введите слово для фильтра:','');
- if (t && t.trim()){
- filterTerm = t.trim();
- } else {
- filterTerm = '';
- filterSelect.value = 'none';
- }
- } else {
- filterTerm = '';
- }
+searchInput.addEventListener('input', function(){
+ filterTerm = searchInput.value.trim();
  applyFilterSort();
-};
+});
 
 sortSelect.onchange = function(){
  sortMode = sortSelect.value;
