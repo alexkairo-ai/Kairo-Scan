@@ -619,7 +619,7 @@ exportPdfBtn.onclick=async ()=>{
  printArea.innerHTML = `
 <div style="width:794px; padding:28px30px; font-family:Arial, 'Segoe UI', sans-serif; box-sizing:border-box;">
  <div style="display:flex; align-items:center; gap:14px;">
- ${logoData ? `<img src="${logoData}" style="width:64px;height:64px;object-fit:contain;">` : ''}
+ ${logoData ? `<img src="${logoData}" style="width:320px;height:auto;object-fit:contain;">` : ''}
  <div>
  <div style="font-size:20px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
  <div style="font-size:12px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
