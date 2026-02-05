@@ -58,7 +58,7 @@ input{
  margin-top:8px;
  outline:none;
 }
-input:focus{border-color:var(--gold-hi);box-shadow:003px rgba(244,227,161,.18)}
+input:focus{border-color:var(--gold-hi);box-shadow:0003px rgba(244,227,161,.18)}
 button{
  font-size:clamp(18px,4.6vw,26px);
  font-weight:800;
@@ -332,12 +332,12 @@ document.querySelectorAll('#stageButtons button').forEach(btn=>{
  const stage = btn.dataset.stage;
  const key = (btn.dataset.only || stage).toLowerCase();
  const color = btn.dataset.color || '';
- btn.onclick = () => sendStage(stage, color);
+ btn.onclick = function(){ sendStage(stage, color); };
  if (only && key !== only) btn.style.display = 'none';
 });
 if (only) stageTitle.textContent = "Этап:";
 
-function openReports(){
+// ---- Reports UI ----function openReports(){
  mainView.classList.add('hidden');
  reportsView.classList.remove('hidden');
  currentFilter='day';
