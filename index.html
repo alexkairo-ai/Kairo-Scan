@@ -252,6 +252,8 @@ let stream=null, locked=false, starting=false, stopTimer=null, editMode=false;
 let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
+const deletedTombstones = new Map(); // id -> timefunction reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
+
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
@@ -364,7 +366,10 @@ function loadReports(filter, force){
 }
 
 function applyFilterSort(){
- currentReports = rawReports.slice();
+ currentReports = rawReports.slice().filter(r=>{
+ const id = reportId(r);
+ return !deletedTombstones.has(id);
+ });
  const t=(filterTerm||'').toLowerCase().trim();
  if(t){
  const words=t.split(/\s+/).filter(Boolean);
@@ -438,10 +443,11 @@ function renderReports(){
  const db=btn.dataset.db, row=btn.dataset.row;
  callApi({action:'delete_report',db,row}, res=>{
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
- rawReports = rawReports.filter(r=>!(String(r.db)===String(db)&&String(r.row)===String(row)));
+ const id = String(db)+':'+String(row);
+ deletedTombstones.set(id, Date.now());
  applyFilterSort();
  reportsStatus.textContent='✅ Удалено';
- loadReports(currentFilter,true);
+ setTimeout(()=>{ loadReports(currentFilter,true); },2000);
  }, ()=>{});
  };
  });
