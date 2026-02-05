@@ -58,7 +58,7 @@ input{
  margin-top:8px;
  outline:none;
 }
-input:focus{border-color:var(--gold-hi);box-shadow:003px rgba(244,227,161,.18)}
+input:focus{border-color:var(--gold-hi);box-shadow:0003px rgba(244,227,161,.18)}
 button{
  font-size:clamp(18px,4.6vw,26px);
  font-weight:800;
@@ -122,7 +122,7 @@ button:active{transform:translateY(1px)}
 
 .stage-active{
  border-color:var(--gold-hi) !important;
- box-shadow:003px rgba(244,227,161,.2);
+ box-shadow:0003px rgba(244,227,161,.2);
  transform:translateY(-1px);
 }
 
@@ -272,14 +272,17 @@ let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
 const deletedTombstones = new Map();
-function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
+function reportId(r){
+ return String(r.db || '') + ':' + String(r.row || '');
+}
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 
-// автозаполнение имениconst savedName = localStorage.getItem('workerName') || '';
+/* автозаполнение имени */
+const savedName = localStorage.getItem('workerName') || '';
 if(savedName) workerInput.value = savedName;
 workerInput.addEventListener('input', ()=>localStorage.setItem('workerName', workerInput.value.trim()));
 
@@ -549,9 +552,8 @@ statsBtn.onclick=()=>{
 };
 
 function parseYmdToMs(ymd){
- if(!ymd) return null;
- const p=ymd.split('-');
- if(p.length!==3) return null;
+ if(!ymd) return '';
+ const p=ymd.split('-'); if(p.length!==3) return '';
  const y=parseInt(p[0],10), m=parseInt(p[1],10), d=parseInt(p[2],10);
  return new Date(y,m-1,d,0,0,0).getTime();
 }
@@ -572,8 +574,8 @@ exportPdfBtn.onclick=async ()=>{
  const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
 
  let data = rawReports.slice();
- if(fromMs!==null) data = data.filter(r=>parseDateTime(r)>=fromMs);
- if(toEnd!==null) data = data.filter(r=>parseDateTime(r)<=toEnd);
+ if(fromMs) data = data.filter(r=>parseDateTime(r)>=fromMs);
+ if(toEnd) data = data.filter(r=>parseDateTime(r)<=toEnd);
 
  if(!data.length){ alert("Нет данных для выбранного периода"); return; }
 
