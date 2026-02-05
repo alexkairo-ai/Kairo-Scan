@@ -413,7 +413,6 @@ function loadReports(filter, force){
  applyFilterSort();
  }, function(errMsg){
  reportsLoading = false;
- // тихий режим: оставляем последнее "Найдено"
  });
 }
 
@@ -541,7 +540,7 @@ function renderReports(){
 
  loadReports(currentFilter, true);
  }, function(errMsg){
- // тихий режим });
+ });
  };
  });
  }
