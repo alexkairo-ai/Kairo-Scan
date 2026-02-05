@@ -253,9 +253,7 @@ let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
 let reportsTimer=null, reportsLoading=false, currentFilter='day';
 
 const deletedTombstones = new Map();
-function reportId(r){
- return String(r.db || '') + ':' + String(r.row || '');
-}
+function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
@@ -266,18 +264,33 @@ async function startCamera(){
  if (starting) return;
  starting = true;
  try{
- stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}, audio:false });
+ //1) пробуем заднюю камеру stream = await navigator.mediaDevices.getUserMedia({
+ video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},
+ audio:false });
+ }catch(e1){
+ try{
+ //2) если не получилось — любая камера stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+ }catch(e2){
+ msg.innerHTML="Камера не запустилась. Проверьте HTTPS, доступ и закрытие других приложений.";
+ console.log(e1, e2);
+ showScanButton(true);
+ starting = false;
+ return;
+ }
+ }
+
+ try{
  video.srcObject = stream;
  await video.play();
  locked=false; showScanButton(false);
  if (stopTimer) clearTimeout(stopTimer);
  stopTimer = setTimeout(()=>{ if(!locked){ msg.innerHTML="Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera();}},20000);
  scan();
- }catch(e){
- msg.innerHTML="Камера не запустилась. Откройте сайт в Chrome/Safari и дайте доступ.";
- showScanButton(true);
- console.log(e);
- }finally{ starting=false; }
+ }catch(e3){
+ msg.innerHTML="Не удалось запустить видео. Обновите страницу и попробуйте снова.";
+ console.log(e3);
+ }
+ finally{ starting=false; }
 }
 startBtn.addEventListener("click", startCamera);
 
