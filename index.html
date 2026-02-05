@@ -410,7 +410,82 @@ function compareReports(a,b,mode){
  return0;
 }
 
-/* ... остальной код без изменений ... */
+function renderReports(){
+ reportsTableBody.innerHTML='';
+ currentReports.forEach(r=>{
+ const tr=document.createElement('tr');
+ const orderTd=document.createElement('td');
+ const dateTd=document.createElement('td');
+ const timeTd=document.createElement('td');
+ const stageTd=document.createElement('td');
+ const nameTd=document.createElement('td');
+ const dbTd=document.createElement('td');
+ const actionTd=document.createElement('td');
+ orderTd.textContent=r.order; dateTd.textContent=r.date; timeTd.textContent=r.time;
+ stageTd.textContent=r.stage; nameTd.textContent=r.name; dbTd.textContent=r.db||'';
+ if(editMode){
+ const btn=document.createElement('button');
+ btn.textContent='Удалить'; btn.dataset.db=r.db; btn.dataset.row=r.row;
+ actionTd.classList.add('row-actions'); actionTd.appendChild(btn);
+ } else { actionTd.textContent=''; }
+ tr.append(orderTd,dateTd,timeTd,stageTd,nameTd,dbTd,actionTd);
+ reportsTableBody.appendChild(tr);
+ });
+ if(editMode){
+ reportsTableBody.querySelectorAll('button').forEach(btn=>{
+ btn.onclick=()=>{
+ if(!confirm('Удалить строку?')) return;
+ const db=btn.dataset.db, row=btn.dataset.row;
+ callApi({action:'delete_report',db,row}, res=>{
+ if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
+ rawReports = rawReports.filter(r=>!(String(r.db)===String(db)&&String(r.row)===String(row)));
+ applyFilterSort();
+ reportsStatus.textContent='✅ Удалено';
+ loadReports(currentFilter,true);
+ }, ()=>{});
+ };
+ });
+ }
+}
+
+function ymdToShort(ymd){
+ if(!ymd) return '';
+ const p=ymd.split('-'); if(p.length!==3) return '';
+ const yy=p[0].slice(-2); return p[2]+'.'+p[1]+'.'+yy;
+}
+function countUniqueOrders(data, datePrefix, stage){
+ const set=new Set();
+ data.forEach(r=>{
+ const okDate=datePrefix ? String(r.date||'').startsWith(datePrefix) : true;
+ const okStage=(stage==='all') ? true : (String(r.stage||'').toLowerCase()===stage);
+ if(okDate && okStage) set.add(String(r.order||'').trim());
+ });
+ return set.size;
+}
+
+document.querySelectorAll('.filters button').forEach(btn=>{ btn.onclick=()=>loadReports(btn.dataset.filter); });
+searchInput.addEventListener('input',()=>{ filterTerm=searchInput.value.trim(); applyFilterSort(); });
+sortSelect.onchange=()=>{ sortMode=sortSelect.value; applyFilterSort(); };
+
+statsBtn.onclick=()=>{
+ const d=statsDate.value, stage=statsStage.value, prefix=ymdToShort(d);
+ if(!prefix){ statsResult.textContent='Выберите дату'; return; }
+ statsResult.textContent='Считаю...';
+ callApi({action:'reports',filter:'all'}, res=>{
+ if(!res.ok){ statsResult.textContent='Ошибка'; return; }
+ const cnt=countUniqueOrders(res.data||[], prefix, stage);
+ statsResult.textContent='Уникальных заказов: '+cnt;
+ }, ()=>{ statsResult.textContent='Нет ответа'; });
+};
+
+openReportsBtn.onclick=openReports;
+closeReportsBtn.onclick=closeReports;
+
+editReportsBtn.onclick=()=>{
+ const p=prompt('Пароль:');
+ if(p===EDIT_PASS){ editMode=!editMode; editReportsBtn.textContent=editMode?'Выход':'Редактировать'; renderReports(); }
+ else alert('Неверный пароль');
+};
 </script>
 </body>
 </html>
