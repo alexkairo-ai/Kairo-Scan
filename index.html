@@ -591,13 +591,16 @@ exportPdfBtn.onclick=async ()=>{
  const { jsPDF } = window.jspdf;
  const doc = new jsPDF();
 
+ // ✅ Шрифт по ссылке (PT Sans, кириллица)
  try{
- const fontBase64 = await loadTtfBase64('https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf');
- doc.addFileToVFS("DejaVuSans.ttf", fontBase64);
- doc.addFont("DejaVuSans.ttf", "DejaVuSans", "normal");
- doc.setFont("DejaVuSans");
+ const fontUrl = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ptsans/PTSans-Regular.ttf";
+ const fontBase64 = await loadTtfBase64(fontUrl);
+ doc.addFileToVFS("PTSans-Regular.ttf", fontBase64);
+ doc.addFont("PTSans-Regular.ttf", "PTSans", "normal");
+ doc.setFont("PTSans");
  }catch(e){}
 
+ // ✅ Логотип (по ссылке)
  try{
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
  const logo = await loadImageAsDataURL(logoUrl);
@@ -630,7 +633,8 @@ exportPdfBtn.onclick=async ()=>{
  head: [['Заказ','Дата','Время','Этап','Сотрудник','Таблица']],
  body: rows,
  startY:35,
- styles:{ fontSize:8 }
+ styles:{ fontSize:8, font:"PTSans" },
+ headStyles:{ font:"PTSans" }
  });
 
  doc.save('reports.pdf');
