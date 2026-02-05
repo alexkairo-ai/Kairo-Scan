@@ -93,7 +93,6 @@ button:active{transform:translateY(1px)}
 }
 .grid{display:grid;gap:8px}
 
-/* Reports table */
 .table{width:100%;border-collapse:collapse;font-size:14px}
 .table th,.table td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px6px;text-align:left}
 .table th{color:var(--muted)}
@@ -322,7 +321,6 @@ function scan(){
  requestAnimationFrame(scan);
 }
 
-// --- Показ только одного этапа через ?only= ---
 const params = new URLSearchParams(location.search);
 const only = (params.get('only') || '').toLowerCase();
 
@@ -330,13 +328,11 @@ document.querySelectorAll('#stageButtons button').forEach(function(btn){
  const stage = btn.dataset.stage;
  const key = (btn.dataset.only || stage).toLowerCase();
  const color = btn.dataset.color || '';
-
  btn.onclick = function(){ sendStage(stage, color); };
-
  if (only && key !== only) btn.style.display = 'none';
 });
 
-// ---- Reports UI ----function openReports(){
+function openReports(){
  mainView.classList.add('hidden');
  reportsView.classList.remove('hidden');
  loadReports('day');
