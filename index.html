@@ -131,7 +131,6 @@ button:active{transform:translateY(1px)}
  <div class="badge">Готовность производства</div>
  <h2>Сканируйте QR заказа</h2>
  <video id="video" autoplay playsinline muted></video>
- <canvas id="canvas" style="display:none;"></canvas>
  <div id="msg" class="small"></div>
  <button id="startCam">СКАНИРОВАТЬ</button>
  </div>
@@ -227,8 +226,6 @@ const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
 const statusEl = document.getElementById("status");
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startCam");
 const msg = document.getElementById("msg");
 const stageTitle = document.getElementById("stageTitle");
@@ -310,21 +307,30 @@ function sendStage(stage, color){
  );
 }
 
-function scan(){
+const hasBarcodeDetector = ('BarcodeDetector' in window);
+const detector = hasBarcodeDetector ? new BarcodeDetector({formats:['qr_code']}) : null;
+
+async function scan(){
  if(locked) return;
  if(!isStreamActive()){ startCamera(); return; }
- if(video.readyState===video.HAVE_ENOUGH_DATA){
- canvas.width=video.videoWidth; canvas.height=video.videoHeight;
- ctx.drawImage(video,0,0,canvas.width,canvas.height);
- const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
- const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:"attemptBoth"});
- if(code){
- orderInput.value=code.data;
- msg.innerHTML="QR найден: " + code.data;
+
+ if(!hasBarcodeDetector){
+ msg.innerHTML="Сканирование QR не поддерживается в этом браузере.";
+ freezeCamera();
+ return;
+ }
+
+ try{
+ const codes = await detector.detect(video);
+ if(codes && codes.length){
+ const data = codes[0].rawValue || '';
+ orderInput.value = data;
+ msg.innerHTML = "QR найден: " + data;
  if(navigator.vibrate) navigator.vibrate(80);
- freezeCamera(); return;
+ freezeCamera();
+ return;
  }
- }
+ }catch(e){}
  requestAnimationFrame(scan);
 }
 
