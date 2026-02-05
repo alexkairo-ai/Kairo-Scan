@@ -127,6 +127,16 @@ button:active{transform:translateY(1px)}
 }
 
 .hidden{display:none}
+
+/* скрытая зона рендера под картинку */
+#printArea{
+ position:fixed;
+ left:-99999px;
+ top:0;
+ width:794px; /* A4 @96dpi */
+ background:#fff;
+ color:#111;
+}
 </style>
 </head>
 <body>
@@ -230,9 +240,12 @@ button:active{transform:translateY(1px)}
 
 </div>
 
+<div id="printArea"></div>
+
 <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
@@ -266,6 +279,8 @@ const statsResult = document.getElementById("statsResult");
 const pdfFrom = document.getElementById("pdfFrom");
 const pdfTo = document.getElementById("pdfTo");
 const exportPdfBtn = document.getElementById("exportPdf");
+
+const printArea = document.getElementById("printArea");
 
 let stream=null, locked=false, starting=false, stopTimer=null, editMode=false;
 let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
@@ -565,6 +580,16 @@ function escapeHtml(str){
  .replace(/'/g,'&#39;');
 }
 
+async function loadImageAsDataURL(url){
+ const res = await fetch(url, {mode:'cors'});
+ const blob = await res.blob();
+ return await new Promise(resolve=>{
+ const reader = new FileReader();
+ reader.onload = () => resolve(reader.result);
+ reader.readAsDataURL(blob);
+ });
+}
+
 exportPdfBtn.onclick=async ()=>{
  const fromMs = parseYmdToMs(pdfFrom.value);
  const toMs = parseYmdToMs(pdfTo.value);
@@ -578,6 +603,7 @@ exportPdfBtn.onclick=async ()=>{
 
  const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
+ const logoData = await loadImageAsDataURL(logoUrl).catch(()=>'');
 
  const rowsHtml = data.map(r=>`
  <tr>
@@ -590,57 +616,40 @@ exportPdfBtn.onclick=async ()=>{
  </tr>
  `).join('');
 
- const html = `
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Отчёт</title>
-<style>
-@page { margin:12mm; }
-body{ font-family: Arial, "Segoe UI", "DejaVu Sans", sans-serif; color:#111; }
-.header{ display:flex; align-items:center; gap:10px; }
-.header img{ width:28px; height:28px; object-fit:contain; }
-h1{ font-size:16px; margin:0; }
-small{ color:#555; }
-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:11px; }
-th, td{ border:1px solid #ccc; padding:6px5px; text-align:left; }
-th{ background:#f2f2f2; }
-</style>
-</head>
-<body>
-<div class="header">
- <img src="${logoUrl}" alt="logo">
+ printArea.innerHTML = `
+<div style="padding:14px16px; font-family:Arial, 'Segoe UI', sans-serif;">
+ <div style="display:flex; align-items:center; gap:10px;">
+ ${logoData ? `<img src="${logoData}" style="width:28px;height:28px;object-fit:contain;">` : ''}
  <div>
- <h1>Отчёт ${period ? '('+period+')' : ''}</h1>
- <small>Сформировано: ${new Date().toLocaleString()}</small>
+ <div style="font-size:16px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
+ <div style="font-size:11px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
  </div>
-</div>
-<table>
+ </div>
+ <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11px;">
  <thead>
  <tr>
- <th>Заказ</th><th>Дата</th><th>Время</th><th>Этап</th><th>Сотрудник</th><th>Таблица</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Заказ</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Дата</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Время</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Этап</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
+ <th style="border:1px solid #ccc;padding:6px5px;background:#f2f2f2;">Таблица</th>
  </tr>
  </thead>
  <tbody>
  ${rowsHtml}
  </tbody>
-</table>
-</body>
-</html>
- `;
+ </table>
+</div>
+`;
 
- const w = window.open('', '_blank');
- if(!w){ alert('Разрешите всплывающие окна для экспорта PDF'); return; }
- w.document.open();
- w.document.write(html);
- w.document.close();
+ const canvas = await html2canvas(printArea, {scale:2, useCORS:true, backgroundColor:'#ffffff'});
+ const imgData = canvas.toDataURL('image/png');
 
- w.onload = ()=>{ setTimeout(()=>{
- w.focus();
- w.print();
- },500);
- };
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF({unit:'px', format:[canvas.width, canvas.height]});
+ doc.addImage(imgData, 'PNG',0,0, canvas.width, canvas.height);
+ doc.save('reports.pdf');
 };
 
 openReportsBtn.onclick=openReports;
