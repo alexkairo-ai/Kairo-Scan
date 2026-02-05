@@ -606,9 +606,10 @@ exportPdfBtn.onclick=async ()=>{
  }
  }catch(e){}
 
- // ✅ Логотип try{
+ // ✅ Логотип (без try/catch)
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
- const logo = await loadImageAsDataURL(logoUrl);
+ const logo = await loadImageAsDataURL(logoUrl).catch(()=>null);
+ if(logo){
  const img = new Image();
  img.src = logo;
  await new Promise(r=>img.onload=r);
@@ -617,7 +618,7 @@ exportPdfBtn.onclick=async ()=>{
  const ratio = Math.min(maxW/w, maxH/h);
  w*=ratio; h*=ratio;
  doc.addImage(logo, "PNG",14,10,w,h);
- }catch(e){}
+ }
 
  doc.setFontSize(14);
  const title = "Отчёт";
