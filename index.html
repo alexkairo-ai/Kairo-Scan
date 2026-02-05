@@ -144,7 +144,7 @@ button:active{transform:translateY(1px)}
  </div>
 
  <div class="card">
- <h3>Выберите этап:</h3>
+ <h3 id="stageTitle">Выберите этап:</h3>
  <div id="stageButtons">
  <button data-stage="pila">Пила</button>
  <button data-stage="hdf">ХДФ</button>
@@ -231,6 +231,7 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startCam");
 const msg = document.getElementById("msg");
+const stageTitle = document.getElementById("stageTitle");
 
 const mainView = document.getElementById("mainView");
 const reportsView = document.getElementById("reportsView");
@@ -398,8 +399,15 @@ document.querySelectorAll('#stageButtons button').forEach(btn=>{
  const key = (btn.dataset.only || stage).toLowerCase();
  const color = btn.dataset.color || '';
  btn.onclick = () => sendStage(stage, color);
- if (only && key !== only) btn.style.display = 'none';
+
+ if (only) {
+ if (key !== only) btn.style.display = 'none';
+ }
 });
+
+if (only) {
+ stageTitle.textContent = "Этап:";
+}
 
 function openReports(){
  mainView.classList.add('hidden');
