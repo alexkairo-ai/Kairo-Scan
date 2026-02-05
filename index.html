@@ -590,6 +590,44 @@ async function loadImageAsDataURL(url){
  });
 }
 
+function buildSummary(data){
+ const map = new Map();
+
+ data.forEach(r=>{
+ const stage = String(r.stage||'').trim();
+ const date = String(r.date||'').trim();
+ const name = String(r.name||'').trim();
+ if(!stage || !date || !name) return;
+
+ const key = stage+'|'+date+'|'+name;
+ if(!map.has(key)){
+ map.set(key, {stage, date, name, orders: new Set()});
+ }
+ const order = String(r.order||'').trim();
+ if(order) map.get(key).orders.add(order);
+ });
+
+ const rows = Array.from(map.values()).map(x=>({
+ stage:x.stage,
+ date:x.date,
+ name:x.name,
+ count:x.orders.size,
+ orders:Array.from(x.orders).join(', ')
+ }));
+
+ rows.sort((a,b)=>{
+ if(a.date<b.date) return -1;
+ if(a.date>b.date) return1;
+ if(a.stage<b.stage) return -1;
+ if(a.stage>b.stage) return1;
+ if(a.name<b.name) return -1;
+ if(a.name>b.name) return1;
+ return0;
+ });
+
+ return rows;
+}
+
 exportPdfBtn.onclick=async ()=>{
  const fromMs = parseYmdToMs(pdfFrom.value);
  const toMs = parseYmdToMs(pdfTo.value);
@@ -600,6 +638,8 @@ exportPdfBtn.onclick=async ()=>{
  if(toEnd) data = data.filter(r=>parseDateTime(r)<=toEnd);
 
  if(!data.length){ alert("Нет данных для выбранного периода"); return; }
+
+ const summaryRows = buildSummary(data);
 
  const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
@@ -625,6 +665,31 @@ exportPdfBtn.onclick=async ()=>{
  <div style="font-size:12px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
  </div>
  </div>
+
+ <div style="margin-top:12px;font-size:12px;font-weight:700;">Сводка по сотрудникам:</div>
+ <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+ <thead>
+ <tr>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Кол-во заказов</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Номера заказов</th>
+ </tr>
+ </thead>
+ <tbody>
+ ${summaryRows.map(s=>`
+ <tr>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.stage)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.date)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.name)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(String(s.count))}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.orders)}</td>
+ </tr>
+ `).join('')}
+ </tbody>
+ </table>
+
  <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;">
  <thead>
  <tr>
