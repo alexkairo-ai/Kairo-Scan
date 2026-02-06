@@ -105,7 +105,7 @@ button{
  text-shadow:01px1px rgba(0,0,0,.7);
  background:
  linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
- url("https://img.freepik.com/premium-photo/dark-black-wooden-texture-panoramic-vintage-rustic-style-wood-natural-surface_84485-4560.jpg?semt=ais_hybrid&w=740") center/cover no-repeat;
+ url("https://png.pngtree.com/thumb_back/fh260/background/20231228/pngtree-captivating-depiction-of-wood-texture-image_13909008.png") center/cover no-repeat;
  border:2px solid var(--gold);
  box-shadow:08px18px rgba(0,0,0,.35), inset01px0 rgba(255,255,255,.2);
 }
@@ -174,18 +174,18 @@ button:active{transform:translateY(1px)}
 
 /* кнопка обновления */
 #refreshBtn{
- position:fixed;
+ position:absolute;
  top:12px;
  right:12px;
- z-index:9999;
- width:36px;
- height:36px;
+ z-index:5;
+ width:32px;
+ height:32px;
  padding:0;
  border-radius:10px;
  border:1px solid var(--gold);
  background:transparent;
  color:var(--gold);
- font-size:20px;
+ font-size:18px;
  font-weight:900;
  display:flex;
  align-items:center;
@@ -196,10 +196,9 @@ button:active{transform:translateY(1px)}
 <body>
 <div class="wrap">
 
-<button id="refreshBtn" title="Обновить">↻</button>
-
 <div id="mainView">
  <div class="card">
+ <button id="refreshBtn" title="Обновить">↻</button>
  <div class="badge">Готовность производства</div>
  <h2>Сканируйте QR заказа</h2>
  <video id="video" autoplay playsinline muted></video>
