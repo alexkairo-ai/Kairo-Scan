@@ -25,14 +25,32 @@
  --muted:#d2c59f;
 }
 *{box-sizing:border-box}
-body{
+
+html, body{
  margin:0;
- color:var(--text);
- font-family:"SF Pro Display","Inter",system-ui,Arial,sans-serif;
+ width:100%;
+ min-height:100%;
+ background:#000;
+ overflow-x:hidden;
+}
+
+html{
  background:
  linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
- url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover fixed no-repeat;
+ url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover no-repeat;
+ background-attachment: fixed;
 }
+
+body{
+ color:var(--text);
+ font-family:"SF Pro Display","Inter",system-ui,Arial,sans-serif;
+ background:transparent;
+}
+
+@media (max-width:900px){
+ html{ background-attachment: scroll; }
+}
+
 .wrap{max-width:900px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 .card{
  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
