@@ -148,11 +148,11 @@ button:active{transform:translateY(1px)}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
 
-/* АКТИВНЫЙ ФИЛЬТР */
+/* активная кнопка фильтра */
 .filters button.active{
  background:rgba(0,0,0,.45);
  border-color:var(--gold-hi);
- box-shadow: inset02px6px rgba(0,0,0,.6);
+ box-shadow:inset02px6px rgba(0,0,0,.6);
  transform: translateY(1px);
 }
 
