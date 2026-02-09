@@ -1,4 +1,4 @@
-:root{
+ss :root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -86,7 +86,7 @@ button{
  width:100%;
  border-radius:16px;
  margin-top:10px;
- color:#dea63a;
+ color:#c87c24;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -148,6 +148,16 @@ button:active{transform:translateY(1px)}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
 
+/* НОВОЕ: эффект "нажата" для фильтров */
+.filters button:focus,
+.filters button:active,
+.filters button:focus-visible{
+ background:rgba(0,0,0,.45);
+ border-color:var(--gold-hi);
+ box-shadow: inset02px6px rgba(0,0,0,.6);
+ transform: translateY(1px);
+}
+
 .tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .tools select, .tools input{
  font-size:12px;
@@ -188,7 +198,7 @@ button:active{transform:translateY(1px)}
  border-radius:10px;
  border:1px solid var(--gold);
  background:transparent;
- color:#dea63a;
+ color:#c87c24;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -230,4 +240,3 @@ button:active{transform:translateY(1px)}
 .photo-title{font-weight:700;margin-bottom:8px}
 .photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .photo-actions button{width:auto;font-size:12px;padding:6px10px;border-radius:10px}
-
