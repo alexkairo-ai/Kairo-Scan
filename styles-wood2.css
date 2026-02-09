@@ -34,7 +34,7 @@ body::before{
 
 /* ОКНА: ПРОЗРАЧНЫЕ С БЕЛЫМ РАЗМЫТИЕМ (БОЛЕЕ ПРОЗРАЧНЫЕ) */
 .card{
- background: rgba(255,255,255,0.05);
+ background: rgba(255,255,255,0.02);
  backdrop-filter: blur(8px);
  border:2px solid rgba(202,162,79,.85);
  border-radius:18px;
@@ -164,3 +164,4 @@ button{
 }
 
 .hidden{display:none}
+
