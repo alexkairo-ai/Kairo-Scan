@@ -241,8 +241,8 @@ async function uploadPhotos(files, stage){
  const payload = {action:'upload_photos',order,stage,name,date,time,db,files:[]};
 
  for(const f of files){
- const data = await fileToBase64(f);
- payload.files.push({name:f.name, type:f.type, data});
+ const item = await fileToPayload(f);
+ payload.files.push(item);
  }
 
  const res = await fetch(API_URL, {
@@ -253,6 +253,75 @@ async function uploadPhotos(files, stage){
 
  if(!res.ok) throw (res.msg || 'Ошибка загрузки');
  return res.folderUrl;
+}
+
+async function fileToPayload(file){
+ const MAX_SIZE =1600;
+ const QUALITY =0.8;
+ try{
+ const img = await loadImage(file);
+ let w = img.width, h = img.height;
+
+ if (Math.max(w,h) > MAX_SIZE){
+ if (w >= h){
+ h = Math.round(h * (MAX_SIZE / w));
+ w = MAX_SIZE;
+ }else{
+ w = Math.round(w * (MAX_SIZE / h));
+ h = MAX_SIZE;
+ }
+ }
+
+ const canvas = document.createElement('canvas');
+ canvas.width = w;
+ canvas.height = h;
+ const cctx = canvas.getContext('2d');
+ cctx.drawImage(img,0,0, w, h);
+
+ const blob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
+ const data = await blobToBase64(blob);
+
+ const baseName = file.name.replace(/\.[^/.]+$/, '');
+ return { name: baseName + '.jpg', type: 'image/jpeg', data };
+
+ }catch(e){
+ const data = await fileToBase64(file);
+ return { name: file.name, type: file.type, data };
+ }
+}
+
+function loadImage(file){
+ return new Promise((resolve, reject)=>{
+ const url = URL.createObjectURL(file);
+ const img = new Image();
+ img.onload = ()=>{
+ URL.revokeObjectURL(url);
+ resolve(img);
+ };
+ img.onerror = ()=>{
+ URL.revokeObjectURL(url);
+ reject('Ошибка загрузки изображения');
+ };
+ img.src = url;
+ });
+}
+
+function canvasToBlob(canvas, type, quality){
+ return new Promise((resolve, reject)=>{
+ canvas.toBlob(b=>{
+ if(!b) return reject('Ошибка сжатия');
+ resolve(b);
+ }, type, quality);
+ });
+}
+
+function blobToBase64(blob){
+ return new Promise((resolve,reject)=>{
+ const r = new FileReader();
+ r.onload = ()=> resolve(r.result.split(',')[1]);
+ r.onerror = ()=> reject('Ошибка чтения');
+ r.readAsDataURL(blob);
+ });
 }
 
 function fileToBase64(file){
