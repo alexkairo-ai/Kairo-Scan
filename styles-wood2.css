@@ -14,18 +14,29 @@ html, body{
  margin:0;
  width:100%;
  min-height:100%;
- background:transparent; /* НЕ перекрываем общий фон */
  color:var(--text);
  font-family:"Cormorant Garamond",serif;
+ background:#120b07;
+}
+
+/* ДРЕВЕСНЫЙ ФОН */
+body::before{
+ content:"";
+ position:fixed;
+ inset:0;
+ z-index:-1;
+ background:
+ linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+ url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover no-repeat;
 }
 
 .wrap{max-width:620px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 
-/* стеклянные окна с лёгким белым размытием */
+/* ОКНА: ПРОЗРАЧНЫЕ С БЕЛЫМ РАЗМЫТИЕМ */
 .card{
- background: rgba(255,255,255,0.06);
+ background: rgba(255,255,255,0.08);
  backdrop-filter: blur(8px);
- border:2px solid rgba(202,162,79,.8);
+ border:2px solid rgba(202,162,79,.85);
  border-radius:18px;
  padding:16px;
  margin-bottom:14px;
@@ -37,28 +48,31 @@ html, body{
  position:absolute;
  inset:3px;
  border-radius:15px;
- border:1px solid rgba(255,255,255,.15);
+ border:1px solid rgba(255,255,255,.18);
  pointer-events:none;
 }
 
-/* текст */
+/* ЗОЛОТОЙ ТЕКСТ */
+body, h2, h3, .badge, #status, .small{
+ color:var(--text);
+ text-shadow:01px2px rgba(0,0,0,.6);
+}
+
 .badge{
  display:inline-block;
  font-size:18px;
- color:var(--gold-hi);
- text-shadow:01px2px rgba(0,0,0,.6);
 }
+
 h2{
  font-size:28px;
  margin:6px010px;
  color:var(--gold-hi);
- text-shadow:02px2px rgba(0,0,0,.6);
 }
+
 h3{
  color:var(--muted);
  margin:6px010px;
 }
-.small{color:var(--muted);font-size:13px}
 
 video{
  width:100%;
@@ -67,7 +81,7 @@ video{
  background:#000;
 }
 
-/* поля ввода */
+/* ПОЛЯ ВВОДА */
 input{
  width:100%;
  margin-top:8px;
@@ -77,16 +91,21 @@ input{
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  url("https://file.sunonglobal.com/wp-content/uploads/2025/04/TP-EPU11-Obsidian-Black-2-scaled.jpg") center/cover no-repeat;
- color:#f7f3e6;
+ color:var(--gold-hi);
  font-size:16px;
+ font-family:"Cormorant Garamond",serif;
  box-shadow: inset01px4px rgba(0,0,0,.65);
 }
+input::placeholder{
+ color:var(--gold);
+}
+
 input:focus{
  border-color:var(--gold-hi);
  outline:none;
 }
 
-/* кнопки */
+/* КНОПКИ */
 button{
  width:100%;
  margin-top:10px;
@@ -116,13 +135,13 @@ button{
  text-shadow:01px2px rgba(0,0,0,.8);
 }
 
-/* статус */
+/* СТАТУС */
 #status{
  margin-top:10px;
  padding:8px10px;
  border-radius:10px;
- background:rgba(255,255,255,.06);
- border:1px solid rgba(255,255,255,.15);
+ background:rgba(255,255,255,.08);
+ border:1px solid rgba(255,255,255,.18);
  color:var(--muted);
 }
 
