@@ -268,6 +268,11 @@ function openReports(){
  mainView.classList.add('hidden');
  reportsView.classList.remove('hidden');
  currentFilter='day';
+
+ // подсветка "За день" при открытии document.querySelectorAll('.filters button').forEach(b=>{
+ b.classList.toggle('active', b.dataset.filter === 'day');
+ });
+
  loadReports(currentFilter);
  if(reportsTimer) clearInterval(reportsTimer);
  reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
@@ -381,7 +386,14 @@ function renderReports(){
  }
 }
 
-document.querySelectorAll('.filters button').forEach(btn=>{ btn.onclick=()=>loadReports(btn.dataset.filter); });
+// КНОПКИ ФИЛЬТРОВ + подсветка активнойdocument.querySelectorAll('.filters button').forEach(btn=>{
+ btn.onclick=()=>{
+ document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));
+ btn.classList.add('active');
+ loadReports(btn.dataset.filter);
+ };
+});
+
 searchInput.addEventListener('input',()=>{ filterTerm=searchInput.value.trim(); applyFilterSort(); });
 sortSelect.onchange=()=>{ sortMode=sortSelect.value; applyFilterSort(); };
 
