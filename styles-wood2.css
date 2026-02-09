@@ -16,7 +16,7 @@ html, body{
  min-height:100%;
  color:var(--text);
  font-family:"Cormorant Garamond",serif;
- background:#120b07;
+ background:transparent;
 }
 
 /* ДРЕВЕСНЫЙ ФОН */
@@ -164,4 +164,3 @@ button{
 }
 
 .hidden{display:none}
-
