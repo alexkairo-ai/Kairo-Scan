@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Предпросмотр — Kairo‑Scan (Wood2)</title>
+
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<link rel="stylesheet" href="styles-wood2.css">
+</head>
+<body>
+<div class="wrap">
+
+<div id="mainView">
+ <div class="card">
+ <button id="refreshBtn" title="Обновить">↻</button>
+ <div class="badge">Готовность производства</div>
+ <h2>Сканируйте QR заказа</h2>
+ <video id="video" autoplay playsinline muted></video>
+ <canvas id="canvas" style="display:none;"></canvas>
+ <div id="msg" class="small">Предпросмотр оформления</div>
+ <button id="startCam">СКАНИРОВАТЬ</button>
+ </div>
+
+ <div class="card">
+ <div class="grid">
+ <input id="order" placeholder="QR / номер заказа" autofocus />
+ <input id="worker" placeholder="Имя сотрудника" />
+ </div>
+ </div>
+
+ <div class="card">
+ <h3 id="stageTitle">Этап:</h3>
+ <div id="stageButtons">
+ <button data-stage="pila">Пила</button>
+ <button data-stage="hdf">ХДФ</button>
+ <button data-stage="kromka">Кромка</button>
+ <button data-stage="prisadka">Присадка</button>
+ <button data-stage="upakovka">Упаковка</button>
+ <button data-stage="hdf" data-only="pila-hdf" data-color="#f39931">ПИЛА ХДФ</button>
+ </div>
+ <div id="status">Готово к работе</div>
+ </div>
+
+ <div class="card">
+ <button id="openReports">ОТЧЁТЫ</button>
+ </div>
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
