@@ -264,15 +264,17 @@ function fileToBase64(file){
  });
 }
 
+function setActiveFilter(filter){
+ document.querySelectorAll('.filters button').forEach(b=>{
+ b.classList.toggle('active', b.dataset.filter === filter);
+ });
+}
+
 function openReports(){
  mainView.classList.add('hidden');
  reportsView.classList.remove('hidden');
  currentFilter='day';
-
- // подсветка "За день" при открытии document.querySelectorAll('.filters button').forEach(b=>{
- b.classList.toggle('active', b.dataset.filter === 'day');
- });
-
+ setActiveFilter('day');
  loadReports(currentFilter);
  if(reportsTimer) clearInterval(reportsTimer);
  reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
@@ -386,10 +388,9 @@ function renderReports(){
  }
 }
 
-// КНОПКИ ФИЛЬТРОВ + подсветка активнойdocument.querySelectorAll('.filters button').forEach(btn=>{
+document.querySelectorAll('.filters button').forEach(btn=>{
  btn.onclick=()=>{
- document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));
- btn.classList.add('active');
+ setActiveFilter(btn.dataset.filter);
  loadReports(btn.dataset.filter);
  };
 });
