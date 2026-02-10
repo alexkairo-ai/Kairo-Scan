@@ -32,7 +32,7 @@ body::before{
 
 .wrap{max-width:620px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 
-/* ОКНА: МАКС. ПРОЗРАЧНОСТЬ + МИНИМАЛЬНЫЙ BLUR */
+/* ОКНА */
 .card{
  background: rgba(0,0,0,0.06);
  backdrop-filter: blur(2px);
@@ -52,8 +52,7 @@ body::before{
  border:1px solid rgba(255,255,255,.15);
  pointer-events:none;
 }
-
-/* ОБЪЁМ НА ЗОЛОТОЙ РАМКЕ (ИНВЕРТ) */
+/* Объём на золотой рамке (инвертированный) */
 .card:after{
  content:"";
  position:absolute;
@@ -61,11 +60,11 @@ body::before{
  border-radius:16px;
  pointer-events:none;
  box-shadow:
- inset06px10px rgba(0,0,0,.55), /* тень сверху */
- inset0 -4px6px rgba(255,255,255,.20); /* свет снизу */
+ inset08px14px rgba(0,0,0,.65),
+ inset0 -6px10px rgba(255,255,255,.25);
 }
 
-/* ЗОЛОТОЙ ТЕКСТ */
+/* ТЕКСТ */
 body, h2, h3, .badge, #status, .small{
  color:var(--text);
  text-shadow:01px2px rgba(0,0,0,.6);
@@ -91,7 +90,7 @@ video{
  background:#000;
 }
 
-/* ПОЛЯ ВВОДА */
+/* ПОЛЯ ВВОДА — СИЛЬНЫЙ3D */
 input{
  width:100%;
  margin-top:8px;
@@ -99,19 +98,23 @@ input{
  border-radius:12px;
  border:2px solid var(--gold-dark);
  background:
- linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+ linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.40)),
  url("https://file.sunonglobal.com/wp-content/uploads/2025/04/TP-EPU11-Obsidian-Black-2-scaled.jpg") center/cover no-repeat;
  color:var(--gold-hi);
  font-size:16px;
  font-family:"Cormorant Garamond",serif;
+
+ /* объём */
  box-shadow:
- inset04px10px rgba(0,0,0,.75),
- inset01px0 rgba(255,255,255,.08);
+010px20px rgba(0,0,0,.55), /* внешняя тень */
+ inset04px0 rgba(255,255,255,.35), /* свет сверху */
+ inset0 -10px14px rgba(0,0,0,.75); /* тень снизу */
 }
+
 input::placeholder{color:var(--gold)}
 input:focus{border-color:var(--gold-hi); outline:none}
 
-/* ОБЪЁМНЫЕ КНОПКИ (СИЛЬНЕЕ) */
+/* КНОПКИ — СИЛЬНЫЙ3D */
 button{
  width:100%;
  margin-top:10px;
@@ -124,28 +127,27 @@ button{
  color:#f4e3a1;
 
  background:
- linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
+ linear-gradient(180deg, rgba(255,255,255,.30), rgba(0,0,0,.45)),
  url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
 
- /* сильный объём */
  box-shadow:
-016px28px rgba(0,0,0,.60), /* внешняя тень */
- inset04px0 rgba(255,255,255,.35), /* свет сверху */
- inset0 -10px14px rgba(0,0,0,.70); /* тень снизу */
+018px32px rgba(0,0,0,.60), /* внешняя */
+ inset05px0 rgba(255,255,255,.40), /* свет сверху */
+ inset0 -12px18px rgba(0,0,0,.80); /* тень снизу */
 }
 
-/* эффект “нажатия” */
+/* эффект нажатия */
 button:active{
  transform: translateY(2px);
  box-shadow:
-08px16px rgba(0,0,0,.55),
- inset02px0 rgba(255,255,255,.25),
- inset0 -6px10px rgba(0,0,0,.60);
+010px20px rgba(0,0,0,.55),
+ inset03px0 rgba(255,255,255,.30),
+ inset0 -8px12px rgba(0,0,0,.70);
 }
 
 #startCam, #openReports{
  background:
- linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
+ linear-gradient(180deg, rgba(255,255,255,.30), rgba(0,0,0,.45)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  text-shadow:01px0 rgba(255,255,255,.35);
@@ -153,7 +155,7 @@ button:active{
 
 #stageButtons button{
  background:
- linear-gradient(180deg, rgba(255,255,255,.20), rgba(0,0,0,.45)),
+ linear-gradient(180deg, rgba(255,255,255,.22), rgba(0,0,0,.55)),
  url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
  color:#f4e3a1;
  border:2px solid #caa24f;
@@ -182,14 +184,14 @@ button:active{
  border-radius:10px;
  border:2px solid var(--gold-dark);
  background:
- linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
+ linear-gradient(180deg, rgba(255,255,255,.30), rgba(0,0,0,.45)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  font-size:18px;
  box-shadow:
-010px18px rgba(0,0,0,.55),
- inset03px0 rgba(255,255,255,.25),
- inset0 -6px10px rgba(0,0,0,.65);
+012px20px rgba(0,0,0,.55),
+ inset04px0 rgba(255,255,255,.30),
+ inset0 -8px12px rgba(0,0,0,.70);
 }
 
 .hidden{display:none}
