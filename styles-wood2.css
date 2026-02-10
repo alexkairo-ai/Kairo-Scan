@@ -6,6 +6,7 @@
  --gold-dark:#8f6a2b;
  --text:#f4e3a1;
  --muted:#e7d39f;
+ --card-alpha:0.03; /* прозрачность окон */
 }
 
 *{box-sizing:border-box}
@@ -32,9 +33,9 @@ body::before{
 
 .wrap{max-width:620px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 
-/* ОКНА: ПРОЗРАЧНЫЕ С БЕЛЫМ РАЗМЫТИЕМ (БОЛЕЕ ПРОЗРАЧНЫЕ) */
+/* ОКНА */
 .card{
- background: rgba(255,255,255,0.02);
+ background: rgba(255,255,255,var(--card-alpha));
  backdrop-filter: blur(8px);
  border:2px solid rgba(202,162,79,.85);
  border-radius:18px;
@@ -58,10 +59,7 @@ body, h2, h3, .badge, #status, .small{
  text-shadow:01px2px rgba(0,0,0,.6);
 }
 
-.badge{
- display:inline-block;
- font-size:18px;
-}
+.badge{display:inline-block;font-size:18px}
 
 h2{
  font-size:28px;
@@ -69,10 +67,7 @@ h2{
  color:var(--gold-hi);
 }
 
-h3{
- color:var(--muted);
- margin:6px010px;
-}
+h3{color:var(--muted); margin:6px010px}
 
 video{
  width:100%;
@@ -94,16 +89,12 @@ input{
  color:var(--gold-hi);
  font-size:16px;
  font-family:"Cormorant Garamond",serif;
- box-shadow: inset01px4px rgba(0,0,0,.65);
+ box-shadow:
+ inset02px6px rgba(20,20,20,.85),
+ inset001px rgba(0,0,0,.45);
 }
-input::placeholder{
- color:var(--gold);
-}
-
-input:focus{
- border-color:var(--gold-hi);
- outline:none;
-}
+input::placeholder{color:var(--gold)}
+input:focus{border-color:var(--gold-hi); outline:none}
 
 /* КНОПКИ */
 button{
@@ -115,7 +106,10 @@ button{
  font-family:"Cormorant Garamond",serif;
  font-size:22px;
  font-weight:700;
- box-shadow:06px16px rgba(0,0,0,.45), inset01px0 rgba(255,255,255,.3);
+ box-shadow:
+06px16px rgba(0,0,0,.45),
+ inset02px6px rgba(20,20,20,.85),
+ inset001px rgba(0,0,0,.45);
 }
 
 #startCam, #openReports{
@@ -164,4 +158,3 @@ button{
 }
 
 .hidden{display:none}
-
