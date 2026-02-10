@@ -92,27 +92,47 @@ input{
  color:var(--gold-hi);
  font-size:16px;
  font-family:"Cormorant Garamond",serif;
+ box-shadow:
+ inset03px8px rgba(0,0,0,.75),
+ inset01px0 rgba(255,255,255,.08);
 }
-
 input::placeholder{color:var(--gold)}
 input:focus{border-color:var(--gold-hi); outline:none}
 
-/* КНОПКИ */
+/* ОБЪЁМНЫЕ КНОПКИ (ВЫПУКЛЫЕ) */
 button{
  width:100%;
  margin-top:10px;
  padding:12px14px;
  border-radius:14px;
- border:2px solid var(--gold-dark);
+ border:2px solid #7b5a22;
  font-family:"Cormorant Garamond",serif;
  font-size:22px;
  font-weight:700;
- box-shadow:06px16px rgba(0,0,0,.45);
+ color:#f4e3a1;
+
+ background:
+ linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
+ url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
+
+ box-shadow:
+06px14px rgba(0,0,0,.55), /* внешняя тень */
+ inset02px0 rgba(255,255,255,.25), /* свет сверху */
+ inset0 -4px6px rgba(0,0,0,.55); /* тень снизу */
+}
+
+/* эффект “нажатия” */
+button:active{
+ transform: translateY(2px);
+ box-shadow:
+03px8px rgba(0,0,0,.55),
+ inset01px0 rgba(255,255,255,.2),
+ inset0 -2px4px rgba(0,0,0,.5);
 }
 
 #startCam, #openReports{
  background:
- linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+ linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  text-shadow:01px0 rgba(255,255,255,.35);
@@ -120,7 +140,7 @@ button{
 
 #stageButtons button{
  background:
- linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.35)),
  url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
  color:#f4e3a1;
  border:2px solid #caa24f;
@@ -149,28 +169,14 @@ button{
  border-radius:10px;
  border:2px solid var(--gold-dark);
  background:
- linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+ linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  font-size:18px;
- box-shadow:04px10px rgba(0,0,0,.45);
+ box-shadow:
+04px10px rgba(0,0,0,.45),
+ inset02px0 rgba(255,255,255,.2),
+ inset0 -3px5px rgba(0,0,0,.55);
 }
 
 .hidden{display:none}
-
-/* ВНУТРЕННЯЯ ТЕНЬ ЧЕРЕЗ ПСЕВДОЭЛЕМЕНТ */
-button, input{
- position:relative;
- overflow:hidden;
-}
-
-button::after, input::after{
- content:"";
- position:absolute;
- inset:2px;
- border-radius:inherit;
- box-shadow:
- inset0014px rgba(0,0,0,.65),
- inset002px rgba(0,0,0,.8);
- pointer-events:none;
-}
