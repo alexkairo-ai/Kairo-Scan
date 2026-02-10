@@ -32,11 +32,11 @@ body::before{
 
 .wrap{max-width:620px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 
-/* ОКНА: ЛЁГКАЯ ПРОЗРАЧНОСТЬ + BLUR */
+/* ОКНА: МАКС. ПРОЗРАЧНОСТЬ + МИНИМАЛЬНЫЙ BLUR */
 .card{
- background: rgba(0,0,0,0.12); /* видно фон */
- backdrop-filter: blur(10px);
- -webkit-backdrop-filter: blur(10px);
+ background: rgba(0,0,0,0.06); /* выше прозрачность */
+ backdrop-filter: blur(2px);
+ -webkit-backdrop-filter: blur(2px);
  border:2px solid rgba(202,162,79,.85);
  border-radius:18px;
  padding:16px;
@@ -79,7 +79,7 @@ video{
  background:#000;
 }
 
-/* ПОЛЯ ВВОДА */
+/* ПОЛЯ ВВОДА — ВНУТРЕННЯЯ ТЁМНО-СЕРАЯ ТЕНЬ */
 input{
  width:100%;
  margin-top:8px;
@@ -96,10 +96,10 @@ input{
  inset02px6px rgba(20,20,20,.85),
  inset001px rgba(0,0,0,.45);
 }
-input::placeholder{ color:var(--gold); }
-input:focus{ border-color:var(--gold-hi); outline:none; }
+input::placeholder{color:var(--gold)}
+input:focus{border-color:var(--gold-hi); outline:none}
 
-/* КНОПКИ */
+/* КНОПКИ — ВНУТРЕННЯЯ ТЁМНО-СЕРАЯ ТЕНЬ */
 button{
  width:100%;
  margin-top:10px;
@@ -164,4 +164,3 @@ button{
 }
 
 .hidden{display:none}
-
