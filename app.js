@@ -35,14 +35,14 @@ const exportPdfBtn = document.getElementById("exportPdf");
 
 const printArea = document.getElementById("printArea");
 
-let stream=null, locked=false, starting=false, stopTimer=null, editMode=false;
-let rawReports=[], currentReports=[], filterTerm='', sortMode='time_desc';
-let reportsTimer=null, reportsLoading=false, currentFilter='day';
+let stream = null, locked = false, starting = false, stopTimer = null, editMode = false;
+let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
+let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
 
 const deletedTombstones = new Map();
 function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
 
-function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState==="live"); }
+function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState === "live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
@@ -121,7 +121,7 @@ function sendStage(stage, color, btn, photoUrl){
  const parsed = parseDbOrderClient(orderInput.value);
  let raw = parsed.order;
  let db = parsed.db;
- let name=workerInput.value.trim();
+ let name = workerInput.value.trim();
  if(!raw){ statusEl.innerHTML="Введите/сканируйте номер"; return; }
  if(!name){ statusEl.innerHTML="Введите имя"; return; }
  if(btn) flashStage(btn);
@@ -480,66 +480,187 @@ statsBtn.onclick=()=>{
  }, ()=>{ statsResult.textContent='Нет ответа'; });
 };
 
-function ymdToDate(val, endOfDay){
- if(!val) return null;
- const [y,m,d] = val.split('-').map(Number);
- const dt = new Date(y, m-1, d);
- if(endOfDay) dt.setHours(23,59,59,999);
- return dt;
+function parseYmdToMs(ymd){
+ if(!ymd) return '';
+ const p=ymd.split('-'); if(p.length!==3) return '';
+ const y=parseInt(p[0],10), m=parseInt(p[1],10), d=parseInt(p[2],10);
+ return new Date(y,m-1,d,0,0,0).getTime();
 }
 
-exportPdfBtn.onclick = ()=>{
- const fromVal = pdfFrom.value;
- const toVal = pdfTo.value;
+function escapeHtml(str){
+ return String(str)
+ .replace(/&/g,'&amp;')
+ .replace(/</g,'&lt;')
+ .replace(/>/g,'&gt;')
+ .replace(/"/g,'&quot;')
+ .replace(/'/g,'&#39;');
+}
 
- if(!fromVal || !toVal){
- reportsStatus.textContent = 'Укажите диапазон дат для PDF';
- return;
+async function loadImageAsDataURL(url){
+ const res = await fetch(url, {mode:'cors'});
+ const blob = await res.blob();
+ return await new Promise(resolve=>{
+ const reader = new FileReader();
+ reader.onload = () => resolve(reader.result);
+ reader.readAsDataURL(blob);
+ });
+}
+
+function buildSummary(data){
+ const map = new Map();
+
+ data.forEach(r=>{
+ const stage = String(r.stage||'').trim();
+ const date = String(r.date||'').trim();
+ const name = String(r.name||'').trim();
+ if(!stage || !date || !name) return;
+
+ const key = stage+'|'+date+'|'+name;
+ if(!map.has(key)){
+ map.set(key, {stage, date, name, orders: new Set()});
  }
-
- const fromDate = ymdToDate(fromVal, false);
- const toDate = ymdToDate(toVal, true);
-
- reportsStatus.textContent = 'Готовлю PDF...';
-
- callApi({action:'reports', filter:'all'}, res=>{
- if(!res.ok){ reportsStatus.textContent = '⚠️ ' + res.msg; return; }
-
- const rows = (res.data||[]).filter(r=>{
- const ts = parseDateTime(r);
- return ts && ts >= fromDate.getTime() && ts <= toDate.getTime();
+ const order = String(r.order||'').trim();
+ if(order) map.get(key).orders.add(order);
  });
 
- if(!rows.length){
- reportsStatus.textContent = 'Нет данных за выбранный период';
- return;
- }
+ const rows = Array.from(map.values()).map(x=>({
+ stage:x.stage,
+ date:x.date,
+ name:x.name,
+ count:x.orders.size,
+ orders:Array.from(x.orders).join(', ')
+ }));
+
+ rows.sort((a,b)=>{
+ const d = a.date.localeCompare(b.date,'ru');
+ if(d!==0) return d;
+ const s = a.stage.localeCompare(b.stage,'ru');
+ if(s!==0) return s;
+ return a.name.localeCompare(b.name,'ru');
+ });
+
+ return rows;
+}
+
+exportPdfBtn.onclick=async ()=>{
+ const fromMs = parseYmdToMs(pdfFrom.value);
+ const toMs = parseYmdToMs(pdfTo.value);
+ const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
+
+ let data = rawReports.slice();
+ if(fromMs) data = data.filter(r=>parseDateTime(r)>=fromMs);
+ if(toEnd) data = data.filter(r=>parseDateTime(r)<=toEnd);
+
+ if(!data.length){ alert("Нет данных для выбранного периода"); return; }
+
+ const summaryRows = buildSummary(data);
+
+ const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
+ const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
+ const logoData = await loadImageAsDataURL(logoUrl).catch(()=>'');
+
+ const rowsHtml = data.map(r=>`
+ <tr>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.stage||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name||'')}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db||'')}</td>
+ </tr>
+ `).join('');
+
+ printArea.innerHTML = `
+<div style="width:794px; padding:28px30px; font-family:Arial, 'Segoe UI', sans-serif; box-sizing:border-box;">
+ <div style="display:flex; align-items:center; gap:14px;">
+ ${logoData ? `<img src="${logoData}" style="width:320px;height:auto;object-fit:contain;">` : ''}
+ <div>
+ <div style="font-size:20px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
+ <div style="font-size:12px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
+ </div>
+ </div>
+
+ <div style="margin-top:12px;font-size:12px;font-weight:700;">Сводка по сотрудникам:</div>
+ <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+ <thead>
+ <tr>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Кол-во заказов</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Номера заказов</th>
+ </tr>
+ </thead>
+ <tbody>
+ ${summaryRows.map(s=>`
+ <tr>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.stage)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.date)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.name)}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(String(s.count))}</td>
+ <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.orders)}</td>
+ </tr>
+ `).join('')}
+ </tbody>
+ </table>
+
+ <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;">
+ <thead>
+ <tr>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Заказ</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
+ </tr>
+ </thead>
+ <tbody>
+ ${rowsHtml}
+ </tbody>
+ </table>
+</div>
+`;
+
+ const fullCanvas = await html2canvas(printArea, {
+ scale:2,
+ useCORS:true,
+ backgroundColor:'#ffffff'
+ });
 
  const { jsPDF } = window.jspdf;
- const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+ const pdf = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
+ const pageWidth =210;
+ const pageHeight =297;
 
- doc.text(`Отчёты с ${fromVal} по ${toVal}`,40,30);
+ const pageHeightPx = Math.floor(fullCanvas.width * (pageHeight / pageWidth));
+ let y =0;
+ let pageIndex =0;
 
- doc.autoTable({
- startY:50,
- head: [[ 'Заказ','Дата','Время','Этап','Сотрудник','Таблица' ]],
- body: rows.map(r=>[
- r.order || '',
- r.date || '',
- r.time || '',
- r.stage || '',
- r.name || '',
- r.db || ''
- ]),
- styles: { fontSize:9 },
- headStyles: { fillColor: [30,30,30] }
- });
+ while (y < fullCanvas.height){
+ const pageCanvas = document.createElement('canvas');
+ pageCanvas.width = fullCanvas.width;
+ pageCanvas.height = Math.min(pageHeightPx, fullCanvas.height - y);
+ const pageCtx = pageCanvas.getContext('2d');
 
- doc.save(`reports_${fromVal}_${toVal}.pdf`);
- reportsStatus.textContent = '✅ PDF готов';
- }, err=>{
- reportsStatus.textContent = err;
- });
+ pageCtx.fillStyle = '#ffffff';
+ pageCtx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
+ pageCtx.drawImage(
+ fullCanvas,
+0, y, pageCanvas.width, pageCanvas.height,
+0,0, pageCanvas.width, pageCanvas.height );
+
+ const imgData = pageCanvas.toDataURL('image/png');
+ const imgHeightMm = (pageCanvas.height / pageCanvas.width) * pageWidth;
+
+ if (pageIndex >0) pdf.addPage();
+ pdf.addImage(imgData, 'PNG',0,0, pageWidth, imgHeightMm);
+
+ y += pageHeightPx;
+ pageIndex++;
+ }
+
+ pdf.save('reports.pdf');
 };
 
 openReportsBtn.onclick=openReports;
