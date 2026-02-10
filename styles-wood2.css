@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+ss @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root{
  --gold:#caa24f;
@@ -6,7 +6,6 @@
  --gold-dark:#8f6a2b;
  --text:#f4e3a1;
  --muted:#e7d39f;
- --card-alpha:0.03; /* прозрачность окон */
 }
 
 *{box-sizing:border-box}
@@ -33,10 +32,11 @@ body::before{
 
 .wrap{max-width:620px;margin:0 auto;padding:clamp(12px,3vw,20px)}
 
-/* ОКНА */
+/* ОКНА: ЛЁГКАЯ ПРОЗРАЧНОСТЬ + BLUR */
 .card{
- background: rgba(255,255,255,var(--card-alpha));
- backdrop-filter: blur(8px);
+ background: rgba(0,0,0,0.12); /* видно фон */
+ backdrop-filter: blur(10px);
+ -webkit-backdrop-filter: blur(10px);
  border:2px solid rgba(202,162,79,.85);
  border-radius:18px;
  padding:16px;
@@ -67,7 +67,10 @@ h2{
  color:var(--gold-hi);
 }
 
-h3{color:var(--muted); margin:6px010px}
+h3{
+ color:var(--muted);
+ margin:6px010px;
+}
 
 video{
  width:100%;
@@ -93,8 +96,8 @@ input{
  inset02px6px rgba(20,20,20,.85),
  inset001px rgba(0,0,0,.45);
 }
-input::placeholder{color:var(--gold)}
-input:focus{border-color:var(--gold-hi); outline:none}
+input::placeholder{ color:var(--gold); }
+input:focus{ border-color:var(--gold-hi); outline:none; }
 
 /* КНОПКИ */
 button{
@@ -155,6 +158,9 @@ button{
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  font-size:18px;
+ box-shadow:
+04px10px rgba(0,0,0,.45),
+ inset02px6px rgba(20,20,20,.85);
 }
 
 .hidden{display:none}
