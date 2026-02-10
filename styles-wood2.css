@@ -34,7 +34,7 @@ body::before{
 
 /* ОКНА: МАКС. ПРОЗРАЧНОСТЬ + МИНИМАЛЬНЫЙ BLUR */
 .card{
- background: rgba(0,0,0,0.06); /* выше прозрачность */
+ background: rgba(0,0,0,0.06);
  backdrop-filter: blur(2px);
  -webkit-backdrop-filter: blur(2px);
  border:2px solid rgba(202,162,79,.85);
@@ -79,7 +79,7 @@ video{
  background:#000;
 }
 
-/* ПОЛЯ ВВОДА — ВНУТРЕННЯЯ ТЁМНО-СЕРАЯ ТЕНЬ */
+/* ПОЛЯ ВВОДА */
 input{
  width:100%;
  margin-top:8px;
@@ -92,14 +92,12 @@ input{
  color:var(--gold-hi);
  font-size:16px;
  font-family:"Cormorant Garamond",serif;
- box-shadow:
- inset02px6px rgba(20,20,20,.85),
- inset001px rgba(0,0,0,.45);
 }
+
 input::placeholder{color:var(--gold)}
 input:focus{border-color:var(--gold-hi); outline:none}
 
-/* КНОПКИ — ВНУТРЕННЯЯ ТЁМНО-СЕРАЯ ТЕНЬ */
+/* КНОПКИ */
 button{
  width:100%;
  margin-top:10px;
@@ -109,10 +107,7 @@ button{
  font-family:"Cormorant Garamond",serif;
  font-size:22px;
  font-weight:700;
- box-shadow:
-06px16px rgba(0,0,0,.45),
- inset02px6px rgba(20,20,20,.85),
- inset001px rgba(0,0,0,.45);
+ box-shadow:06px16px rgba(0,0,0,.45);
 }
 
 #startCam, #openReports{
@@ -158,9 +153,24 @@ button{
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  font-size:18px;
- box-shadow:
-04px10px rgba(0,0,0,.45),
- inset02px6px rgba(20,20,20,.85);
+ box-shadow:04px10px rgba(0,0,0,.45);
 }
 
 .hidden{display:none}
+
+/* ВНУТРЕННЯЯ ТЕНЬ ЧЕРЕЗ ПСЕВДОЭЛЕМЕНТ */
+button, input{
+ position:relative;
+ overflow:hidden;
+}
+
+button::after, input::after{
+ content:"";
+ position:absolute;
+ inset:2px;
+ border-radius:inherit;
+ box-shadow:
+ inset0014px rgba(0,0,0,.65),
+ inset002px rgba(0,0,0,.8);
+ pointer-events:none;
+}
