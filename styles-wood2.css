@@ -53,6 +53,18 @@ body::before{
  pointer-events:none;
 }
 
+/* ОБЪЁМ НА ЗОЛОТОЙ РАМКЕ (ИНВЕРТ) */
+.card:after{
+ content:"";
+ position:absolute;
+ inset:1px;
+ border-radius:16px;
+ pointer-events:none;
+ box-shadow:
+ inset06px10px rgba(0,0,0,.55), /* тень сверху */
+ inset0 -4px6px rgba(255,255,255,.20); /* свет снизу */
+}
+
 /* ЗОЛОТОЙ ТЕКСТ */
 body, h2, h3, .badge, #status, .small{
  color:var(--text);
@@ -93,13 +105,13 @@ input{
  font-size:16px;
  font-family:"Cormorant Garamond",serif;
  box-shadow:
- inset03px8px rgba(0,0,0,.75),
+ inset04px10px rgba(0,0,0,.75),
  inset01px0 rgba(255,255,255,.08);
 }
 input::placeholder{color:var(--gold)}
 input:focus{border-color:var(--gold-hi); outline:none}
 
-/* ОБЪЁМНЫЕ КНОПКИ (ВЫПУКЛЫЕ) */
+/* ОБЪЁМНЫЕ КНОПКИ (СИЛЬНЕЕ) */
 button{
  width:100%;
  margin-top:10px;
@@ -112,27 +124,28 @@ button{
  color:#f4e3a1;
 
  background:
- linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
+ linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
  url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
 
+ /* сильный объём */
  box-shadow:
-06px14px rgba(0,0,0,.55), /* внешняя тень */
- inset02px0 rgba(255,255,255,.25), /* свет сверху */
- inset0 -4px6px rgba(0,0,0,.55); /* тень снизу */
+016px28px rgba(0,0,0,.60), /* внешняя тень */
+ inset04px0 rgba(255,255,255,.35), /* свет сверху */
+ inset0 -10px14px rgba(0,0,0,.70); /* тень снизу */
 }
 
 /* эффект “нажатия” */
 button:active{
  transform: translateY(2px);
  box-shadow:
-03px8px rgba(0,0,0,.55),
- inset01px0 rgba(255,255,255,.2),
- inset0 -2px4px rgba(0,0,0,.5);
+08px16px rgba(0,0,0,.55),
+ inset02px0 rgba(255,255,255,.25),
+ inset0 -6px10px rgba(0,0,0,.60);
 }
 
 #startCam, #openReports{
  background:
- linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
+ linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  text-shadow:01px0 rgba(255,255,255,.35);
@@ -140,7 +153,7 @@ button:active{
 
 #stageButtons button{
  background:
- linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.35)),
+ linear-gradient(180deg, rgba(255,255,255,.20), rgba(0,0,0,.45)),
  url("https://media.gettyimages.com/photos/brown-leather-texture-as-background-picture-id486800650?b=1&k=6&m=486800650&s=612x612&w=0&h=ldhOAwni_MKmyrQwevav3yIJHLhoGNkJQRteYT8ZIQg=") center/cover no-repeat;
  color:#f4e3a1;
  border:2px solid #caa24f;
@@ -169,14 +182,14 @@ button:active{
  border-radius:10px;
  border:2px solid var(--gold-dark);
  background:
- linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)),
+ linear-gradient(180deg, rgba(255,255,255,.28), rgba(0,0,0,.35)),
  url("https://avatars.mds.yandex.net/i?id=906d167cc3c882956ccbdf1bfbcc95c4_sr-4566669-images-thumbs&n=13") center/cover no-repeat;
  color:#3c2a16;
  font-size:18px;
  box-shadow:
-04px10px rgba(0,0,0,.45),
- inset02px0 rgba(255,255,255,.2),
- inset0 -3px5px rgba(0,0,0,.55);
+010px18px rgba(0,0,0,.55),
+ inset03px0 rgba(255,255,255,.25),
+ inset0 -6px10px rgba(0,0,0,.65);
 }
 
 .hidden{display:none}
