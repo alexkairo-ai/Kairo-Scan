@@ -480,6 +480,68 @@ statsBtn.onclick=()=>{
  }, ()=>{ statsResult.textContent='Нет ответа'; });
 };
 
+function ymdToDate(val, endOfDay){
+ if(!val) return null;
+ const [y,m,d] = val.split('-').map(Number);
+ const dt = new Date(y, m-1, d);
+ if(endOfDay) dt.setHours(23,59,59,999);
+ return dt;
+}
+
+exportPdfBtn.onclick = ()=>{
+ const fromVal = pdfFrom.value;
+ const toVal = pdfTo.value;
+
+ if(!fromVal || !toVal){
+ reportsStatus.textContent = 'Укажите диапазон дат для PDF';
+ return;
+ }
+
+ const fromDate = ymdToDate(fromVal, false);
+ const toDate = ymdToDate(toVal, true);
+
+ reportsStatus.textContent = 'Готовлю PDF...';
+
+ callApi({action:'reports', filter:'all'}, res=>{
+ if(!res.ok){ reportsStatus.textContent = '⚠️ ' + res.msg; return; }
+
+ const rows = (res.data||[]).filter(r=>{
+ const ts = parseDateTime(r);
+ return ts && ts >= fromDate.getTime() && ts <= toDate.getTime();
+ });
+
+ if(!rows.length){
+ reportsStatus.textContent = 'Нет данных за выбранный период';
+ return;
+ }
+
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+
+ doc.text(`Отчёты с ${fromVal} по ${toVal}`,40,30);
+
+ doc.autoTable({
+ startY:50,
+ head: [[ 'Заказ','Дата','Время','Этап','Сотрудник','Таблица' ]],
+ body: rows.map(r=>[
+ r.order || '',
+ r.date || '',
+ r.time || '',
+ r.stage || '',
+ r.name || '',
+ r.db || ''
+ ]),
+ styles: { fontSize:9 },
+ headStyles: { fillColor: [30,30,30] }
+ });
+
+ doc.save(`reports_${fromVal}_${toVal}.pdf`);
+ reportsStatus.textContent = '✅ PDF готов';
+ }, err=>{
+ reportsStatus.textContent = err;
+ });
+};
+
 openReportsBtn.onclick=openReports;
 closeReportsBtn.onclick=closeReports;
 
