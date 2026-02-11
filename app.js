@@ -349,9 +349,11 @@ function setActiveFilter(filter){
 function openReports(){
  mainView.classList.add('hidden');
  reportsView.classList.remove('hidden');
- currentFilter='day';
- setActiveFilter('day');
- loadReports(currentFilter);
+
+ if(!currentFilter) currentFilter='day';
+ setActiveFilter(currentFilter);
+ loadReports(currentFilter, true);
+
  if(reportsTimer) clearInterval(reportsTimer);
  reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
 }
@@ -492,9 +494,13 @@ function renderPager(){
 
 document.querySelectorAll('.filters button').forEach(btn=>{
  btn.onclick=()=>{
- dbg('CLICK FILTER', btn.dataset.filter);
- setActiveFilter(btn.dataset.filter);
- loadReports(btn.dataset.filter);
+ const f = btn.dataset.filter;
+ dbg('CLICK FILTER', f);
+ currentFilter = f;
+ setActiveFilter(f);
+ loadReports(f, true);
+ if(reportsTimer) clearInterval(reportsTimer);
+ reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
  };
 });
 
