@@ -267,7 +267,7 @@ async function fileToPayload(file){
  h = Math.round(h * (MAX_SIZE / w));
  w = MAX_SIZE;
  }else{
- w = Math.round(h * (MAX_SIZE / h));
+ w = Math.round(w * (MAX_SIZE / h));
  h = MAX_SIZE;
  }
  }
@@ -678,15 +678,15 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== регистрация SW + кнопка обновления ====== */
+/* ====== регистрация SW + кнопка обновления (исправлено) ====== */
 if ('serviceWorker' in navigator) {
  const bar = document.getElementById('updateBar');
  const btn = document.getElementById('updateBtn');
 
  navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
  function showUpdate(){
- if(bar) bar.classList.remove('hidden');
- if(btn){
+ if (bar) bar.classList.remove('hidden');
+ if (btn){
  btn.onclick = () => {
  if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
  location.reload();
@@ -694,7 +694,10 @@ if ('serviceWorker' in navigator) {
  }
  }
 
- if (reg.waiting) showUpdate();
+ // показываем только если есть старый контроллер (не первая установка)
+ if (reg.waiting && navigator.serviceWorker.controller) {
+ showUpdate();
+ }
 
  reg.addEventListener('updatefound', () => {
  const newWorker = reg.installing;
@@ -707,6 +710,7 @@ if ('serviceWorker' in navigator) {
  });
 
  navigator.serviceWorker.addEventListener('controllerchange', () => {
+ if (bar) bar.classList.add('hidden');
  location.reload();
  });
 }
