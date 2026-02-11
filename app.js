@@ -35,6 +35,10 @@ const exportPdfBtn = document.getElementById("exportPdf");
 
 const printArea = document.getElementById("printArea");
 
+const pager = document.getElementById("pager");
+let page =1;
+const perPage =20;
+
 let stream = null, locked = false, starting = false, stopTimer = null, editMode = false;
 let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
 let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
@@ -376,12 +380,14 @@ function getFilterRange(filter){
  return { start: todayStart, end: todayStart +24*60*60*1000 -1 };
  }
  if(filter === 'week'){
- const start = todayStart -6*24*60*60*1000;
- return { start, end: todayStart +24*60*60*1000 -1 };
+ const day=(now.getDay()+6)%7;
+ const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()-day).getTime();
+ const end = new Date(now.getFullYear(), now.getMonth(), now.getDate()+(6-day),23,59,59,999).getTime();
+ return { start, end };
  }
  if(filter === 'month'){
  const start = new Date(now.getFullYear(), now.getMonth(),1).getTime();
- const end = new Date(now.getFullYear(), now.getMonth()+1,1).getTime() -1;
+ const end = new Date(now.getFullYear(), now.getMonth()+1,0,23,59,59,999).getTime();
  return { start, end };
  }
  return null;
@@ -411,8 +417,10 @@ function applyFilterSort(){
  });
  }
  currentReports.sort((a,b)=>compareReports(a,b,sortMode));
+ page =1;
  reportsStatus.textContent='Найдено: '+currentReports.length+(t?(' | Поиск: '+t):'');
  renderReports();
+ renderPager();
 }
 
 function parseDateTime(r){
@@ -448,7 +456,12 @@ function compareReports(a,b,mode){
 
 function renderReports(){
  reportsTableBody.innerHTML='';
- currentReports.forEach(r=>{
+
+ const start = (page-1)*perPage;
+ const end = start + perPage;
+ const slice = currentReports.slice(start, end);
+
+ slice.forEach(r=>{
  const tr=document.createElement('tr');
  const orderTd=document.createElement('td');
  const dateTd=document.createElement('td');
@@ -480,11 +493,38 @@ function renderReports(){
  deletedTombstones.set(id, Date.now());
  applyFilterSort();
  reportsStatus.textContent='✅ Удалено';
- setTimeout(()=>{ loadReports(currentFilter,true); },2000);
  }, ()=>{});
  };
  });
  }
+}
+
+function renderPager(){
+ if(!pager) return;
+ pager.innerHTML='';
+ const total = currentReports.length;
+ const pages = Math.ceil(total / perPage);
+ if(pages <=1) return;
+
+ const prev = document.createElement('button');
+ prev.textContent = '←';
+ prev.disabled = page<=1;
+ prev.onclick = ()=>{ page--; renderReports(); renderPager(); };
+ pager.appendChild(prev);
+
+ for(let i=1;i<=pages;i++){
+ const b=document.createElement('button');
+ b.textContent=i;
+ if(i===page) b.classList.add('active');
+ b.onclick=()=>{ page=i; renderReports(); renderPager(); };
+ pager.appendChild(b);
+ }
+
+ const next = document.createElement('button');
+ next.textContent = '→';
+ next.disabled = page>=pages;
+ next.onclick = ()=>{ page++; renderReports(); renderPager(); };
+ pager.appendChild(next);
 }
 
 document.querySelectorAll('.filters button').forEach(btn=>{
@@ -708,35 +748,17 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== регистрация SW + кнопка обновления (ТОЛЬКО при новом update) ====== */
-if ('serviceWorker' in navigator) {
- const bar = document.getElementById('updateBar');
- const btn = document.getElementById('updateBtn');
-
- if (bar) bar.classList.add('hidden');
-
- navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
-
- reg.update().catch(()=>{});
-
- reg.addEventListener('updatefound', () => {
- const newWorker = reg.installing;
- newWorker.addEventListener('statechange', () => {
- if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
- if (bar) bar.classList.remove('hidden');
- if (btn){
- btn.onclick = () => {
- if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
- location.reload();
- };
- }
- }
- });
- });
- });
-
- navigator.serviceWorker.addEventListener('controllerchange', () => {
- if (bar) bar.classList.add('hidden');
- location.reload();
- });
+/* ====== авто-обновление по version.json ====== */
+const VERSION_URL = './version.json';
+async function checkVersion(){
+ try{
+ const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache:'no-store' });
+ const js = await res.json();
+ const newV = String(js.v || '');
+ const oldV = localStorage.getItem('appVersion') || '';
+ if(newV && oldV && newV !== oldV){ location.reload(); }
+ if(newV) localStorage.setItem('appVersion', newV);
+ }catch(e){}
 }
+checkVersion();
+setInterval(checkVersion,60000);
