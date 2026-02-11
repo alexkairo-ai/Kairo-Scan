@@ -78,8 +78,23 @@ function norm(s){ return String(s||'').trim().toLowerCase(); }
 function hash(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i); return (h>>>0).toString(36); }
 function dmRoomId(a,b){ const [k1,k2]=[norm(a),norm(b)].sort(); return 'dm_'+hash(k1+'|'+k2); }
 
+function getNameFromOpener(){
+ try{
+ const w = window.opener?.document?.getElementById('worker');
+ if(w && w.value) return w.value.trim();
+ }catch(e){}
+ return '';
+}
+
 function showNameOverlay(show){ overlay.style.display = show ? 'flex' : 'none'; }
 function ensureName(){
+ if(!myName){
+ const fromOpener = getNameFromOpener();
+ if(fromOpener){
+ myName = fromOpener;
+ localStorage.setItem('workerName', myName);
+ }
+ }
  if(!myName){ showNameOverlay(true); }
  else { myKey=norm(myName); myNameEl.textContent=myName; }
 }
@@ -90,11 +105,23 @@ saveName.onclick=()=>{
  myKey=norm(myName); myNameEl.textContent=myName;
  showNameOverlay(false); loadDmRooms();
 };
+nameInput.addEventListener('keydown', (e)=>{
+ if(e.key==='Enter') saveName.click();
+});
 changeNameBtn.onclick=()=>{ nameInput.value=myName||''; showNameOverlay(true); };
 
 backBtn.onclick = ()=>{
- if(window.opener) window.close();
- else location.href = 'index.html';
+ try{
+ if(window.opener && !window.opener.closed){
+ window.opener.focus();
+ window.close();
+ setTimeout(()=>{ if(!window.closed) location.href='index.html'; },200);
+ }else{
+ location.href='index.html';
+ }
+ }catch(e){
+ location.href='index.html';
+ }
 };
 
 async function initAuth(){ await signInAnonymously(auth); }
