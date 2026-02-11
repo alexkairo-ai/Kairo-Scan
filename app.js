@@ -708,13 +708,21 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== регистрация SW + кнопка обновления (исправлено) ====== */
+/* ====== регистрация SW + кнопка обновления (ТОЛЬКО при новом update) ====== */
 if ('serviceWorker' in navigator) {
  const bar = document.getElementById('updateBar');
  const btn = document.getElementById('updateBtn');
 
+ if (bar) bar.classList.add('hidden');
+
  navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
- function showUpdate(){
+
+ reg.update().catch(()=>{});
+
+ reg.addEventListener('updatefound', () => {
+ const newWorker = reg.installing;
+ newWorker.addEventListener('statechange', () => {
+ if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
  if (bar) bar.classList.remove('hidden');
  if (btn){
  btn.onclick = () => {
@@ -722,17 +730,6 @@ if ('serviceWorker' in navigator) {
  location.reload();
  };
  }
- }
-
- if (reg.waiting && navigator.serviceWorker.controller) {
- showUpdate();
- }
-
- reg.addEventListener('updatefound', () => {
- const newWorker = reg.installing;
- newWorker.addEventListener('statechange', () => {
- if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
- showUpdate();
  }
  });
  });
