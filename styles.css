@@ -1,4 +1,4 @@
-:root{
+ss :root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -172,8 +172,6 @@ button:active{transform:translateY(1px)}
  transform:translateY(-1px);
 }
 
-.hidden{display:none}
-
 /* скрытая зона рендера под картинку */
 #printArea{
  position:fixed;
@@ -268,3 +266,6 @@ button:active{transform:translateY(1px)}
  width:auto; padding:6px10px; border-radius:8px;
  font-size:12px;
 }
+
+/* IMPORTANT: скрываем всегда, когда .hidden */
+.hidden{display:none !important;}
