@@ -2,14 +2,14 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Готовность производства — Присадка</title>
+<title>Присадка</title>
 
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-<link rel="manifest" href="manifest-prisadka.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111111">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -39,14 +39,9 @@
  </div>
 
  <div class="card">
- <h3 id="stageTitle">Выберите этап:</h3>
+ <h3 id="stageTitle">Этап:</h3>
  <div id="stageButtons">
- <button data-stage="pila">Пила</button>
- <button data-stage="hdf">ХДФ</button>
- <button data-stage="kromka">Кромка</button>
  <button data-stage="prisadka">Присадка</button>
- <button data-stage="upakovka">Упаковка</button>
- <button data-stage="hdf" data-only="pila-hdf" data-color="#f39931">ПИЛА ХДФ</button>
  </div>
  <div id="status">Готово к работе</div>
  </div>
@@ -121,6 +116,15 @@
 </div>
 
 <div id="printArea"></div>
+
+<div id="updateBar" class="update-bar hidden">
+ Доступно обновление <button id="updateBtn">Обновить</button>
+</div>
+
+<button id="chatBtn" title="Чат" onclick="(function(){
+ const n = (document.getElementById('worker')?.value || localStorage.getItem('workerName') || '').trim();
+ window.open('chat.html?name='+encodeURIComponent(n),'_blank');
+})()">💬</button>
 
 <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
