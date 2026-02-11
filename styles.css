@@ -252,3 +252,19 @@ button:active{transform:translateY(1px)}
  z-index:100;
 }
 
+/* панель обновления */
+.update-bar{
+ position:fixed;
+ left:12px; right:12px; bottom:72px;
+ padding:10px12px;
+ border-radius:8px;
+ border:2px solid var(--gold);
+ background:rgba(28,30,34,.9);
+ color:var(--text);
+ display:flex; justify-content:space-between; align-items:center;
+ z-index:999;
+}
+.update-bar button{
+ width:auto; padding:6px10px; border-radius:8px;
+ font-size:12px;
+}
