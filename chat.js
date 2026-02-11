@@ -38,12 +38,13 @@ const sendForm = document.getElementById('sendForm');
 const msgInput = document.getElementById('msgInput');
 const searchMsg = document.getElementById('searchMsg');
 const notifyBtn = document.getElementById('notifyBtn');
+const backBtn = document.getElementById('backBtn');
 
 const overlay = document.getElementById('nameOverlay');
 const nameInput = document.getElementById('nameInput');
 const saveName = document.getElementById('saveName');
 
-let myName = localStorage.getItem('workerName') || '';
+let myName = (localStorage.getItem('workerName') || '').trim();
 let myKey = '';
 let currentRoomId = '';
 let unsubMessages = null;
@@ -52,6 +53,26 @@ let allMessages = [];
 let lastSeenTs =0;
 
 let pinned = new Set(JSON.parse(localStorage.getItem('pinnedGroups')||'[]'));
+
+/* звук */
+let soundEnabled = localStorage.getItem('chatSound') === '1';
+let audioCtx = null;
+
+function initAudio(){
+ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function beep(){
+ if(!soundEnabled) return;
+ initAudio();
+ const o = audioCtx.createOscillator();
+ const g = audioCtx.createGain();
+ o.type = 'sine';
+ o.frequency.value =880;
+ g.gain.value =0.03;
+ o.connect(g).connect(audioCtx.destination);
+ o.start();
+ setTimeout(()=>{ o.stop(); },120);
+}
 
 function norm(s){ return String(s||'').trim().toLowerCase(); }
 function hash(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i); return (h>>>0).toString(36); }
@@ -70,6 +91,11 @@ saveName.onclick=()=>{
  showNameOverlay(false); loadDmRooms();
 };
 changeNameBtn.onclick=()=>{ nameInput.value=myName||''; showNameOverlay(true); };
+
+backBtn.onclick = ()=>{
+ if(window.opener) window.close();
+ else location.href = 'index.html';
+};
 
 async function initAuth(){ await signInAnonymously(auth); }
 
@@ -187,13 +213,16 @@ dmOpen.onclick=()=>openDm(dmName.value);
 
 notifyBtn.onclick=async ()=>{
  if(Notification.permission!=='granted') await Notification.requestPermission();
- alert('Уведомления включены');
+ soundEnabled = !soundEnabled;
+ localStorage.setItem('chatSound', soundEnabled ? '1' : '0');
+ alert(soundEnabled ? 'Уведомления + звук включены' : 'Звук выключен');
 };
 
 function notifyNew(m){
  if(Notification.permission!=='granted') return;
  if(!m || m.from===myName) return;
  new Notification(`Сообщение от ${m.from}`, { body: m.text||'', silent:true });
+ beep();
 }
 
 (async ()=>{
