@@ -267,7 +267,7 @@ async function fileToPayload(file){
  h = Math.round(h * (MAX_SIZE / w));
  w = MAX_SIZE;
  }else{
- w = Math.round(w * (MAX_SIZE / h));
+ w = Math.round(h * (MAX_SIZE / h));
  h = MAX_SIZE;
  }
  }
@@ -678,9 +678,9 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== регистрация SW для авто-обновлений ====== */
+/* ====== регистрация SW для авто-обновлений (GitHub Pages подпапка) ====== */
 if ('serviceWorker' in navigator) {
- navigator.serviceWorker.register('/sw.js').then(reg => {
+ navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
  if (reg.waiting) {
  reg.waiting.postMessage('SKIP_WAITING');
  }
