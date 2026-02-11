@@ -748,17 +748,25 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== авто-обновление по version.json ====== */
-const VERSION_URL = './version.json';
+/* ====== авто-обновление без version.json ====== */
+const CHECK_URL = './app.js';
+
+function hashStr(str){
+ let h =5381;
+ for (let i=0; i<str.length; i++) h = ((h<<5)+h) + str.charCodeAt(i);
+ return (h>>>0).toString(36);
+}
+
 async function checkVersion(){
  try{
- const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache:'no-store' });
- const js = await res.json();
- const newV = String(js.v || '');
- const oldV = localStorage.getItem('appVersion') || '';
- if(newV && oldV && newV !== oldV){ location.reload(); }
- if(newV) localStorage.setItem('appVersion', newV);
+ const res = await fetch(CHECK_URL + '?t=' + Date.now(), { cache:'no-store' });
+ const text = await res.text();
+ const newHash = hashStr(text);
+ const oldHash = localStorage.getItem('appHash') || '';
+ if (oldHash && newHash !== oldHash) location.reload();
+ if (newHash) localStorage.setItem('appHash', newHash);
  }catch(e){}
 }
+
 checkVersion();
 setInterval(checkVersion,60000);
