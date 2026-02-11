@@ -1,4 +1,4 @@
-:root{
+ss :root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -239,4 +239,15 @@ button:active{transform:translateY(1px)}
 .photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .photo-actions button{width:auto;font-size:12px;padding:6px10px;border-radius:10px}
 
-
+/* кнопка чата */
+#chatBtn{
+ position:fixed;
+ right:16px;
+ bottom:16px;
+ width:44px;
+ height:44px;
+ padding:0;
+ border-radius:999px;
+ font-size:22px;
+ z-index:100;
+}
