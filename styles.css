@@ -16,7 +16,7 @@ html, body{
  height:100%;
 }
 
-/* фиксированный фон на весь экран */
+/* фиксированный фон */
 body::before{
  content:"";
  position:fixed;
@@ -35,7 +35,6 @@ body{
  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* убрать разрыв при скролле в iOS */
 @supports (-webkit-touch-callout: none){
  html{ height: -webkit-fill-available; }
  body{ min-height: -webkit-fill-available; }
@@ -172,17 +171,15 @@ button:active{transform:translateY(1px)}
  transform:translateY(-1px);
 }
 
-/* скрытая зона рендера под картинку */
 #printArea{
  position:fixed;
  left:-99999px;
  top:0;
- width:794px; /* A4 @96dpi */
+ width:794px;
  background:#fff;
  color:#111;
 }
 
-/* кнопка обновления */
 #refreshBtn{
  position:absolute;
  top:12px;
@@ -224,7 +221,6 @@ button:active{transform:translateY(1px)}
  transform:scale(1.03);
 }
 
-/* окно загрузки фото */
 #photoOverlay{
  position:fixed; inset:0; background:rgba(0,0,0,.6);
  display:flex; align-items:center; justify-content:center; z-index:9999;
@@ -237,7 +233,6 @@ button:active{transform:translateY(1px)}
 .photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .photo-actions button{width:auto;font-size:12px;padding:6px10px;border-radius:10px}
 
-/* кнопка чата */
 #chatBtn{
  position:fixed;
  right:16px;
@@ -250,7 +245,6 @@ button:active{transform:translateY(1px)}
  z-index:100;
 }
 
-/* панель обновления */
 .update-bar{
  position:fixed;
  left:12px; right:12px; bottom:72px;
@@ -267,6 +261,8 @@ button:active{transform:translateY(1px)}
  font-size:12px;
 }
 
-/* IMPORTANT: скрываем всегда, когда .hidden */
-.hidden{display:none !important;}
+.pager{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.pager button{width:auto;padding:6px10px;font-size:12px;border-radius:10px}
+.pager .active{background:rgba(0,0,0,.45);border-color:var(--gold-hi)}
 
+.hidden{display:none !important;}
