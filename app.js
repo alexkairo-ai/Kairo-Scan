@@ -63,20 +63,6 @@ function showScanButton(show){ startBtn.style.display = show ? "block" : "none";
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 
-function showSnapshot(){
- if(video.videoWidth && video.videoHeight){
- canvas.width = video.videoWidth;
- canvas.height = video.videoHeight;
- ctx.drawImage(video,0,0,canvas.width,canvas.height);
- canvas.style.display = "block";
- video.style.display = "none";
- }
-}
-function hideSnapshot(){
- canvas.style.display = "none";
- video.style.display = "block";
-}
-
 const savedName = localStorage.getItem('workerName') || '';
 if(savedName) workerInput.value = savedName;
 workerInput.addEventListener('input', ()=>localStorage.setItem('workerName', workerInput.value.trim()));
@@ -113,7 +99,6 @@ async function startCamera(){
  video.srcObject = stream;
  await video.play();
  locked=false;
- hideSnapshot();
  showScanButton(false);
  if (stopTimer) clearTimeout(stopTimer);
  stopTimer = setTimeout(()=>{ if(!locked){ msg.innerHTML="Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera();}},20000);
@@ -176,9 +161,8 @@ function scan(){
  if(codes && codes.length){
  const data = codes[0].rawValue || '';
  orderInput.value = data;
- msg.innerHTML = "QR найден: " + data;
+ msg.innerHTML = "✅ Готово!";
  if(navigator.vibrate) navigator.vibrate(80);
- showSnapshot();
  freezeCamera();
  return;
  }
@@ -194,11 +178,9 @@ function scan(){
  const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:"attemptBoth"});
  if(code){
  orderInput.value=code.data;
- msg.innerHTML="QR найден: " + code.data;
+ msg.innerHTML="✅ Готово!";
  if(navigator.vibrate) navigator.vibrate(80);
- showSnapshot();
- freezeCamera();
- return;
+ freezeCamera(); return;
  }
  }
  requestAnimationFrame(scan);
