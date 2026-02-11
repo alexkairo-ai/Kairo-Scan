@@ -60,18 +60,8 @@ function reportId(r){ return reportKey(r); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState === "live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
-function stopCamera(){
- if(stream) stream.getTracks().forEach(t=>t.stop());
- stream=null;
- if(stopTimer){clearTimeout(stopTimer);stopTimer=null;}
- showScanButton(true);
-}
-function freezeCamera(){
- if(stream) stream.getTracks().forEach(t=>t.stop());
- locked=true;
- if(stopTimer){clearTimeout(stopTimer);stopTimer=null;}
- showScanButton(true);
-}
+function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
+function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 
 function showSnapshot(){
  if(video.videoWidth && video.videoHeight){
@@ -414,14 +404,14 @@ function loadReports(filter, force){
  reportsLoading=false;
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
- applyFilterSort();
+ applyFilterSort(false);
  }, err=>{
  if(reqId !== reportsReqId) return;
  reportsLoading=false;
  });
 }
 
-function applyFilterSort(){
+function applyFilterSort(resetPage){
  currentReports = rawReports.slice().filter(r=>{
  const id = reportId(r);
  return !deletedTombstones.has(id);
@@ -437,7 +427,11 @@ function applyFilterSort(){
  });
  }
  currentReports.sort((a,b)=>compareReports(a,b,sortMode));
- page =1;
+
+ const pages = Math.max(1, Math.ceil(currentReports.length / perPage));
+ if(resetPage) page =1;
+ if(page > pages) page = pages;
+
  reportsStatus.textContent='Найдено: '+currentReports.length+(t?(' | Поиск: '+t):'');
  renderReports();
  renderPager();
@@ -536,11 +530,18 @@ document.querySelectorAll('.filters button').forEach(btn=>{
  loadReports(f, true);
  if(reportsTimer) clearInterval(reportsTimer);
  reportsTimer = setInterval(()=>{ loadReports(currentFilter); },7000);
+ page =1;
  };
 });
 
-searchInput.addEventListener('input',()=>{ filterTerm=searchInput.value.trim(); applyFilterSort(); });
-sortSelect.onchange=()=>{ sortMode=sortSelect.value; applyFilterSort(); };
+searchInput.addEventListener('input',()=>{
+ filterTerm = searchInput.value.trim();
+ applyFilterSort(true);
+});
+sortSelect.onchange=()=>{
+ sortMode = sortSelect.value;
+ applyFilterSort(true);
+};
 
 statsBtn.onclick=()=>{
  const d=statsDate.value, stage=statsStage.value;
