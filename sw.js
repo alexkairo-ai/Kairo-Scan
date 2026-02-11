@@ -1,6 +1,6 @@
 const CACHE = 'app-auto';
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', () => {
  self.skipWaiting();
 });
 
@@ -8,10 +8,13 @@ self.addEventListener('activate', (e) => {
  e.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('message', (e) => {
+ if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (e) => {
  const req = e.request;
-
- // пропускаем не-GET и сторонние домены if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
+ if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
 
  e.respondWith(
  fetch(req)
