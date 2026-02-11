@@ -393,6 +393,12 @@ function getFilterRange(filter){
  return null;
 }
 
+function getTs(r){
+ const v = Number(r.ts ||0);
+ if (v) return v;
+ return parseDateTime(r);
+}
+
 function applyFilterSort(){
  currentReports = rawReports.slice().filter(r=>{
  const id = reportId(r);
@@ -402,7 +408,7 @@ function applyFilterSort(){
  const range = getFilterRange(currentFilter);
  if(range){
  currentReports = currentReports.filter(r=>{
- const ms = parseDateTime(r);
+ const ms = getTs(r);
  return ms >= range.start && ms <= range.end;
  });
  }
@@ -440,12 +446,12 @@ function parseDateTime(r){
 function compareReports(a,b,mode){
  const av = (mode.indexOf('order')===0) ? (a.order||'') :
  (mode.indexOf('db')===0) ? (a.db||'') :
- (mode.indexOf('date')===0) ? parseDateTime(a) :
- (mode.indexOf('time')===0) ? parseDateTime(a) : '';
+ (mode.indexOf('date')===0) ? getTs(a) :
+ (mode.indexOf('time')===0) ? getTs(a) : '';
  const bv = (mode.indexOf('order')===0) ? (b.order||'') :
  (mode.indexOf('db')===0) ? (b.db||'') :
- (mode.indexOf('date')===0) ? parseDateTime(b) :
- (mode.indexOf('time')===0) ? parseDateTime(b) : '';
+ (mode.indexOf('date')===0) ? getTs(b) :
+ (mode.indexOf('time')===0) ? getTs(b) : '';
  const asc = mode.indexOf('_asc') !== -1;
  if(typeof av==='number') return asc ? (av-bv):(bv-av);
  const s1=String(av).toLowerCase(), s2=String(bv).toLowerCase();
@@ -618,8 +624,8 @@ exportPdfBtn.onclick=async ()=>{
  const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
 
  let data = rawReports.slice();
- if(fromMs) data = data.filter(r=>parseDateTime(r)>=fromMs);
- if(toEnd) data = data.filter(r=>parseDateTime(r)<=toEnd);
+ if(fromMs) data = data.filter(r=>getTs(r)>=fromMs);
+ if(toEnd) data = data.filter(r=>getTs(r)<=toEnd);
 
  if(!data.length){ alert("Нет данных для выбранного периода"); return; }
 
