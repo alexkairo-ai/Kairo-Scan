@@ -364,7 +364,7 @@ function loadReports(filter, force){
  reportsLoading = true;
  currentFilter = filter;
 
- callApi({action:'reports', filter:'all'}, res=>{
+ callApi({action:'reports', filter}, res=>{
  reportsLoading=false;
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
@@ -372,46 +372,11 @@ function loadReports(filter, force){
  }, ()=>{ reportsLoading=false; });
 }
 
-function getFilterRange(filter){
- const now = new Date();
- const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
- if(filter === 'day'){
- return { start: todayStart, end: todayStart +24*60*60*1000 -1 };
- }
- if(filter === 'week'){
- const day=(now.getDay()+6)%7;
- const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()-day).getTime();
- const end = new Date(now.getFullYear(), now.getMonth(), now.getDate()+(6-day),23,59,59,999).getTime();
- return { start, end };
- }
- if(filter === 'month'){
- const start = new Date(now.getFullYear(), now.getMonth(),1).getTime();
- const end = new Date(now.getFullYear(), now.getMonth()+1,0,23,59,59,999).getTime();
- return { start, end };
- }
- return null;
-}
-
-function getTs(r){
- const v = Number(r.ts ||0);
- if (v) return v;
- return parseDateTime(r);
-}
-
 function applyFilterSort(){
  currentReports = rawReports.slice().filter(r=>{
  const id = reportId(r);
  return !deletedTombstones.has(id);
  });
-
- const range = getFilterRange(currentFilter);
- if(range){
- currentReports = currentReports.filter(r=>{
- const ms = getTs(r);
- return ms >= range.start && ms <= range.end;
- });
- }
 
  const t=(filterTerm||'').toLowerCase().trim();
  if(t){
@@ -429,29 +394,15 @@ function applyFilterSort(){
  renderPager();
 }
 
-function parseDateTime(r){
- const datePart=(r.date||'').split(' ')[0];
- const parts=datePart.split('.');
- if(parts.length<3) return0;
- const dd=parseInt(parts[0],10)||0;
- const mm=parseInt(parts[1],10)||0;
- const yy=parseInt(parts[2],10)||0;
- const year=2000+yy;
- const timeParts=(r.time||'00:00').split(':');
- const hh=parseInt(timeParts[0],10)||0;
- const mi=parseInt(timeParts[1],10)||0;
- return new Date(year,mm-1,dd,hh,mi,0).getTime();
-}
-
 function compareReports(a,b,mode){
  const av = (mode.indexOf('order')===0) ? (a.order||'') :
  (mode.indexOf('db')===0) ? (a.db||'') :
- (mode.indexOf('date')===0) ? getTs(a) :
- (mode.indexOf('time')===0) ? getTs(a) : '';
+ (mode.indexOf('date')===0) ? (a.ts||0) :
+ (mode.indexOf('time')===0) ? (a.ts||0) : '';
  const bv = (mode.indexOf('order')===0) ? (b.order||'') :
  (mode.indexOf('db')===0) ? (b.db||'') :
- (mode.indexOf('date')===0) ? getTs(b) :
- (mode.indexOf('time')===0) ? getTs(b) : '';
+ (mode.indexOf('date')===0) ? (b.ts||0) :
+ (mode.indexOf('time')===0) ? (b.ts||0) : '';
  const asc = mode.indexOf('_asc') !== -1;
  if(typeof av==='number') return asc ? (av-bv):(bv-av);
  const s1=String(av).toLowerCase(), s2=String(bv).toLowerCase();
@@ -624,8 +575,8 @@ exportPdfBtn.onclick=async ()=>{
  const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
 
  let data = rawReports.slice();
- if(fromMs) data = data.filter(r=>getTs(r)>=fromMs);
- if(toEnd) data = data.filter(r=>getTs(r)<=toEnd);
+ if(fromMs) data = data.filter(r=>Number(r.ts||0)>=fromMs);
+ if(toEnd) data = data.filter(r=>Number(r.ts||0)<=toEnd);
 
  if(!data.length){ alert("Нет данных для выбранного периода"); return; }
 
@@ -773,6 +724,5 @@ async function checkVersion(){
  if (newHash) localStorage.setItem('appHash', newHash);
  }catch(e){}
 }
-
 checkVersion();
 setInterval(checkVersion,60000);
