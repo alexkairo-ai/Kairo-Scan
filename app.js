@@ -358,7 +358,7 @@ if (view==='reports'){ setTimeout(openReports,0); }
 function loadReports(filter, force){
  if(!force && reportsLoading) return;
  reportsLoading=true; currentFilter=filter;
- callApi({action:'reports', filter}, res=>{
+ // Всегда берем все данные, фильтруем на клиенте callApi({action:'reports', filter:'all'}, res=>{
  reportsLoading=false;
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
@@ -366,11 +366,39 @@ function loadReports(filter, force){
  }, ()=>{ reportsLoading=false; });
 }
 
+function getFilterRange(filter){
+ const now = new Date();
+ const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+ if(filter === 'day'){
+ return { start: todayStart, end: todayStart +24*60*60*1000 -1 };
+ }
+ if(filter === 'week'){
+ const start = todayStart -6*24*60*60*1000;
+ return { start, end: todayStart +24*60*60*1000 -1 };
+ }
+ if(filter === 'month'){
+ const start = new Date(now.getFullYear(), now.getMonth(),1).getTime();
+ const end = new Date(now.getFullYear(), now.getMonth()+1,1).getTime() -1;
+ return { start, end };
+ }
+ return null;
+}
+
 function applyFilterSort(){
  currentReports = rawReports.slice().filter(r=>{
  const id = reportId(r);
  return !deletedTombstones.has(id);
  });
+
+ const range = getFilterRange(currentFilter);
+ if(range){
+ currentReports = currentReports.filter(r=>{
+ const ms = parseDateTime(r);
+ return ms >= range.start && ms <= range.end;
+ });
+ }
+
  const t=(filterTerm||'').toLowerCase().trim();
  if(t){
  const words=t.split(/\s+/).filter(Boolean);
@@ -694,7 +722,6 @@ if ('serviceWorker' in navigator) {
  }
  }
 
- // показываем только если есть старый контроллер (не первая установка)
  if (reg.waiting && navigator.serviceWorker.controller) {
  showUpdate();
  }
