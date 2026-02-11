@@ -678,18 +678,29 @@ editReportsBtn.onclick=()=>{
 
 document.getElementById('refreshBtn').onclick = () => location.reload(true);
 
-/* ====== регистрация SW для авто-обновлений (GitHub Pages подпапка) ====== */
+/* ====== регистрация SW + кнопка обновления ====== */
 if ('serviceWorker' in navigator) {
+ const bar = document.getElementById('updateBar');
+ const btn = document.getElementById('updateBtn');
+
  navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
- if (reg.waiting) {
- reg.waiting.postMessage('SKIP_WAITING');
+ function showUpdate(){
+ if(bar) bar.classList.remove('hidden');
+ if(btn){
+ btn.onclick = () => {
+ if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+ location.reload();
+ };
  }
+ }
+
+ if (reg.waiting) showUpdate();
+
  reg.addEventListener('updatefound', () => {
  const newWorker = reg.installing;
  newWorker.addEventListener('statechange', () => {
  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
- newWorker.postMessage('SKIP_WAITING');
- location.reload();
+ showUpdate();
  }
  });
  });
