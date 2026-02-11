@@ -122,7 +122,12 @@
 
 <div id="printArea"></div>
 
-<!-- Кнопка чата (с передачей имени) -->
+<!-- Панель обновления -->
+<div id="updateBar" class="update-bar hidden">
+ Доступно обновление <button id="updateBtn">Обновить</button>
+</div>
+
+<!-- Кнопка чата -->
 <button id="chatBtn" title="Чат" onclick="(function(){
  const n = (document.getElementById('worker')?.value || localStorage.getItem('workerName') || '').trim();
  window.open('chat.html?name='+encodeURIComponent(n),'_blank');
