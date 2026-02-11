@@ -3,6 +3,9 @@ const EDIT_PASS = '1990';
 const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
 const photoStages = new Set(['hdf','prisadka','upakovka']);
 
+const DEBUG = true;
+function dbg(...a){ if(DEBUG) console.log('[DBG]', ...a); }
+
 const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
 const statusEl = document.getElementById("status");
@@ -363,13 +366,15 @@ function loadReports(filter, force){
  if(!force && reportsLoading) return;
  reportsLoading = true;
  currentFilter = filter;
+ dbg('LOAD', filter);
 
  callApi({action:'reports', filter}, res=>{
  reportsLoading=false;
+ dbg('API RESP', filter, res && res.ok, 'count=', (res.data||[]).length);
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
  applyFilterSort();
- }, ()=>{ reportsLoading=false; });
+ }, err=>{ reportsLoading=false; dbg('API ERR', err); });
 }
 
 function applyFilterSort(){
@@ -392,6 +397,7 @@ function applyFilterSort(){
  reportsStatus.textContent='Найдено: '+currentReports.length+(t?(' | Поиск: '+t):'');
  renderReports();
  renderPager();
+ dbg('APPLY', currentFilter, 'raw=', rawReports.length, 'filtered=', currentReports.length);
 }
 
 function compareReports(a,b,mode){
@@ -486,6 +492,7 @@ function renderPager(){
 
 document.querySelectorAll('.filters button').forEach(btn=>{
  btn.onclick=()=>{
+ dbg('CLICK FILTER', btn.dataset.filter);
  setActiveFilter(btn.dataset.filter);
  loadReports(btn.dataset.filter);
  };
