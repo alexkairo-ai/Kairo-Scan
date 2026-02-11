@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Чат</title>
+<link rel="stylesheet" href="chat.css">
+</head>
+<body>
+<div class="chat-wrap">
+ <aside class="sidebar">
+ <div class="title">Чат</div>
+ <div class="user">Вы: <span id="myName"></span> <button id="changeName">сменить</button></div>
+
+ <div class="section">Группы</div>
+ <div id="groupList" class="room-list"></div>
+
+ <div class="section">Личные</div>
+ <div class="dm-new">
+ <input id="dmName" placeholder="Имя сотрудника">
+ <button id="dmOpen">Открыть</button>
+ </div>
+ <div id="dmList" class="room-list"></div>
+ </aside>
+
+ <main class="chat">
+ <div class="room-head">
+ <div id="roomTitle" class="room-title">Выберите чат</div>
+ <div class="room-tools">
+ <input id="searchMsg" placeholder="Поиск в чате">
+ <button id="notifyBtn" title="Уведомления">🔔</button>
+ </div>
+ </div>
+
+ <div id="messages" class="messages"></div>
+
+ <form id="sendForm" class="send-form">
+ <input id="msgInput" placeholder="Сообщение..." autocomplete="off">
+ <button type="submit">Отправить</button>
+ </form>
+ </main>
+</div>
+
+<div id="nameOverlay" class="overlay">
+ <div class="modal">
+ <div class="modal-title">Введите имя</div>
+ <input id="nameInput" placeholder="Ваше имя">
+ <button id="saveName">Продолжить</button>
+ </div>
+</div>
+
+<script type="module" src="chat.js"></script>
+</body>
+</html>

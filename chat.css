@@ -1,0 +1,44 @@
+ss :root{
+ --bg:#0b0c0f;
+ --panel:#14161b;
+ --text:#f5f5f5;
+ --muted:#b1b1b1;
+ --accent:#caa24f;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial, sans-serif;background:var(--bg);color:var(--text)}
+
+.chat-wrap{display:flex;height:100vh}
+.sidebar{width:280px;background:var(--panel);padding:12px;overflow:auto}
+.title{font-weight:700;font-size:18px;margin-bottom:8px}
+.section{margin-top:12px;font-size:12px;color:var(--muted)}
+.room-list button{width:100%;margin:4px0;padding:6px;border-radius:8px;border:1px solid #333;background:#1e2128;color:#fff;text-align:left}
+.room-list button.active{border-color:var(--accent);background:#2a2d34}
+.room-list button .pin{float:right;opacity:.6}
+.room-list button.pinned{border-color:#caa24f}
+
+.dm-new{display:flex;gap:6px;margin-top:6px}
+.dm-new input{flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:#1b1e25;color:#fff}
+.dm-new button{padding:6px8px;border-radius:6px;border:1px solid var(--accent);background:#1b1e25;color:#fff}
+
+.chat{flex:1;display:flex;flex-direction:column}
+.room-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #222}
+.room-title{padding:10px}
+.room-tools{display:flex;gap:6px;padding:8px}
+.room-tools input{padding:6px;border-radius:6px;border:1px solid #333;background:#1b1e25;color:#fff}
+
+.messages{flex:1;padding:12px;overflow:auto}
+.msg{margin:6px0}
+.msg .meta{font-size:11px;color:var(--muted)}
+.msg.me .bubble{background:#2c3a2a;border:1px solid #445a3d}
+.msg .bubble{display:inline-block;padding:6px8px;border-radius:8px;background:#1f2229;border:1px solid #333}
+
+.send-form{display:flex;gap:6px;padding:10px;border-top:1px solid #222}
+.send-form input{flex:1;padding:8px;border-radius:8px;border:1px solid #333;background:#1b1e25;color:#fff}
+.send-form button{padding:8px12px;border-radius:8px;border:1px solid var(--accent);background:#1b1e25;color:#fff}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
+.modal{background:#1b1e25;padding:16px;border-radius:10px;border:1px solid #333;width:min(90vw,320px)}
+.modal-title{font-weight:700;margin-bottom:8px}
+.modal input{width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#fff}
+.modal button{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid var(--accent);background:#1b1e25;color:#fff}
