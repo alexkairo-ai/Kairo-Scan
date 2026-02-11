@@ -1,4 +1,4 @@
-ss :root{
+:root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -269,3 +269,4 @@ button:active{transform:translateY(1px)}
 
 /* IMPORTANT: скрываем всегда, когда .hidden */
 .hidden{display:none !important;}
+
