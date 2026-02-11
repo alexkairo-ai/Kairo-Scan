@@ -5,11 +5,11 @@
  --text:#f7f8fb;
  --muted:#d2c59f;
  --bg:#000;
+ --radius:6px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"SF Pro Display","Inter",system-ui,Arial,sans-serif}
 
-/* фон как в основном приложении */
 body::before{
  content:"";
  position:fixed; inset:0; z-index:-1;
@@ -18,31 +18,31 @@ body::before{
  url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover no-repeat;
 }
 
-.chat-wrap{display:flex;height:100vh;gap:8px;padding:10px}
+.chat-wrap{display:flex;min-height:100dvh;height:100dvh;gap:8px;padding:8px}
 
 /* Левая панель */
 .sidebar{
  width:260px; min-width:210px;
  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
  border:2px solid var(--gold);
- border-radius:12px;
- padding:10px;
+ border-radius:var(--radius);
+ padding:8px;
  box-shadow:012px28px rgba(0,0,0,.4), inset01px0 rgba(255,255,255,.2);
  overflow:auto;
 }
 
-.title{font-weight:700;font-size:17px;margin-bottom:6px}
+.title{font-weight:700;font-size:16px;margin-bottom:6px}
 .user{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
 .user button{
- font-size:12px; padding:4px6px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#fff;
+ font-size:12px; padding:4px6px; border-radius:var(--radius);
+ border:1px solid var(--gold); background:rgba(6,8,12,.6); color:#fff;
 }
 
 .section{margin-top:8px;font-size:12px;color:var(--muted)}
 .room-list button{
  width:100%; margin:4px0; padding:7px8px;
- border-radius:8px; border:1px solid rgba(255,255,255,.12);
- background:rgba(6,8,12,.6); color:#fff; text-align:left;
+ border-radius:var(--radius); border:1px solid rgba(255,255,255,.12);
+ background:rgba(6,8,12,.6); color:#fff; text-align:left; position:relative;
 }
 .room-list button.active{
  border-color:var(--gold-hi);
@@ -50,16 +50,16 @@ body::before{
  transform:translateY(1px);
 }
 .room-list button .pin{float:right;opacity:.7}
-.room-list button.pinned{border-color:var(--gold)}
+.room-list button .badge{
+ position:absolute; right:8px; top:6px;
+ background:var(--gold); color:#111; font-size:11px; padding:1px6px;
+ border-radius:999px; display:none;
+}
 
 .dm-new{display:flex;gap:6px;margin-top:6px}
 .dm-new input{
- flex:1; padding:6px7px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#fff;
-}
-.dm-new button{
- padding:6px7px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#fff;
+ flex:1; padding:6px7px; border-radius:var(--radius);
+ border:1px solid var(--gold); background:rgba(6,8,12,.6); color:#fff;
 }
 
 /* Основная область */
@@ -70,24 +70,25 @@ body::before{
  display:flex;justify-content:space-between;align-items:center;
  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
  border:2px solid var(--gold);
- border-radius:12px;
+ border-radius:var(--radius);
  padding:8px;
  box-shadow:012px28px rgba(0,0,0,.4), inset01px0 rgba(255,255,255,.2);
 }
 #backBtn{
- width:auto; padding:6px8px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#dbaa4c; font-size:12px;
+ padding:6px8px; border-radius:var(--radius);
+ border:1px solid var(--gold); background:rgba(6,8,12,.6);
+ color:#dbaa4c; font-size:12px;
 }
 .room-title{font-weight:700}
 .room-tools{display:flex;gap:6px}
 .room-tools input{
- padding:6px7px; border-radius:8px; border:1px solid var(--gold);
+ padding:6px7px; border-radius:var(--radius); border:1px solid var(--gold);
  background:rgba(6,8,12,.6); color:#fff;
 }
 
-/* Матовое стекло для переписки */
+/* Матовое стекло */
 .messages{
- flex:1; padding:10px; border-radius:12px; border:2px solid var(--gold);
+ flex:1; padding:10px; border-radius:var(--radius); border:2px solid var(--gold);
  background:linear-gradient(135deg, rgba(255,255,255,.06), rgba(0,0,0,.25)), rgba(28,30,34,.72);
  box-shadow:012px28px rgba(0,0,0,.45), inset01px0 rgba(255,255,255,.18);
  backdrop-filter: blur(6px);
@@ -99,15 +100,10 @@ body::before{
 .msg{margin:6px0}
 .msg .meta{font-size:11px;color:var(--muted);margin-top:2px}
 .msg .bubble{
- display:inline-block;
- padding:6px8px;
- border-radius:8px;
+ display:inline-block; padding:6px8px;
+ border-radius:var(--radius);
  border:1px solid rgba(255,255,255,.12);
  background:rgba(6,8,12,.55);
-}
-.msg.me .bubble{
- border-color:var(--gold-hi);
- background:rgba(6,12,8,.6);
 }
 
 /* Поле отправки */
@@ -115,38 +111,30 @@ body::before{
  display:flex;gap:6px;
  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
  border:2px solid var(--gold);
- border-radius:12px;
+ border-radius:var(--radius);
  padding:8px;
  box-shadow:012px28px rgba(0,0,0,.4), inset01px0 rgba(255,255,255,.2);
 }
 .send-form input{
- flex:1; padding:8px9px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#fff;
+ flex:1; padding:8px9px; border-radius:var(--radius); border:1px solid var(--gold);
+ background:rgba(6,8,12,.6); color:#fff; font-size:16px;
 }
 .send-form button{
- width:auto; padding:8px10px; border-radius:8px; border:1px solid var(--gold);
+ padding:8px10px; border-radius:var(--radius); border:1px solid var(--gold);
  background:rgba(6,8,12,.6); color:#dbaa4c;
 }
 
 /* модалка имени */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
 .modal{
- background:rgba(28,30,34,.95); border:2px solid #caa24f; border-radius:12px;
+ background:rgba(28,30,34,.95); border:2px solid #caa24f; border-radius:var(--radius);
  padding:14px; width:min(92vw,340px); color:#fff;
 }
-.modal-title{font-weight:700;margin-bottom:8px}
-.modal input{
- width:100%; padding:8px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#fff;
-}
-.modal button{
- margin-top:8px; width:100%; padding:8px; border-radius:8px; border:1px solid var(--gold);
- background:rgba(6,8,12,.6); color:#dbaa4c;
-}
+.modal input{font-size:16px;}
 
 /* ✅ Мобильная адаптация */
 @media (max-width:760px){
- .chat-wrap{flex-direction:column;height:100vh;padding:8px}
+ .chat-wrap{flex-direction:column;height:100dvh;padding:8px}
  .sidebar{width:100%;min-width:0;order:2}
  .chat{order:1}
  .room-head{flex-direction:column;align-items:stretch;gap:6px}
