@@ -60,8 +60,32 @@ function reportId(r){ return reportKey(r); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState === "live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
-function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
-function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
+function stopCamera(){
+ if(stream) stream.getTracks().forEach(t=>t.stop());
+ stream=null;
+ if(stopTimer){clearTimeout(stopTimer);stopTimer=null;}
+ showScanButton(true);
+}
+function freezeCamera(){
+ if(stream) stream.getTracks().forEach(t=>t.stop());
+ locked=true;
+ if(stopTimer){clearTimeout(stopTimer);stopTimer=null;}
+ showScanButton(true);
+}
+
+function showSnapshot(){
+ if(video.videoWidth && video.videoHeight){
+ canvas.width = video.videoWidth;
+ canvas.height = video.videoHeight;
+ ctx.drawImage(video,0,0,canvas.width,canvas.height);
+ canvas.style.display = "block";
+ video.style.display = "none";
+ }
+}
+function hideSnapshot(){
+ canvas.style.display = "none";
+ video.style.display = "block";
+}
 
 const savedName = localStorage.getItem('workerName') || '';
 if(savedName) workerInput.value = savedName;
@@ -98,7 +122,9 @@ async function startCamera(){
  try{
  video.srcObject = stream;
  await video.play();
- locked=false; showScanButton(false);
+ locked=false;
+ hideSnapshot();
+ showScanButton(false);
  if (stopTimer) clearTimeout(stopTimer);
  stopTimer = setTimeout(()=>{ if(!locked){ msg.innerHTML="Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera();}},20000);
  scan();
@@ -162,6 +188,7 @@ function scan(){
  orderInput.value = data;
  msg.innerHTML = "QR найден: " + data;
  if(navigator.vibrate) navigator.vibrate(80);
+ showSnapshot();
  freezeCamera();
  return;
  }
@@ -179,7 +206,9 @@ function scan(){
  orderInput.value=code.data;
  msg.innerHTML="QR найден: " + code.data;
  if(navigator.vibrate) navigator.vibrate(80);
- freezeCamera(); return;
+ showSnapshot();
+ freezeCamera();
+ return;
  }
  }
  requestAnimationFrame(scan);
@@ -452,7 +481,7 @@ function renderReports(){
 
  if(editMode){
  const btn=document.createElement('button');
- btn.textContent='Удалить'; btn.dataset.db=r.db; btn.dataset.row=r.row;
+ btn.textContent='Удалить';
  actionTd.classList.add('row-actions'); actionTd.appendChild(btn);
 
  const key = reportId(r);
