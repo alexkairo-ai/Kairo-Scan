@@ -1,4 +1,4 @@
-ss :root{
+:root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -251,3 +251,4 @@ button:active{transform:translateY(1px)}
  font-size:22px;
  z-index:100;
 }
+
