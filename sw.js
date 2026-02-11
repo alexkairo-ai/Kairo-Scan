@@ -1,7 +1,28 @@
 const CACHE = 'app-auto';
 
-self.addEventListener('install', () => {
+const FILES = [
+ './',
+ './index.html',
+ './styles.css',
+ './app.js',
+ './chat.html',
+ './chat.css',
+ './chat.js',
+ './manifest.json',
+
+ './upakovka.html',
+ './kromka.html',
+ './hdf.html',
+ './pila.html',
+ './prisadka.html',
+ './pila-hdf.html'
+];
+
+self.addEventListener('install', (e) => {
  self.skipWaiting();
+ e.waitUntil(
+ caches.open(CACHE).then(cache => cache.addAll(FILES))
+ );
 });
 
 self.addEventListener('activate', (e) => {
