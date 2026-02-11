@@ -3,9 +3,6 @@ const EDIT_PASS = '1990';
 const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
 const photoStages = new Set(['hdf','prisadka','upakovka']);
 
-const DEBUG = true;
-function dbg(...a){ if(DEBUG) console.log('[DBG]', ...a); }
-
 const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
 const statusEl = document.getElementById("status");
@@ -45,9 +42,21 @@ const perPage =20;
 let stream = null, locked = false, starting = false, stopTimer = null, editMode = false;
 let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
 let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
+let reportsReqId =0;
 
 const deletedTombstones = new Map();
-function reportId(r){ return String(r.db || '') + ':' + String(r.row || ''); }
+function reportKey(r){
+ return [
+ String(r.db||''),
+ String(r.order||''),
+ String(r.stage||''),
+ String(r.name||''),
+ String(r.ts||''),
+ String(r.date||''),
+ String(r.time||'')
+ ].join('|');
+}
+function reportId(r){ return reportKey(r); }
 
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState === "live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
@@ -355,7 +364,7 @@ function openReports(){
  loadReports(currentFilter, true);
 
  if(reportsTimer) clearInterval(reportsTimer);
- reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
+ reportsTimer = setInterval(()=>{ loadReports(currentFilter); },7000);
 }
 function closeReports(){
  reportsView.classList.add('hidden');
@@ -368,15 +377,19 @@ function loadReports(filter, force){
  if(!force && reportsLoading) return;
  reportsLoading = true;
  currentFilter = filter;
- dbg('LOAD', filter);
+
+ const reqId = ++reportsReqId;
 
  callApi({action:'reports', filter}, res=>{
+ if(reqId !== reportsReqId) return;
  reportsLoading=false;
- dbg('API RESP', filter, res && res.ok, 'count=', (res.data||[]).length);
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
  applyFilterSort();
- }, err=>{ reportsLoading=false; dbg('API ERR', err); });
+ }, err=>{
+ if(reqId !== reportsReqId) return;
+ reportsLoading=false;
+ });
 }
 
 function applyFilterSort(){
@@ -399,7 +412,6 @@ function applyFilterSort(){
  reportsStatus.textContent='Найдено: '+currentReports.length+(t?(' | Поиск: '+t):'');
  renderReports();
  renderPager();
- dbg('APPLY', currentFilter, 'raw=', rawReports.length, 'filtered=', currentReports.length);
 }
 
 function compareReports(a,b,mode){
@@ -442,26 +454,21 @@ function renderReports(){
  const btn=document.createElement('button');
  btn.textContent='Удалить'; btn.dataset.db=r.db; btn.dataset.row=r.row;
  actionTd.classList.add('row-actions'); actionTd.appendChild(btn);
+
+ const key = reportId(r);
+ btn.onclick=()=>{
+ if(!confirm('Удалить строку?')) return;
+ callApi({action:'delete_report',db:r.db,row:r.row}, res=>{
+ if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
+ deletedTombstones.set(key, Date.now());
+ reportsStatus.textContent='✅ Удалено';
+ loadReports(currentFilter, true);
+ }, ()=>{});
+ };
  }
  tr.append(orderTd,dateTd,timeTd,stageTd,nameTd,dbTd,actionTd);
  reportsTableBody.appendChild(tr);
  });
-
- if(editMode){
- reportsTableBody.querySelectorAll('button').forEach(btn=>{
- btn.onclick=()=>{
- if(!confirm('Удалить строку?')) return;
- const db=btn.dataset.db, row=btn.dataset.row;
- callApi({action:'delete_report',db,row}, res=>{
- if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
- const id = String(db)+':'+String(row);
- deletedTombstones.set(id, Date.now());
- applyFilterSort();
- reportsStatus.textContent='✅ Удалено';
- }, ()=>{});
- };
- });
- }
 }
 
 function renderPager(){
@@ -495,12 +502,11 @@ function renderPager(){
 document.querySelectorAll('.filters button').forEach(btn=>{
  btn.onclick=()=>{
  const f = btn.dataset.filter;
- dbg('CLICK FILTER', f);
  currentFilter = f;
  setActiveFilter(f);
  loadReports(f, true);
  if(reportsTimer) clearInterval(reportsTimer);
- reportsTimer = setInterval(()=>{ loadReports(currentFilter); },2000);
+ reportsTimer = setInterval(()=>{ loadReports(currentFilter); },7000);
  };
 });
 
