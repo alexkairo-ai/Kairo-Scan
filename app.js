@@ -357,8 +357,10 @@ if (view==='reports'){ setTimeout(openReports,0); }
 
 function loadReports(filter, force){
  if(!force && reportsLoading) return;
- reportsLoading=true; currentFilter=filter;
- // Всегда берем все данные, фильтруем на клиенте callApi({action:'reports', filter:'all'}, res=>{
+ reportsLoading = true;
+ currentFilter = filter;
+
+ callApi({action:'reports', filter:'all'}, res=>{
  reportsLoading=false;
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
