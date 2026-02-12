@@ -11,32 +11,22 @@ html, body{
  height:100%;
  overflow:hidden;
  overscroll-behavior:none;
- background:#000;
+ background:
+ linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+ var(--wood) center/cover no-repeat fixed;
 }
 
-/* фон на весь экран */
 body::before{
  content:"";
  position:fixed;
- inset:0;
+ inset:-100px00;
  z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  var(--wood) center/cover no-repeat fixed;
 }
 
-/* закрываем нижнюю полосу iOS */
-body::after{
- content:"";
- position:fixed;
- left:0; right:0; bottom:-50px;
- height:calc(env(safe-area-inset-bottom) +80px);
- z-index:-1;
- background:
- linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
- var(--wood) center/cover no-repeat fixed;
-}
-
+/* контейнер чата — тот же фон */
 .chat-app{
  min-height:100svh;
  height:100dvh;
@@ -44,7 +34,9 @@ body::after{
  flex-direction:column;
  padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
- background:transparent;
+ background:
+ linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+ var(--wood) center/cover no-repeat fixed;
 }
 
 /* верхняя панель */
@@ -137,19 +129,19 @@ body::after{
  -webkit-backdrop-filter: blur(8px);
  display:flex;
  flex-direction:column;
- gap:10px;
+ gap:12px;
  user-select:none;
 }
 
 /* сообщения */
-.msg{ display:flex; max-width:88%; }
+.msg{ display:flex; max-width:90%; }
 .msg.incoming{ align-self:flex-start; }
 .msg.outgoing{ align-self:flex-end; }
 
 .bubble{
- padding:16px18px; /* увеличили */
- border-radius:6px; /* почти квадрат */
- font-size:16px; /* как просили */
+ padding:18px22px; /* значительно больше */
+ border-radius:8px; /* почти квадрат */
+ font-size:16px;
  line-height:1.35;
  color:#000;
  background:var(--bubble-in);
