@@ -42,7 +42,7 @@ const msgMenu = document.getElementById('msgMenu');
 const editMsgBtn = document.getElementById('editMsg');
 const deleteMsgBtn = document.getElementById('deleteMsg');
 
-const toast = document.getElementById('toast'); // <-- добавленоconst urlParams = new URLSearchParams(location.search);
+const urlParams = new URLSearchParams(location.search);
 const myName = (urlParams.get('name') || localStorage.getItem('workerName') || 'Гость').trim();
 const myKey = myName.toLowerCase();
 
@@ -51,31 +51,6 @@ let unsubMessages = null;
 let unsubDmList = null;
 let longPressTimer = null;
 let currentMsgId = null;
-
-// уведомленияlet lastMsgId = null;
-let currentRoomTitle = 'Чат';
-
-function showToast(text){
- if(!toast) return;
- toast.textContent = text;
- toast.classList.remove('hidden');
- clearTimeout(showToast._t);
- showToast._t = setTimeout(()=>toast.classList.add('hidden'),2500);
-}
-
-function playPing(){
- try{
- const ctx = new (window.AudioContext || window.webkitAudioContext)();
- const o = ctx.createOscillator();
- const g = ctx.createGain();
- o.type = 'sine';
- o.frequency.value =740;
- g.gain.value =0.05;
- o.connect(g); g.connect(ctx.destination);
- o.start();
- setTimeout(()=>{ o.stop(); ctx.close(); },120);
- }catch(e){}
-}
 
 function hash(s){
  let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
@@ -164,11 +139,8 @@ async function openDm(other){
 
 function openRoom(roomId, title){
  currentRoomId = roomId;
- currentRoomTitle = title;
  roomTitle.textContent = title;
  menu.classList.add('hidden');
-
- lastMsgId = null;
 
  if(unsubMessages) unsubMessages();
  messagesEl.innerHTML = '';
@@ -205,12 +177,6 @@ function openRoom(roomId, title){
  }
 
  messagesEl.appendChild(row);
-
- // уведомления if(m.from !== myName && d.id !== lastMsgId){
- showToast(`${currentRoomTitle}: ${m.from} — ${m.text}`);
- playPing();
- }
- lastMsgId = d.id;
  });
  messagesEl.scrollTop = messagesEl.scrollHeight;
  });
