@@ -280,23 +280,8 @@ button:active{transform:translateY(1px)}
  z-index:100;
 }
 
-.update-bar{
- position:fixed;
- left:12px; right:12px; bottom:72px;
- padding:10px12px;
- border-radius:8px;
- border:2px solid var(--gold);
- background:rgba(28,30,34,.9);
- color:var(--text);
- display:flex; justify-content:space-between; align-items:center;
- z-index:999;
-}
-.update-bar button{
- width:auto; padding:6px10px; border-radius:8px;
- font-size:12px;
-}
-
 .pager{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .pager button{width:auto;padding:6px10px;font-size:12px;border-radius:10px}
 .pager .active{background:rgba(0,0,0,.45);border-color:var(--gold-hi)}
+
 
