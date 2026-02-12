@@ -6,35 +6,36 @@
 }
 *{box-sizing:border-box}
 
-body{
+html, body{
  margin:0;
+ height:100%;
+ overflow:hidden; /* без резинки */
+ overscroll-behavior:none;
+}
+
+body{
  font-family:Arial, sans-serif;
- height:100vh;
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png")
  center/cover no-repeat fixed;
 }
 
-/* основной контейнер */
 .chat-app{
- height:100vh;
+ height:100dvh;
  display:flex;
  flex-direction:column;
- padding-top:8px;
+ padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
- border:2px solid var(--gold);
- background:rgba(12,13,16,.55);
 }
 
 /* верхняя панель */
 .topbar{
- height:48px;
+ height:52px;
  display:flex;
  align-items:center;
  justify-content:space-between;
- padding:08px;
- border-bottom:1px solid rgba(255,255,255,.1);
+ padding:16px8px8px; /* смещение вниз */
  background:rgba(0,0,0,.35);
 }
 .top-title{
@@ -57,7 +58,7 @@ body{
 /* меню */
 .menu{
  position:absolute;
- top:56px;
+ top:70px;
  right:8px;
  width:min(88vw,300px);
  background:rgba(20,22,27,.92);
@@ -109,20 +110,23 @@ body{
  color:#fff;
 }
 
-/* сообщения */
+/* окно сообщений с золотой рамкой */
 .messages{
  flex:1;
  overflow:auto;
  padding:10px;
+ margin:8px8px;
+ border:2px solid var(--gold);
+ border-radius:12px;
+ background:rgba(12,13,16,.55); /* матовое */
+ overscroll-behavior:contain;
  display:flex;
  flex-direction:column;
  gap:8px;
 }
 
-.msg{
- display:flex;
- max-width:80%;
-}
+/* сообщения */
+.msg{ display:flex; max-width:80%; }
 .msg.incoming{ align-self:flex-start; }
 .msg.outgoing{ align-self:flex-end; }
 
@@ -135,7 +139,6 @@ body{
  background:var(--bubble-in);
 }
 .msg.outgoing .bubble{ background:var(--bubble-out); }
-
 .meta{
  font-size:11px;
  color:#777;
@@ -147,9 +150,8 @@ body{
  display:flex;
  gap:6px;
  padding:8px;
- border-top:1px solid rgba(255,255,255,.1);
  background:rgba(0,0,0,.35);
- border-top:2px solid var(--gold);
+ border-top:1px solid rgba(255,255,255,.1);
 }
 .send-form input{
  flex:1;
@@ -189,4 +191,3 @@ body{
  text-align:left;
 }
 .msg-menu button:hover{background:rgba(255,255,255,.08)}
-
