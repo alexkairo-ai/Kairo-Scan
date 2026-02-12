@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, where, serverTimestamp, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ====== ВСТАВЬТЕ СВОЙ CONFIG ====== */
 const firebaseConfig = {
@@ -38,6 +38,10 @@ const dmList = document.getElementById('dmList');
 const dmName = document.getElementById('dmName');
 const dmOpen = document.getElementById('dmOpen');
 
+const msgMenu = document.getElementById('msgMenu');
+const editMsgBtn = document.getElementById('editMsg');
+const deleteMsgBtn = document.getElementById('deleteMsg');
+
 const urlParams = new URLSearchParams(location.search);
 const myName = (urlParams.get('name') || localStorage.getItem('workerName') || 'Гость').trim();
 const myKey = myName.toLowerCase();
@@ -45,6 +49,8 @@ const myKey = myName.toLowerCase();
 let currentRoomId = '';
 let unsubMessages = null;
 let unsubDmList = null;
+let longPressTimer = null;
+let currentMsgId = null;
 
 function hash(s){
  let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
@@ -57,6 +63,11 @@ function dmRoomId(a,b){
 
 menuBtn.onclick = ()=> menu.classList.toggle('hidden');
 backBtn.onclick = ()=> history.back();
+
+document.addEventListener('click', (e)=>{
+ if(!menu.contains(e.target) && e.target !== menuBtn) menu.classList.add('hidden');
+ if(!msgMenu.contains(e.target)) msgMenu.classList.add('hidden');
+});
 
 async function initAuth(){
  await signInAnonymously(auth);
@@ -138,10 +149,27 @@ function openRoom(roomId, title){
  row.className = 'msg ' + (m.from === myName ? 'outgoing' : 'incoming');
 
  const time = m.ts?.toDate ? m.ts.toDate().toLocaleTimeString().slice(0,5) : '';
+ const edited = m.edited ? ' (ред.)' : '';
+
  row.innerHTML = `
  <div class="bubble">${(m.text||'')}</div>
- <div class="meta">${m.from||''} ${time}</div>
+ <div class="meta">${m.from||''} ${time}${edited}</div>
  `;
+
+ // долгое нажатие для своих сообщений if(m.from === myName){
+ row.addEventListener('pointerdown', (e)=>{
+ clearTimeout(longPressTimer);
+ longPressTimer = setTimeout(()=>{
+ currentMsgId = d.id;
+ msgMenu.style.left = e.pageX + 'px';
+ msgMenu.style.top = e.pageY + 'px';
+ msgMenu.classList.remove('hidden');
+ },500);
+ });
+ row.addEventListener('pointerup', ()=> clearTimeout(longPressTimer));
+ row.addEventListener('pointerleave', ()=> clearTimeout(longPressTimer));
+ }
+
  messagesEl.appendChild(row);
  });
  messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -162,6 +190,23 @@ sendForm.onsubmit = async (e)=>{
 };
 
 dmOpen.onclick = ()=> openDm(dmName.value);
+
+editMsgBtn.onclick = async ()=>{
+ if(!currentMsgId) return;
+ const newText = prompt('Редактировать сообщение:');
+ if(newText === null) return;
+ await updateDoc(doc(db,'rooms',currentRoomId,'messages',currentMsgId), {
+ text: newText,
+ edited: true });
+ msgMenu.classList.add('hidden');
+};
+
+deleteMsgBtn.onclick = async ()=>{
+ if(!currentMsgId) return;
+ if(!confirm('Удалить сообщение?')) return;
+ await deleteDoc(doc(db,'rooms',currentRoomId,'messages',currentMsgId));
+ msgMenu.classList.add('hidden');
+};
 
 (async ()=>{
  await initAuth();
