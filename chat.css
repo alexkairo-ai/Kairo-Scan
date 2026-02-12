@@ -11,30 +11,39 @@ html, body{
  height:100%;
  overflow:hidden;
  overscroll-behavior:none;
+ background:#000;
+}
+
+/* фон на весь экран */
+body::before{
+ content:"";
+ position:fixed;
+ inset:0;
+ z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  var(--wood) center/cover no-repeat fixed;
 }
 
-/* PWA белая/чёрная полоса: принудительно рисуем фон */
-body::before{
+/* закрываем нижнюю полосу iOS */
+body::after{
  content:"";
  position:fixed;
- inset:-50px000; /* перекрывает нижнюю полосу */
+ left:0; right:0; bottom:-50px;
+ height:calc(env(safe-area-inset-bottom) +80px);
  z-index:-1;
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  var(--wood) center/cover no-repeat fixed;
 }
 
-/* контейнер чата */
 .chat-app{
  min-height:100svh;
  height:100dvh;
  display:flex;
  flex-direction:column;
  padding-top:env(safe-area-inset-top);
- padding-bottom:calc(env(safe-area-inset-bottom) +8px);
+ padding-bottom:env(safe-area-inset-bottom);
  background:transparent;
 }
 
@@ -138,9 +147,9 @@ body::before{
 .msg.outgoing{ align-self:flex-end; }
 
 .bubble{
- padding:14px16px; /* больше */
- border-radius:10px; /* лёгкое скругление */
- font-size:16px; /* текст как просили */
+ padding:16px18px; /* увеличили */
+ border-radius:6px; /* почти квадрат */
+ font-size:16px; /* как просили */
  line-height:1.35;
  color:#000;
  background:var(--bubble-in);
