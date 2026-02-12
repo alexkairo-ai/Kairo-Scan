@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, where, serverTimestamp, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 const firebaseConfig = {
  apiKey: "AIzaSyBBREaX2zXTrfn0dYpKC03oI6nS3megdtQ",
@@ -12,9 +13,12 @@ const firebaseConfig = {
  measurementId: "G-MHBJGF0F8S"
 };
 
+const VAPID_KEY = "BNtbtmBVue5fL2a3iGdOP9EdI5PwFrgdHGHKoIEyUjXIir0cq0-_STOruUfOCRqiUONN5RhJNnxLOiNeHfXZXLM";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
 
 const groups = [
  { id:'group_general', title:'Общий' },
@@ -76,6 +80,31 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 async function initAuth(){
  await signInAnonymously(auth);
+}
+
+async function initPush(){
+ try{
+ if(!('serviceWorker' in navigator)) return;
+ if(!('Notification' in window)) return;
+
+ let perm = Notification.permission;
+ if(perm === 'default'){
+ perm = await Notification.requestPermission();
+ }
+ if(perm !== 'granted') return;
+
+ const reg = await navigator.serviceWorker.register('./chat-sw.js', { scope:'./' });
+
+ const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+ if(token){
+ await setDoc(doc(db,'push_tokens', token), {
+ token,
+ userKey: myKey,
+ userName: myName,
+ updatedAt: serverTimestamp()
+ });
+ }
+ }catch(e){}
 }
 
 function renderGroups(){
@@ -218,6 +247,7 @@ deleteMsgBtn.onclick = async (e)=>{
 
 (async ()=>{
  await initAuth();
+ await initPush();
  renderGroups();
  await ensureGroupDocs();
  loadDmRooms();
