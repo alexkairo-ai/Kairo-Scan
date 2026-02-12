@@ -2,52 +2,37 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Чат</title>
 <link rel="stylesheet" href="chat.css">
 </head>
 <body>
-<div class="chat-wrap">
- <aside class="sidebar">
- <div class="title">Чат</div>
- <div class="user">Вы: <span id="myName"></span> <button id="changeName" type="button">сменить</button></div>
+<div class="chat-app">
 
- <div class="section">Группы</div>
- <div id="groupList" class="room-list"></div>
+ <header class="topbar">
+ <button id="backBtn" class="top-btn">←</button>
+ <div id="roomTitle" class="top-title">Чат</div>
+ <button id="menuBtn" class="top-btn">☰</button>
+ </header>
 
- <div class="section">Личные</div>
+ <div id="menu" class="menu hidden">
+ <div class="menu-section">Группы</div>
+ <div id="groupList" class="menu-list"></div>
+
+ <div class="menu-section">Личные</div>
  <div class="dm-new">
  <input id="dmName" placeholder="Имя сотрудника">
- <button id="dmOpen" type="button">Открыть</button>
+ <button id="dmOpen">Открыть</button>
  </div>
- <div id="dmList" class="room-list"></div>
- </aside>
-
- <main class="chat">
- <div class="room-head">
- <button id="backBtn" type="button" title="Назад">← Назад</button>
- <div id="roomTitle" class="room-title">Выберите чат</div>
- <div class="room-tools">
- <input id="searchMsg" placeholder="Поиск в чате">
- <button id="notifyBtn" type="button" title="Уведомления">🔔</button>
- </div>
+ <div id="dmList" class="menu-list"></div>
  </div>
 
- <div id="messages" class="messages"></div>
+ <main id="messages" class="messages"></main>
 
  <form id="sendForm" class="send-form">
  <input id="msgInput" placeholder="Сообщение..." autocomplete="off">
- <button type="submit">Отправить</button>
+ <button type="submit" class="send-btn">Отправить</button>
  </form>
- </main>
-</div>
-
-<div id="nameOverlay" class="overlay">
- <div class="modal">
- <div class="modal-title">Введите имя</div>
- <input id="nameInput" placeholder="Ваше имя">
- <button id="saveName" type="button">Продолжить</button>
- </div>
 </div>
 
 <script type="module" src="chat.js"></script>
