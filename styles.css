@@ -1,4 +1,4 @@
-:root{
+ss :root{
  --glass:rgba(28,30,34,.78);
  --gold:#caa24f;
  --gold-hi:#f4e3a1;
@@ -16,7 +16,6 @@ html, body{
  height:100%;
 }
 
-/* фиксированный фон */
 body::before{
  content:"";
  position:fixed;
@@ -60,7 +59,42 @@ body{
 }
 h2{font-size:clamp(22px,5vw,32px);margin:006px}
 h3{font-size:clamp(18px,4vw,24px);margin:6px010px;color:var(--muted)}
+
 video{width:100%;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:#000;pointer-events:none}
+
+/* фиксированный блок видео, чтобы не прыгал */
+.video-wrap{
+ position:relative;
+ width:100%;
+ aspect-ratio:16/9;
+ background:#000;
+ border-radius:14px;
+ border:2px solid rgba(255,255,255,.1);
+ overflow:hidden;
+}
+#video{
+ width:100%;
+ height:100%;
+ object-fit:cover;
+ border:0;
+ border-radius:0;
+ background:#000;
+}
+.scan-overlay{
+ position:absolute;
+ inset:0;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ text-align:center;
+ padding:12px;
+ font-weight:800;
+ font-size:clamp(18px,5vw,28px);
+ color:#eaffea;
+ background:rgba(10,90,35,.78);
+ text-shadow:02px6px rgba(0,0,0,.6);
+}
+
 input{
  font-size:clamp(16px,4.2vw,22px);
  padding:clamp(10px,3vw,14px) clamp(12px,3vw,16px);
@@ -147,7 +181,6 @@ button:active{transform:translateY(1px)}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
 
-/* активная кнопка фильтра */
 .filters button.active{
  background:rgba(0,0,0,.45);
  border-color:var(--gold-hi);
@@ -170,6 +203,8 @@ button:active{transform:translateY(1px)}
  box-shadow:0003px rgba(244,227,161,.2);
  transform:translateY(-1px);
 }
+
+.hidden{display:none}
 
 #printArea{
  position:fixed;
@@ -264,5 +299,3 @@ button:active{transform:translateY(1px)}
 .pager{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .pager button{width:auto;padding:6px10px;font-size:12px;border-radius:10px}
 .pager .active{background:rgba(0,0,0,.45);border-color:var(--gold-hi)}
-
-.hidden{display:none !important;}
