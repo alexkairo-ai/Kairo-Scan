@@ -480,8 +480,10 @@ function renderReports(){
  callApi({action:'delete_report',db:r.db,row:r.row}, res=>{
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  deletedTombstones.set(key, Date.now());
+ rawReports = rawReports.filter(x => reportId(x) !== key);
+ currentReports = currentReports.filter(x => reportId(x) !== key);
+ applyFilterSort(false);
  reportsStatus.textContent='✅ Удалено';
- loadReports(currentFilter, true);
  }, ()=>{});
  };
  }
@@ -684,7 +686,7 @@ exportPdfBtn.onclick=async ()=>{
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
- <th style="border:1px solid #bbbpadding:6px5px;background:#f2f2f2;">Таблица</th>
+ <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
  </tr>
  </thead>
  <tbody>
