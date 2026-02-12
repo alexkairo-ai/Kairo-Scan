@@ -1,6 +1,5 @@
 :root{
  --gold:#caa24f;
- --bg:#0b0c0f;
  --bubble-in:#ffffff;
  --bubble-out:#b5e7a4;
 }
@@ -9,12 +8,8 @@
 html, body{
  margin:0;
  height:100%;
- overflow:hidden; /* без резинки */
+ overflow:hidden;
  overscroll-behavior:none;
-}
-
-body{
- font-family:Arial, sans-serif;
  background:
  linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
  url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png")
@@ -27,6 +22,7 @@ body{
  flex-direction:column;
  padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
+ background:transparent; /* чтобы видеть фон */
 }
 
 /* верхняя панель */
@@ -35,7 +31,7 @@ body{
  display:flex;
  align-items:center;
  justify-content:space-between;
- padding:16px8px8px; /* смещение вниз */
+ padding:16px8px8px;
  background:rgba(0,0,0,.35);
 }
 .top-title{
@@ -57,7 +53,7 @@ body{
 
 /* меню */
 .menu{
- position:absolute;
+ position:fixed;
  top:70px;
  right:8px;
  width:min(88vw,300px);
@@ -65,7 +61,7 @@ body{
  border:1px solid var(--gold);
  border-radius:10px;
  padding:10px;
- z-index:999;
+ z-index:9999;
  box-shadow:010px30px rgba(0,0,0,.4);
 }
 .menu.hidden{display:none}
@@ -115,11 +111,10 @@ body{
  flex:1;
  overflow:auto;
  padding:10px;
- margin:8px8px;
+ margin:8px;
  border:2px solid var(--gold);
  border-radius:12px;
  background:rgba(12,13,16,.55); /* матовое */
- overscroll-behavior:contain;
  display:flex;
  flex-direction:column;
  gap:8px;
@@ -139,6 +134,7 @@ body{
  background:var(--bubble-in);
 }
 .msg.outgoing .bubble{ background:var(--bubble-out); }
+
 .meta{
  font-size:11px;
  color:#777;
@@ -173,7 +169,7 @@ body{
 /* меню действий сообщения */
 .msg-menu{
  position:fixed;
- z-index:2000;
+ z-index:20000;
  background:#1b1e25;
  border:1px solid var(--gold);
  border-radius:10px;
