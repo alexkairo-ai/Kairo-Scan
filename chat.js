@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, where, serverTimestamp, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 const firebaseConfig = {
  apiKey: "AIzaSyBBREaX2zXTrfn0dYpKC03oI6nS3megdtQ",
@@ -13,12 +12,9 @@ const firebaseConfig = {
  measurementId: "G-MHBJGF0F8S"
 };
 
-const VAPID_KEY = "BNtbtmBVue5fL2a3iGdOP9EdI5PwFrgdHGHKoIEyUjXIir0cq0-_STOruUfOCRqiUONN5RhJNnxLOiNeHfXZXLM";
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const messaging = getMessaging(app);
 
 const groups = [
  { id:'group_general', title:'Общий' },
@@ -46,15 +42,37 @@ const msgMenu = document.getElementById('msgMenu');
 const editMsgBtn = document.getElementById('editMsg');
 const deleteMsgBtn = document.getElementById('deleteMsg');
 
+const toast = document.getElementById('toast');
+
 const urlParams = new URLSearchParams(location.search);
 const myName = (urlParams.get('name') || localStorage.getItem('workerName') || 'Гость').trim();
 const myKey = myName.toLowerCase();
 
 let currentRoomId = '';
+let currentRoomTitle = 'Чат';
 let unsubMessages = null;
 let unsubDmList = null;
 let longPressTimer = null;
 let currentMsgId = null;
+
+let unreadCount =0;
+let lastMsgId = null;
+
+function showToast(text){
+ if(!toast) return;
+ toast.textContent = text;
+ toast.classList.remove('hidden');
+ clearTimeout(showToast._t);
+ showToast._t = setTimeout(()=>toast.classList.add('hidden'),2500);
+}
+
+function playPing(){
+ try{
+ const audio = new Audio('data:audio/mp3;base64,//uQxAA...');
+ audio.volume =0.3;
+ audio.play();
+ }catch(e){}
+}
 
 function hash(s){
  let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
@@ -80,31 +98,6 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 async function initAuth(){
  await signInAnonymously(auth);
-}
-
-async function initPush(){
- try{
- if(!('serviceWorker' in navigator)) return;
- if(!('Notification' in window)) return;
-
- let perm = Notification.permission;
- if(perm === 'default'){
- perm = await Notification.requestPermission();
- }
- if(perm !== 'granted') return;
-
- const reg = await navigator.serviceWorker.register('./chat-sw.js', { scope:'./' });
-
- const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
- if(token){
- await setDoc(doc(db,'push_tokens', token), {
- token,
- userKey: myKey,
- userName: myName,
- updatedAt: serverTimestamp()
- });
- }
- }catch(e){}
 }
 
 function renderGroups(){
@@ -168,8 +161,12 @@ async function openDm(other){
 
 function openRoom(roomId, title){
  currentRoomId = roomId;
+ currentRoomTitle = title;
  roomTitle.textContent = title;
  menu.classList.add('hidden');
+
+ unreadCount =0;
+ lastMsgId = null;
 
  if(unsubMessages) unsubMessages();
  messagesEl.innerHTML = '';
@@ -206,6 +203,13 @@ function openRoom(roomId, title){
  }
 
  messagesEl.appendChild(row);
+
+ // бесплатные уведомления if(m.from !== myName && d.id !== lastMsgId){
+ unreadCount++;
+ showToast(`${currentRoomTitle}: ${m.from} — ${m.text}`);
+ playPing();
+ }
+ lastMsgId = d.id;
  });
  messagesEl.scrollTop = messagesEl.scrollHeight;
  });
@@ -247,7 +251,6 @@ deleteMsgBtn.onclick = async (e)=>{
 
 (async ()=>{
  await initAuth();
- await initPush();
  renderGroups();
  await ensureGroupDocs();
  loadDmRooms();
