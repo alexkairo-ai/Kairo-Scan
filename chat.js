@@ -17,12 +17,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const groups = [
- { id: 'group_general', title: 'Общий' },
- { id: 'group_pila', title: 'Пила' },
- { id: 'group_hdf', title: 'ХДФ' },
- { id: 'group_kromka', title: 'Кромка' },
- { id: 'group_prisadka', title: 'Присадка' },
- { id: 'group_upakovka', title: 'Упаковка' },
+ { id:'group_general', title:'Общий' },
+ { id:'group_pila', title:'Пила' },
+ { id:'group_hdf', title:'ХДФ' },
+ { id:'group_kromka', title:'Кромка' },
+ { id:'group_prisadka', title:'Присадка' },
+ { id:'group_upakovka', title:'Упаковка' },
 ];
 
 const roomTitle = document.getElementById('roomTitle');
@@ -42,7 +42,7 @@ const msgMenu = document.getElementById('msgMenu');
 const editMsgBtn = document.getElementById('editMsg');
 const deleteMsgBtn = document.getElementById('deleteMsg');
 
-const urlParams = new URLSearchParams(location.search);
+const toast = document.getElementById('toast'); // <-- добавленоconst urlParams = new URLSearchParams(location.search);
 const myName = (urlParams.get('name') || localStorage.getItem('workerName') || 'Гость').trim();
 const myKey = myName.toLowerCase();
 
@@ -52,9 +52,33 @@ let unsubDmList = null;
 let longPressTimer = null;
 let currentMsgId = null;
 
+// уведомленияlet lastMsgId = null;
+let currentRoomTitle = 'Чат';
+
+function showToast(text){
+ if(!toast) return;
+ toast.textContent = text;
+ toast.classList.remove('hidden');
+ clearTimeout(showToast._t);
+ showToast._t = setTimeout(()=>toast.classList.add('hidden'),2500);
+}
+
+function playPing(){
+ try{
+ const ctx = new (window.AudioContext || window.webkitAudioContext)();
+ const o = ctx.createOscillator();
+ const g = ctx.createGain();
+ o.type = 'sine';
+ o.frequency.value =740;
+ g.gain.value =0.05;
+ o.connect(g); g.connect(ctx.destination);
+ o.start();
+ setTimeout(()=>{ o.stop(); ctx.close(); },120);
+ }catch(e){}
+}
+
 function hash(s){
- let h =5381;
- for(let i=0;i<s.length;i++) h = ((h<<5)+h)+s.charCodeAt(i);
+ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
  return (h>>>0).toString(36);
 }
 function dmRoomId(a,b){
@@ -64,7 +88,7 @@ function dmRoomId(a,b){
 
 menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('hidden'); });
 backBtn.onclick = ()=>{
- if(history.length >1) history.back();
+ if (history.length >1) history.back();
  else location.href = "/Kairo-Scan/";
 };
 
@@ -140,8 +164,11 @@ async function openDm(other){
 
 function openRoom(roomId, title){
  currentRoomId = roomId;
+ currentRoomTitle = title;
  roomTitle.textContent = title;
  menu.classList.add('hidden');
+
+ lastMsgId = null;
 
  if(unsubMessages) unsubMessages();
  messagesEl.innerHTML = '';
@@ -157,9 +184,10 @@ function openRoom(roomId, title){
  const time = m.ts?.toDate ? m.ts.toDate().toLocaleTimeString().slice(0,5) : '';
  const edited = m.edited ? ' (ред.)' : '';
 
- row.innerHTML =
- '<div class="bubble">'+(m.text||'')+'</div>'+
- '<div class="meta">'+(m.from||'')+' '+time+edited+'</div>';
+ row.innerHTML = `
+ <div class="bubble">${(m.text||'')}</div>
+ <div class="meta">${m.from||''} ${time}${edited}</div>
+ `;
 
  if(m.from === myName){
  row.addEventListener('pointerdown', (e)=>{
@@ -177,6 +205,12 @@ function openRoom(roomId, title){
  }
 
  messagesEl.appendChild(row);
+
+ // уведомления if(m.from !== myName && d.id !== lastMsgId){
+ showToast(`${currentRoomTitle}: ${m.from} — ${m.text}`);
+ playPing();
+ }
+ lastMsgId = d.id;
  });
  messagesEl.scrollTop = messagesEl.scrollHeight;
  });
