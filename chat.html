@@ -6,7 +6,11 @@
 <meta name="theme-color" content="#111111">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Чат</title>
-<link rel="stylesheet" href="chat.css?v=22">
+<link id="chatCss" rel="stylesheet" href="chat.css">
+<script>
+ const l = document.getElementById('chatCss');
+ l.href = 'chat.css?v=' + Date.now();
+</script>
 </head>
 <body>
 <div id="safeBottom"></div>
@@ -49,5 +53,3 @@
 <script type="module" src="chat.js"></script>
 </body>
 </html>
-
-
