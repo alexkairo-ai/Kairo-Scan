@@ -684,7 +684,7 @@ exportPdfBtn.onclick=async ()=>{
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
+ <th style="border:1px solid #bbbpadding:6px5px;background:#f2f2f2;">Таблица</th>
  </tr>
  </thead>
  <tbody>
@@ -748,26 +748,16 @@ editReportsBtn.onclick=()=>{
  else alert('Неверный пароль');
 };
 
-document.getElementById('refreshBtn').onclick = () => location.reload(true);
-
-/* ====== авто-обновление без version.json ====== */
-const CHECK_URL = './app.js';
-
-function hashStr(str){
- let h =5381;
- for (let i=0; i<str.length; i++) h = ((h<<5)+h) + str.charCodeAt(i);
- return (h>>>0).toString(36);
-}
-
-async function checkVersion(){
+document.getElementById('refreshBtn').onclick = async () => {
  try{
- const res = await fetch(CHECK_URL + '?t=' + Date.now(), { cache:'no-store' });
- const text = await res.text();
- const newHash = hashStr(text);
- const oldHash = localStorage.getItem('appHash') || '';
- if (oldHash && newHash !== oldHash) location.reload();
- if (newHash) localStorage.setItem('appHash', newHash);
+ if('serviceWorker' in navigator){
+ const regs = await navigator.serviceWorker.getRegistrations();
+ regs.forEach(r=>r.unregister());
+ }
+ if(window.caches){
+ const keys = await caches.keys();
+ await Promise.all(keys.map(k=>caches.delete(k)));
+ }
  }catch(e){}
-}
-checkVersion();
-setInterval(checkVersion,60000);
+ location.href = location.href.split('?')[0] + '?hard=' + Date.now();
+};
