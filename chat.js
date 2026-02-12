@@ -62,12 +62,17 @@ function dmRoomId(a,b){
 }
 
 menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('hidden'); });
-backBtn.onclick = ()=> history.back();
+backBtn.onclick = ()=>{
+ if(history.length >1) history.back();
+ else location.href = "../index.html";
+};
 
 document.addEventListener('click', (e)=>{
  if(!menu.contains(e.target) && e.target !== menuBtn) menu.classList.add('hidden');
  if(!msgMenu.contains(e.target)) msgMenu.classList.add('hidden');
 });
+
+document.addEventListener('contextmenu', e => e.preventDefault());
 
 async function initAuth(){
  await signInAnonymously(auth);
@@ -158,6 +163,7 @@ function openRoom(roomId, title){
 
  if(m.from === myName){
  row.addEventListener('pointerdown', (e)=>{
+ e.preventDefault();
  clearTimeout(longPressTimer);
  longPressTimer = setTimeout(()=>{
  currentMsgId = d.id;
@@ -191,7 +197,8 @@ sendForm.onsubmit = async (e)=>{
 
 dmOpen.onclick = ()=> openDm(dmName.value);
 
-editMsgBtn.onclick = async ()=>{
+editMsgBtn.onclick = async (e)=>{
+ e.preventDefault();
  if(!currentMsgId) return;
  const newText = prompt('Редактировать сообщение:');
  if(newText === null) return;
@@ -201,7 +208,8 @@ editMsgBtn.onclick = async ()=>{
  msgMenu.classList.add('hidden');
 };
 
-deleteMsgBtn.onclick = async ()=>{
+deleteMsgBtn.onclick = async (e)=>{
+ e.preventDefault();
  if(!currentMsgId) return;
  if(!confirm('Удалить сообщение?')) return;
  await deleteDoc(doc(db,'rooms',currentRoomId,'messages',currentMsgId));
