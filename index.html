@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-<link rel="manifest" href="manifest.json?v=3">
+<link rel="manifest" href="manifest.json?v=2">
 <meta name="theme-color" content="#111111">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,7 +25,12 @@
  <button id="refreshBtn" title="Обновить">↻</button>
  <div class="badge">Готовность производства</div>
  <h2>Сканируйте QR заказа</h2>
+
+ <div class="video-wrap">
  <video id="video" autoplay playsinline muted></video>
+ <div id="scanOverlay" class="scan-overlay hidden"></div>
+ </div>
+
  <canvas id="canvas" style="display:none;"></canvas>
  <div id="msg" class="small"></div>
  <button id="startCam">СКАНИРОВАТЬ</button>
@@ -138,9 +143,6 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-
 <script src="app.js" defer></script>
 </body>
 </html>
-
-
