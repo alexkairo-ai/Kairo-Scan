@@ -9,33 +9,22 @@
 html, body{
  margin:0;
  height:100%;
- min-height:100%;
  overflow:hidden;
  overscroll-behavior:none;
- background:#000;
-}
-
-/* фон */
-body::before{
- content:"";
- position:fixed;
- inset:0;
- z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
  var(--bg) center/cover no-repeat fixed;
 }
 
-/* фикс белой полосы iOS */
-#safeBottom{
+/* страховка от полосы */
+body::before{
+ content:"";
  position:fixed;
- left:0; right:0; bottom:-200px;
- height:400px;
- z-index:-1;
+ inset:-200px0;
+ z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
- var(--bg) center/cover no-repeat;
- pointer-events:none;
+ var(--bg) center/cover no-repeat fixed;
 }
 
 .chat-app{
@@ -215,3 +204,20 @@ body::before{
  text-align:left;
 }
 .msg-menu button:hover{background:rgba(255,255,255,.08)}
+
+/* тост */
+.toast{
+ position:fixed;
+ left:50%;
+ bottom:90px;
+ transform:translateX(-50%);
+ background:rgba(0,0,0,.8);
+ color:#fff;
+ padding:10px14px;
+ border-radius:10px;
+ border:1px solid #333;
+ z-index:99999;
+ max-width:90vw;
+ text-align:center;
+}
+.toast.hidden{display:none;}
