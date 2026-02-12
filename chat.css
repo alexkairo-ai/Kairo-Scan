@@ -2,7 +2,7 @@
  --gold:#caa24f;
  --bubble-in:#ffffff;
  --bubble-out:#b5e7a4;
- --wood:url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png");
+ --bg:url("https://i.pinimg.com/736x/de/d8/b8/ded8b80d7a4285c58c5c8554f718a445.jpg");
 }
 *{box-sizing:border-box}
 
@@ -21,22 +21,22 @@ body::before{
  inset:0;
  z-index:-2;
  background:
- linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
- var(--wood) center/cover no-repeat fixed;
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ var(--bg) center/cover no-repeat fixed;
 }
 
 /* фикс полосы iOS снизу */
 #safeBottom{
  position:fixed;
- left:0; right:0; bottom:0;
- height:calc(env(safe-area-inset-bottom) +40px);
+ left:0; right:0; bottom:-50px;
+ height:calc(env(safe-area-inset-bottom) +80px);
+ z-index:-1;
  background:
- linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
- var(--wood) center/cover no-repeat;
- z-index:1;
- pointer-events:none;
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ var(--bg) center/cover no-repeat;
 }
 
+/* контейнер */
 .chat-app{
  min-height:100svh;
  height:100dvh;
@@ -45,8 +45,8 @@ body::before{
  padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
  background:
- linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
- var(--wood) center/cover no-repeat fixed;
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ var(--bg) center/cover no-repeat fixed;
 }
 
 /* верхняя панель */
@@ -134,24 +134,22 @@ body::before{
  margin:8px;
  border:2px solid var(--gold);
  border-radius:12px;
- background:rgba(0,0,0,.28);
- backdrop-filter: blur(8px);
- -webkit-backdrop-filter: blur(8px);
+ background:rgba(0,0,0,.25);
+ backdrop-filter: blur(6px);
+ -webkit-backdrop-filter: blur(6px);
  display:flex;
  flex-direction:column;
  gap:12px;
  user-select:none;
- -webkit-user-select:none;
- -webkit-touch-callout:none;
 }
 
 /* сообщения */
-.msg{ display:flex; max-width:90%; user-select:none; -webkit-user-select:none; }
+.msg{ display:flex; max-width:90%; }
 .msg.incoming{ align-self:flex-start; }
 .msg.outgoing{ align-self:flex-end; }
 
 .bubble{
- padding:18px22px; /* крупнее */
+ padding:20px24px; /* больше */
  border-radius:6px; /* почти квадрат */
  font-size:16px;
  line-height:1.35;
@@ -159,7 +157,6 @@ body::before{
  background:var(--bubble-in);
  border:1px solid rgba(0,0,0,.08);
  user-select:none;
- -webkit-user-select:none;
 }
 .msg.outgoing .bubble{ background:var(--bubble-out); }
 
