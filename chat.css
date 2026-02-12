@@ -6,9 +6,13 @@
 }
 *{box-sizing:border-box}
 
-html, body{
+html{
+ height:-webkit-fill-available;
+}
+body{
  margin:0;
- height:100%;
+ height:-webkit-fill-available;
+ min-height:100vh;
  overflow:hidden;
  overscroll-behavior:none;
  background:
@@ -16,28 +20,37 @@ html, body{
  var(--bg) center/cover no-repeat fixed;
 }
 
-/* страховка от полосы */
+/* растягиваем фон ниже */
 body::before{
  content:"";
  position:fixed;
- inset:-200px0;
+ inset:-200px000;
  z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
  var(--bg) center/cover no-repeat fixed;
 }
 
+/* фикс полосы iOS снизу */
+#safeBottom{
+ position:fixed;
+ left:0; right:0; bottom:-200px;
+ height:300px;
+ z-index:-1;
+ background:
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ var(--bg) center/cover no-repeat;
+ pointer-events:none;
+}
+
 .chat-app{
- height:100svh;
+ height:100vh;
  height:100dvh;
- min-height:100vh;
  display:flex;
  flex-direction:column;
  padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
- background:
- linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
- var(--bg) center/cover no-repeat fixed;
+ background:transparent;
 }
 
 /* верхняя панель */
@@ -132,6 +145,8 @@ body::before{
  flex-direction:column;
  gap:12px;
  user-select:none;
+ -webkit-user-select:none;
+ -webkit-touch-callout:none;
 }
 
 /* сообщения */
@@ -140,14 +155,15 @@ body::before{
 .msg.outgoing{ align-self:flex-end; }
 
 .bubble{
- padding:20px24px;
- border-radius:6px;
+ padding:20px24px; /* больше */
+ border-radius:6px; /* почти квадрат */
  font-size:16px;
  line-height:1.35;
  color:#000;
  background:var(--bubble-in);
  border:1px solid rgba(0,0,0,.08);
  user-select:none;
+ -webkit-user-select:none;
 }
 .msg.outgoing .bubble{ background:var(--bubble-out); }
 
@@ -204,20 +220,3 @@ body::before{
  text-align:left;
 }
 .msg-menu button:hover{background:rgba(255,255,255,.08)}
-
-/* тост */
-.toast{
- position:fixed;
- left:50%;
- bottom:90px;
- transform:translateX(-50%);
- background:rgba(0,0,0,.8);
- color:#fff;
- padding:10px14px;
- border-radius:10px;
- border:1px solid #333;
- z-index:99999;
- max-width:90vw;
- text-align:center;
-}
-.toast.hidden{display:none;}
