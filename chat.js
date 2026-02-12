@@ -2,14 +2,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, orderBy, onSnapshot, where, serverTimestamp, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* ====== ВСТАВЬТЕ СВОЙ CONFIG ====== */
 const firebaseConfig = {
- apiKey: "XXXX",
- authDomain: "XXXX.firebaseapp.com",
- projectId: "XXXX",
- storageBucket: "XXXX.appspot.com",
- messagingSenderId: "XXXX",
- appId: "XXXX"
+ apiKey: "AIzaSyBBREaX2zXTrfn0dYpKC03oI6nS3megdtQ",
+ authDomain: "kairo-scan-chat.firebaseapp.com",
+ projectId: "kairo-scan-chat",
+ storageBucket: "kairo-scan-chat.firebasestorage.app",
+ messagingSenderId: "848632257072",
+ appId: "1:848632257072:web:4ebfde0ea886cd28ecebf5",
+ measurementId: "G-MHBJGF0F8S"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -61,7 +61,7 @@ function dmRoomId(a,b){
  return 'dm_' + hash(k1+'|'+k2);
 }
 
-menuBtn.onclick = ()=> menu.classList.toggle('hidden');
+menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('hidden'); });
 backBtn.onclick = ()=> history.back();
 
 document.addEventListener('click', (e)=>{
@@ -156,7 +156,7 @@ function openRoom(roomId, title){
  <div class="meta">${m.from||''} ${time}${edited}</div>
  `;
 
- // долгое нажатие для своих сообщений if(m.from === myName){
+ if(m.from === myName){
  row.addEventListener('pointerdown', (e)=>{
  clearTimeout(longPressTimer);
  longPressTimer = setTimeout(()=>{
