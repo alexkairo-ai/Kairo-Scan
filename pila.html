@@ -3,18 +3,15 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Пила</title>
-
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=2">
 <meta name="theme-color" content="#111111">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -25,7 +22,10 @@
  <button id="refreshBtn" title="Обновить">↻</button>
  <div class="badge">Готовность производства</div>
  <h2>Сканируйте QR заказа</h2>
+ <div class="video-wrap">
  <video id="video" autoplay playsinline muted></video>
+ <div id="scanOverlay" class="scan-overlay hidden"></div>
+ </div>
  <canvas id="canvas" style="display:none;"></canvas>
  <div id="msg" class="small"></div>
  <button id="startCam">СКАНИРОВАТЬ</button>
@@ -51,17 +51,16 @@
  </div>
 </div>
 
+<!-- отчёты как в index -->
 <div id="reportsView" class="hidden">
  <div class="card">
  <div class="badge">Отчёты</div>
-
  <div class="filters">
  <button data-filter="day">За день</button>
  <button data-filter="week">За неделю</button>
  <button data-filter="month">За месяц</button>
  <button data-filter="all">Все</button>
  </div>
-
  <div class="tools">
  <input id="searchInput" placeholder="Поиск..." />
  <select id="sortSelect">
@@ -75,7 +74,6 @@
  <option value="db_desc">Сортировка: таблица ↓</option>
  </select>
  </div>
-
  <div class="tools" style="margin-top:8px;">
  <input type="date" id="statsDate">
  <select id="statsStage">
@@ -89,13 +87,11 @@
  <button id="statsBtn" style="width:auto;font-size:12px;padding:6px8px;border-radius:10px;">Посчитать</button>
  <span id="statsResult" class="small" style="margin-left:6px;"></span>
  </div>
-
  <div class="tools" style="margin-top:8px;">
  <input type="date" id="pdfFrom">
  <input type="date" id="pdfTo">
  <button id="exportPdf" style="width:auto;font-size:12px;padding:6px8px;border-radius:10px;">Экспорт PDF</button>
  </div>
-
  <div id="reportsStatus" class="small" style="margin-top:8px;">Найдено:0</div>
  <div style="overflow:auto;margin-top:10px;">
  <table class="table" id="reportsTable">
@@ -107,9 +103,7 @@
  <tbody></tbody>
  </table>
  </div>
-
  <div id="pager" class="pager"></div>
-
  <button id="openPhotoStore">АРХИВ ФОТО</button>
  <button id="editReports">Редактировать</button>
  <button id="closeReports" style="margin-top:8px;">Назад</button>
@@ -117,12 +111,8 @@
 </div>
 
 </div>
-
 <div id="printArea"></div>
-
-<div id="updateBar" class="update-bar hidden">
- Доступно обновление <button id="updateBtn">Обновить</button>
-</div>
+<div id="updateBar" class="update-bar hidden">Доступно обновление <button id="updateBtn">Обновить</button></div>
 
 <button id="chatBtn" title="Чат" onclick="(function(){
  const n = (document.getElementById('worker')?.value || localStorage.getItem('workerName') || '').trim();
@@ -133,7 +123,6 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-
 <script src="app.js" defer></script>
 </body>
 </html>
