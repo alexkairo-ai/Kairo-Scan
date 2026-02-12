@@ -10,10 +10,10 @@ html, body{
  height:100%;
  overflow:hidden;
  overscroll-behavior:none;
- background:#000;
+ background:transparent;
 }
 
-/* фон фиксированно на весь экран */
+/* фон на весь экран */
 body::before{
  content:"";
  position:fixed;
@@ -135,7 +135,7 @@ body::before{
 .bubble{
  padding:8px10px;
  border-radius:14px;
- font-size:9px; /* в1.5 раза меньше */
+ font-size:14px; /* нужный размер */
  line-height:1.3;
  color:#000;
  background:var(--bubble-in);
@@ -144,7 +144,7 @@ body::before{
 .msg.outgoing .bubble{ background:var(--bubble-out); }
 
 .meta{
- font-size:10px;
+ font-size:11px;
  color:#777;
  margin-top:2px;
 }
