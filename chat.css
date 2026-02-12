@@ -1,27 +1,30 @@
-:root{
+ss :root{
+ --gold:#caa24f;
  --bg:#0b0c0f;
- --panel:#14161b;
- --text:#111;
  --bubble-in:#ffffff;
  --bubble-out:#b5e7a4;
- --accent:#caa24f;
 }
 *{box-sizing:border-box}
 
 body{
  margin:0;
  font-family:Arial, sans-serif;
- background:var(--bg);
- color:#fff;
  height:100vh;
+ background:
+ linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+ url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png")
+ center/cover no-repeat fixed;
 }
 
+/* основной контейнер */
 .chat-app{
+ height:100vh;
  display:flex;
  flex-direction:column;
- height:100vh;
- padding-top:env(safe-area-inset-top);
+ padding-top:8px;
  padding-bottom:env(safe-area-inset-bottom);
+ border:2px solid var(--gold);
+ background:rgba(12,13,16,.55);
 }
 
 /* верхняя панель */
@@ -31,18 +34,19 @@ body{
  align-items:center;
  justify-content:space-between;
  padding:08px;
- background:#111;
- border-bottom:1px solid #222;
+ border-bottom:1px solid rgba(255,255,255,.1);
+ background:rgba(0,0,0,.35);
 }
 .top-title{
  flex:1;
  text-align:center;
  font-weight:700;
  font-size:16px;
+ color:#fff;
 }
 .top-btn{
- width:40px;
- height:32px;
+ width:42px;
+ height:34px;
  border-radius:8px;
  border:1px solid #333;
  background:#1b1e25;
@@ -53,36 +57,35 @@ body{
 /* меню */
 .menu{
  position:absolute;
- top:48px;
+ top:56px;
  right:8px;
- width:min(86vw,280px);
- background:#1b1e25;
- border:1px solid #333;
+ width:min(88vw,300px);
+ background:rgba(20,22,27,.92);
+ border:1px solid var(--gold);
  border-radius:10px;
  padding:10px;
  z-index:999;
- box-shadow:010px30px rgba(0,0,0,.35);
+ box-shadow:010px30px rgba(0,0,0,.4);
 }
 .menu.hidden{display:none}
 
 .menu-section{
  font-size:12px;
- color:#aaa;
+ color:#ccc;
  margin:6px0;
 }
 .menu-list button{
  width:100%;
- margin:4px0;
- padding:6px;
- border-radius:8px;
+ margin:6px0;
+ padding:10px;
+ border-radius:10px;
  border:1px solid #333;
  background:#242833;
  color:#fff;
+ font-size:15px;
  text-align:left;
 }
-.menu-list button.active{
- border-color:var(--accent);
-}
+.menu-list button.active{ border-color:var(--gold); }
 
 .dm-new{
  display:flex;
@@ -91,16 +94,17 @@ body{
 }
 .dm-new input{
  flex:1;
- padding:6px;
- border-radius:6px;
+ padding:8px;
+ border-radius:8px;
  border:1px solid #333;
  background:#111;
  color:#fff;
+ font-size:14px;
 }
 .dm-new button{
- padding:6px8px;
- border-radius:6px;
- border:1px solid var(--accent);
+ padding:8px10px;
+ border-radius:8px;
+ border:1px solid var(--gold);
  background:#111;
  color:#fff;
 }
@@ -143,22 +147,45 @@ body{
  display:flex;
  gap:6px;
  padding:8px;
- border-top:1px solid #222;
- background:#0f1115;
+ border-top:1px solid rgba(255,255,255,.1);
+ background:rgba(0,0,0,.35);
+ border-top:2px solid var(--gold);
 }
 .send-form input{
  flex:1;
  padding:10px;
  border-radius:10px;
- border:1px solid #333;
+ border:2px solid var(--gold);
  background:#111;
  color:#fff;
 }
 .send-btn{
  padding:012px;
  border-radius:10px;
- border:1px solid var(--accent);
+ border:2px solid var(--gold);
  background:#1b1e25;
  color:#fff;
  font-weight:700;
 }
+
+/* меню действий сообщения */
+.msg-menu{
+ position:fixed;
+ z-index:2000;
+ background:#1b1e25;
+ border:1px solid var(--gold);
+ border-radius:10px;
+ display:flex;
+ flex-direction:column;
+ min-width:160px;
+ box-shadow:010px30px rgba(0,0,0,.4);
+}
+.msg-menu.hidden{display:none}
+.msg-menu button{
+ padding:10px;
+ border:0;
+ background:transparent;
+ color:#fff;
+ text-align:left;
+}
+.msg-menu button:hover{background:rgba(255,255,255,.08)}
