@@ -1,4 +1,4 @@
-ss :root{
+:root{
  --gold:#caa24f;
  --bg:#0b0c0f;
  --bubble-in:#ffffff;
@@ -189,3 +189,4 @@ body{
  text-align:left;
 }
 .msg-menu button:hover{background:rgba(255,255,255,.08)}
+
