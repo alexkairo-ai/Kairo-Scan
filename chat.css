@@ -6,35 +6,29 @@
 }
 *{box-sizing:border-box}
 
-html{
- height:-webkit-fill-available;
-}
-body{
+html, body{
  margin:0;
- height:-webkit-fill-available;
- min-height:100vh;
+ height:100%;
  overflow:hidden;
  overscroll-behavior:none;
- background:
- linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
- var(--bg) center/cover no-repeat fixed;
+ background:#000;
 }
 
-/* растягиваем фон ниже */
+/* фон */
 body::before{
  content:"";
  position:fixed;
- inset:-200px000;
+ inset:0;
  z-index:-2;
  background:
  linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
  var(--bg) center/cover no-repeat fixed;
 }
 
-/* фикс полосы iOS снизу */
+/* фикс полосы iOS */
 #safeBottom{
  position:fixed;
- left:0; right:0; bottom:-200px;
+ left:0; right:0; bottom:-50px;
  height:300px;
  z-index:-1;
  background:
@@ -44,13 +38,15 @@ body::before{
 }
 
 .chat-app{
- height:100vh;
+ min-height:100svh;
  height:100dvh;
  display:flex;
  flex-direction:column;
  padding-top:env(safe-area-inset-top);
  padding-bottom:env(safe-area-inset-bottom);
- background:transparent;
+ background:
+ linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)),
+ var(--bg) center/cover no-repeat fixed;
 }
 
 /* верхняя панель */
@@ -155,8 +151,8 @@ body::before{
 .msg.outgoing{ align-self:flex-end; }
 
 .bubble{
- padding:20px24px; /* больше */
- border-radius:6px; /* почти квадрат */
+ padding:20px24px;
+ border-radius:6px;
  font-size:16px;
  line-height:1.35;
  color:#000;
@@ -220,3 +216,20 @@ body::before{
  text-align:left;
 }
 .msg-menu button:hover{background:rgba(255,255,255,.08)}
+
+/* тост */
+.toast{
+ position:fixed;
+ left:50%;
+ bottom:90px;
+ transform:translateX(-50%);
+ background:rgba(0,0,0,.8);
+ color:#fff;
+ padding:10px14px;
+ border-radius:10px;
+ border:1px solid #333;
+ z-index:99999;
+ max-width:90vw;
+ text-align:center;
+}
+.toast.hidden{display:none;}
