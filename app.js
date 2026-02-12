@@ -12,6 +12,7 @@ const ctx = canvas.getContext("2d", { willReadFrequently: true });
 const startBtn = document.getElementById("startCam");
 const msg = document.getElementById("msg");
 const stageTitle = document.getElementById("stageTitle");
+const scanOverlay = document.getElementById("scanOverlay");
 
 const mainView = document.getElementById("mainView");
 const reportsView = document.getElementById("reportsView");
@@ -58,6 +59,16 @@ function reportKey(r){
 }
 function reportId(r){ return reportKey(r); }
 
+function showScanOverlay(order){
+ if(scanOverlay){
+ scanOverlay.textContent = 'Готово: ' + order;
+ scanOverlay.classList.remove('hidden');
+ }
+}
+function hideScanOverlay(){
+ if(scanOverlay) scanOverlay.classList.add('hidden');
+}
+
 function isStreamActive(){ return stream && stream.getTracks().some(t => t.readyState === "live"); }
 function showScanButton(show){ startBtn.style.display = show ? "block" : "none"; }
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
@@ -99,6 +110,7 @@ async function startCamera(){
  video.srcObject = stream;
  await video.play();
  locked=false;
+ hideScanOverlay();
  showScanButton(false);
  if (stopTimer) clearTimeout(stopTimer);
  stopTimer = setTimeout(()=>{ if(!locked){ msg.innerHTML="Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera();}},20000);
@@ -163,6 +175,7 @@ function scan(){
  orderInput.value = data;
  msg.innerHTML = "✅ Готово!";
  if(navigator.vibrate) navigator.vibrate(80);
+ showScanOverlay(data);
  freezeCamera();
  return;
  }
@@ -180,6 +193,7 @@ function scan(){
  orderInput.value=code.data;
  msg.innerHTML="✅ Готово!";
  if(navigator.vibrate) navigator.vibrate(80);
+ showScanOverlay(code.data);
  freezeCamera(); return;
  }
  }
