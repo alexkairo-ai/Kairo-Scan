@@ -63,9 +63,8 @@ function dmRoomId(a,b){
 
 menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('hidden'); });
 backBtn.onclick = ()=>{
- if(history.length >1) history.back();
- else location.href = "../index.html";
-};
+ if (history.length >1) history.back();
+ else location.href = "/Kairo-Scan/"; // на главную};
 
 document.addEventListener('click', (e)=>{
  if(!menu.contains(e.target) && e.target !== menuBtn) menu.classList.add('hidden');
