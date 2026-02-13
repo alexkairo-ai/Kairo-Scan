@@ -234,7 +234,7 @@ function openFacadesDialog(onChoose){
  overlay.innerHTML = `
  <div class="photo-modal">
  <div class="photo-title">ФАСАДЫ</div>
- <div class="small">Есть фасады для окраски?</div>
+ <div class="small">Есть ли фасады которые изготавливаются на нашем производстве?</div>
  <div class="photo-actions" style="margin-top:12px;">
  <button id="facadesYes">ЕСТЬ</button>
  <button id="facadesNo">НЕТ</button>
@@ -810,3 +810,4 @@ document.getElementById('refreshBtn').onclick = async () => {
  }catch(e){}
  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
+
