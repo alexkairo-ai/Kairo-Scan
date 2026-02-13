@@ -283,5 +283,3 @@ button:active{transform:translateY(1px)}
 .pager{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .pager button{width:auto;padding:6px10px;font-size:12px;border-radius:10px}
 .pager .active{background:rgba(0,0,0,.45);border-color:var(--gold-hi)}
-
-
