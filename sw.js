@@ -1,4 +1,4 @@
-const CACHE = 'app-v4';
+const CACHE = 'app-v5';
 
 const FILES = [
  './',
