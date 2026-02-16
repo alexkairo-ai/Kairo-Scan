@@ -811,7 +811,8 @@ document.getElementById('refreshBtn').onclick = async () => {
  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
-// автообновление PWA при новой версии SWif ('serviceWorker' in navigator) {
+// автообновление PWA при новой версии SW
+if ('serviceWorker' in navigator) {
  window.addEventListener('load', async () => {
  const reg = await navigator.serviceWorker.register('sw.js');
  reg.update();
@@ -839,3 +840,4 @@ document.getElementById('refreshBtn').onclick = async () => {
  });
  });
 }
+
