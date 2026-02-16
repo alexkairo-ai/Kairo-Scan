@@ -1,4 +1,4 @@
-const CACHE = 'app-v3';
+const CACHE = 'app-v4';
 
 const FILES = [
  './',
@@ -63,3 +63,4 @@ self.addEventListener('fetch', (e) => {
  })
  );
 });
+
