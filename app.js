@@ -811,3 +811,31 @@ document.getElementById('refreshBtn').onclick = async () => {
  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
+// автообновление PWA при новой версии SWif ('serviceWorker' in navigator) {
+ window.addEventListener('load', async () => {
+ const reg = await navigator.serviceWorker.register('sw.js');
+ reg.update();
+
+ if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+
+ reg.addEventListener('updatefound', () => {
+ const nw = reg.installing;
+ if (!nw) return;
+ nw.addEventListener('statechange', () => {
+ if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+ if (!sessionStorage.getItem('sw-reloaded')) {
+ sessionStorage.setItem('sw-reloaded', '1');
+ location.reload();
+ }
+ }
+ });
+ });
+
+ navigator.serviceWorker.addEventListener('controllerchange', () => {
+ if (!sessionStorage.getItem('sw-reloaded')) {
+ sessionStorage.setItem('sw-reloaded', '1');
+ location.reload();
+ }
+ });
+ });
+}
