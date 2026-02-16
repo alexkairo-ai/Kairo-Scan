@@ -811,32 +811,52 @@ document.getElementById('refreshBtn').onclick = async () => {
  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
-// автообновление PWA при новой версии SWif ('serviceWorker' in navigator) {
- window.addEventListener('load', async () => {
- const reg = await navigator.serviceWorker.register('sw.js');
- reg.update();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      
+      // Функция для перезагрузки с проверкой
+      const reloadPage = () => {
+        if (!sessionStorage.getItem('sw-reloaded')) {
+          sessionStorage.setItem('sw-reloaded', 'true');
+          window.location.reload();
+        }
+      };
 
- if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+      // Проверка обновлений
+      reg.update();
 
- reg.addEventListener('updatefound', () => {
- const nw = reg.installing;
- if (!nw) return;
- nw.addEventListener('statechange', () => {
- if (nw.state === 'installed' && navigator.serviceWorker.controller) {
- if (!sessionStorage.getItem('sw-reloaded')) {
- sessionStorage.setItem('sw-reloaded', '1');
- location.reload();
- }
- }
- });
- });
+      // Обработка ожидающего service worker
+      if (reg.waiting) {
+        reg.waiting.postMessage('SKIP_WAITING');
+      }
 
- navigator.serviceWorker.addEventListener('controllerchange', () => {
- if (!sessionStorage.getItem('sw-reloaded')) {
- sessionStorage.setItem('sw-reloaded', '1');
- location.reload();
- }
- });
- });
+      // Обработка нового service worker
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        
+        newWorker?.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            reloadPage();
+          }
+        });
+      });
+
+      // Обработка смены контроллера
+      navigator.serviceWorker.addEventListener('controllerchange', reloadPage);
+
+      // Очистка флага после успешной загрузки
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) { // для bfcache
+          sessionStorage.removeItem('sw-reloaded');
+        }
+      });
+
+    } catch (error) {
+      console.error('SW registration failed:', error);
+    }
+  });
 }
+
 
