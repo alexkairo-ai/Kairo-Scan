@@ -1,4 +1,4 @@
-const CACHE = 'app-v6';
+const CACHE = 'app-v7';
 
 const FILES = [
  './',
@@ -8,10 +8,8 @@ const FILES = [
  './chat.html',
  './chat.css',
  './chat.js',
-
  './manifest-pila.json',
  './manifest-pila-hdf.json',
-
  './upakovka.html',
  './kromka.html',
  './hdf.html',
