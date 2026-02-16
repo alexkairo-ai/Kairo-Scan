@@ -1,4 +1,4 @@
-const CACHE = 'app-v5';
+const CACHE = 'app-v6';
 
 const FILES = [
  './',
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (e) => {
  return;
  }
 
- // остальное — cache-first e.respondWith(
+ // Остальное — cache-first e.respondWith(
  caches.match(req).then(cached => {
  return cached || fetch(req).then(res => {
  const copy = res.clone();
