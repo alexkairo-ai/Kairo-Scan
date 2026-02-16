@@ -29,19 +29,23 @@
  <div id="msg" class="small"></div>
  <button id="startCam">СКАНИРОВАТЬ</button>
  </div>
+
  <div class="card">
  <div class="grid">
  <input id="order" placeholder="QR / номер заказа" autofocus />
  <input id="worker" placeholder="Имя сотрудника" />
  </div>
  </div>
+
  <div class="card">
  <h3 id="stageTitle">Этап:</h3>
  <div id="stageButtons">
- <button data-stage="pila">Пила</button>
+ <button data-stage="pila">ДСП напилен</button>
+ <button data-stage="hdf" data-color="#f39931">ХДФ напилен</button>
  </div>
  <div id="status">Готово к работе</div>
  </div>
+
  <div class="card">
  <button id="openReports">ОТЧЁТЫ</button>
  </div>
@@ -104,8 +108,8 @@
  <button id="closeReports" style="margin-top:8px;">Назад</button>
  </div>
 </div>
-
 </div>
+
 <div id="printArea"></div>
 
 <button id="chatBtn" title="Чат" onclick="(function(){
