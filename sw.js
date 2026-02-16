@@ -1,4 +1,6 @@
-const CACHE = 'app-v2'; // увеличивай при измененияхconst FILES = [
+const CACHE = 'app-v3';
+
+const FILES = [
  './',
  './index.html',
  './styles.css',
@@ -6,7 +8,9 @@ const CACHE = 'app-v2'; // увеличивай при измененияхconst
  './chat.html',
  './chat.css',
  './chat.js',
- './manifest.json',
+
+ './manifest-pila.json',
+ './manifest-pila-hdf.json',
 
  './upakovka.html',
  './kromka.html',
@@ -42,14 +46,14 @@ self.addEventListener('fetch', (e) => {
  const req = e.request;
  if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
 
- // HTML — всегда свежий из сети if (req.mode === 'navigate' || req.destination === 'document') {
+ // HTML — network-first if (req.mode === 'navigate' || req.destination === 'document') {
  e.respondWith(
  fetch(req).catch(() => caches.match(req))
  );
  return;
  }
 
- // Остальные файлы — из кэша, если есть e.respondWith(
+ // остальное — cache-first e.respondWith(
  caches.match(req).then(cached => {
  return cached || fetch(req).then(res => {
  const copy = res.clone();
