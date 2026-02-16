@@ -1,4 +1,4 @@
-const CACHE = 'app-v7';
+const CACHE = 'app-v8';
 
 const FILES = [
  './',
@@ -44,14 +44,14 @@ self.addEventListener('fetch', (e) => {
  const req = e.request;
  if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
 
- // HTML — network-first if (req.mode === 'navigate' || req.destination === 'document') {
+ if (req.mode === 'navigate' || req.destination === 'document') {
  e.respondWith(
  fetch(req).catch(() => caches.match(req))
  );
  return;
  }
 
- // Остальное — cache-first e.respondWith(
+ e.respondWith(
  caches.match(req).then(cached => {
  return cached || fetch(req).then(res => {
  const copy = res.clone();
