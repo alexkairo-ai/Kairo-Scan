@@ -814,6 +814,7 @@ document.getElementById('refreshBtn').onclick = async () => {
 // автообновление PWA при новой версии SW
 if ('serviceWorker' in navigator) {
  window.addEventListener('load', async () => {
+ try{
  const reg = await navigator.serviceWorker.register('sw.js');
  reg.update();
 
@@ -838,6 +839,8 @@ if ('serviceWorker' in navigator) {
  location.reload();
  }
  });
+ }catch(e){}
  });
 }
+
 
