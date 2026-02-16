@@ -1,6 +1,4 @@
-const CACHE = 'app-auto';
-
-const FILES = [
+const CACHE = 'app-v2'; // увеличивай при измененияхconst FILES = [
  './',
  './index.html',
  './styles.css',
@@ -26,7 +24,14 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
- e.waitUntil(self.clients.claim());
+ e.waitUntil(
+ Promise.all([
+ self.clients.claim(),
+ caches.keys().then(keys =>
+ Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+ )
+ ])
+ );
 });
 
 self.addEventListener('message', (e) => {
@@ -37,13 +42,20 @@ self.addEventListener('fetch', (e) => {
  const req = e.request;
  if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
 
+ // HTML — всегда свежий из сети if (req.mode === 'navigate' || req.destination === 'document') {
  e.respondWith(
- fetch(req)
- .then(res => {
+ fetch(req).catch(() => caches.match(req))
+ );
+ return;
+ }
+
+ // Остальные файлы — из кэша, если есть e.respondWith(
+ caches.match(req).then(cached => {
+ return cached || fetch(req).then(res => {
  const copy = res.clone();
  caches.open(CACHE).then(cache => cache.put(req, copy));
  return res;
+ });
  })
- .catch(() => caches.match(req))
  );
 });
