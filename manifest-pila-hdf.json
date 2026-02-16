@@ -1,7 +1,7 @@
 {
- "name": "Kairo-Scan ПИЛА ХДФ",
- "short_name": "ПИЛА ХДФ",
- "start_url": "./pila-hdf.html?only=pila-hdf",
+ "name": "Kairo-Scan Пила",
+ "short_name": "Пила",
+ "start_url": "./pila.html",
  "scope": "./",
  "display": "standalone",
  "background_color": "#111111",
