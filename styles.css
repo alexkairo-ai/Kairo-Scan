@@ -289,3 +289,82 @@ button:active{transform:translateY(1px)}
 .pager{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .pager button{width:auto;padding:6px10px;font-size:12px;border-radius:10px}
 .pager .active{background:rgba(0,0,0,.45);border-color:var(--gold-hi)}
+
+/* Добавьте в конец файла styles.css */
+
+#packagingOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+}
+
+#tempPhotoOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+#packagingOverlay .photo-modal input[type="number"] {
+    background: rgba(6,8,12,.8);
+    border: 2px solid var(--gold);
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 18px;
+    width: 100px;
+    text-align: center;
+}
+
+#packagingOverlay .photo-modal input[type="number"]:focus {
+    border-color: var(--gold-hi);
+    box-shadow: 0 0 0 3px rgba(244,227,161,.18);
+    outline: none;
+}
+
+#packagingOverlay .photo-actions button {
+    font-size: 14px;
+    padding: 10px 16px;
+    margin: 0;
+    flex: 1;
+}
+
+#packagingOverlay .photo-actions button#packagingWithPhoto {
+    background: var(--gold);
+    color: #000;
+    text-shadow: none;
+    border-color: var(--gold-hi);
+}
+
+#packagingOverlay .photo-actions button#packagingWithPhoto:hover {
+    background: #dbb45c;
+}
+
+#packagingOverlay .small a {
+    text-decoration: none;
+    padding: 8px 12px;
+    background: rgba(255,255,255,.1);
+    border-radius: 8px;
+    display: inline-block;
+    transition: background 0.2s;
+}
+
+#packagingOverlay .small a:hover {
+    background: rgba(255,255,255,.2);
+}
+
+/* Стили для стрелок в input number */
+#packagingOverlay .photo-modal input[type="number"]::-webkit-inner-spin-button,
+#packagingOverlay .photo-modal input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1;
+    height: 24px;
+    background: var(--gold);
+}
+
