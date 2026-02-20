@@ -358,7 +358,7 @@ function openPhotoDialog(stage, color, btn){
  };
 }
 
-// НОВАЯ ФУНКЦИЯ: загрузка фото через JSONP
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: загрузка фото через JSONP
 function uploadPhotosViaJsonp(files, stage, callback){
  const parsed = parseDbOrderClient(orderInput.value);
  const order = parsed.order;
@@ -366,78 +366,135 @@ function uploadPhotosViaJsonp(files, stage, callback){
  const name = workerInput.value.trim();
 
  if(!order || !name){
- callback('Введите заказ и имя');
- return;
+  callback('Введите заказ и имя');
+  return;
  }
 
- // Создаем массив промисов для конвертации файлов в base64
- Promise.all(Array.from(files).map(file => fileToBase64(file)))
- .then(filesData => {
- const now = new Date();
- const date = now.toLocaleDateString('ru-RU');
- const time = now.toTimeString().slice(0,5);
- 
- // Создаем массив файлов для отправки
- const filesArray = files.map((file, index) => ({
-  name: file.name,
-  type: file.type,
-  data: filesData[index]
- }));
- 
- const cbName = 'upload_cb_' + Math.random().toString(36).slice(2);
- 
- window[cbName] = function(res){
-  delete window[cbName];
-  if(res.ok){
-   callback(null, res.folderUrl);
-  }else{
-   callback(res.msg || 'Ошибка загрузки');
+ // Создаем массив промисов для конвертации файлов в base64 с сжатием
+ Promise.all(Array.from(files).map(file => compressAndConvertToBase64(file)))
+  .then(filesData => {
+   const now = new Date();
+   const date = now.toLocaleDateString('ru-RU');
+   const time = now.toTimeString().slice(0,5);
+   
+   const cbName = 'upload_cb_' + Math.random().toString(36).slice(2);
+   
+   window[cbName] = function(res){
+    delete window[cbName];
+    if(res && res.ok){
+     callback(null, res.folderUrl);
+    }else{
+     callback(res?.msg || 'Ошибка загрузки');
+    }
+   };
+   
+   // Формируем параметры
+   let params = `action=upload_photos&order=${encodeURIComponent(order)}&stage=${encodeURIComponent(stage)}&name=${encodeURIComponent(name)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&db=${encodeURIComponent(db)}&callback=${cbName}`;
+   
+   // Добавляем файлы в параметры
+   filesData.forEach((file, index) => {
+    params += `&files[${index}][name]=${encodeURIComponent(file.name)}`;
+    params += `&files[${index}][type]=${encodeURIComponent('image/jpeg')}`;
+    params += `&files[${index}][data]=${encodeURIComponent(file.data)}`;
+   });
+   
+   const script = document.createElement('script');
+   script.src = API_URL + '?' + params;
+   script.onerror = () => {
+    delete window[cbName];
+    callback('Ошибка сети при загрузке');
+   };
+   document.body.appendChild(script);
+   
+   setTimeout(() => {
+    if(window[cbName]){
+     delete window[cbName];
+     callback('Таймаут загрузки');
+    }
+   }, 30000);
+  })
+  .catch(err => {
+   callback('Ошибка обработки файлов: ' + err);
+  });
+}
+
+// НОВАЯ ФУНКЦИЯ: сжатие и конвертация файла в base64
+function compressAndConvertToBase64(file){
+ return new Promise(async (resolve, reject) => {
+  try {
+   const MAX_SIZE = 1600;
+   const QUALITY = 0.8;
+   
+   // Загружаем изображение
+   const img = await loadImage(file);
+   let width = img.width;
+   let height = img.height;
+   
+   // Изменяем размер если нужно
+   if (Math.max(width, height) > MAX_SIZE) {
+    if (width >= height) {
+     height = Math.round(height * (MAX_SIZE / width));
+     width = MAX_SIZE;
+    } else {
+     width = Math.round(width * (MAX_SIZE / height));
+     height = MAX_SIZE;
+    }
+   }
+   
+   // Создаем canvas и рисуем изображение
+   const canvas = document.createElement('canvas');
+   canvas.width = width;
+   canvas.height = height;
+   const ctx = canvas.getContext('2d');
+   ctx.drawImage(img, 0, 0, width, height);
+   
+   // Конвертируем в blob и затем в base64
+   const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, 'image/jpeg', QUALITY);
+   });
+   
+   const reader = new FileReader();
+   reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    const baseName = file.name.replace(/\.[^/.]+$/, '');
+    resolve({
+     name: baseName + '.jpg',
+     data: base64
+    });
+   };
+   reader.onerror = reject;
+   reader.readAsDataURL(blob);
+   
+  } catch (e) {
+   // Если не удалось сжать, отправляем как есть
+   const reader = new FileReader();
+   reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    resolve({
+     name: file.name,
+     data: base64
+    });
+   };
+   reader.onerror = reject;
+   reader.readAsDataURL(file);
   }
- };
- 
- const params = new URLSearchParams({
-  action: 'upload_photos',
-  order: order,
-  stage: stage,
-  name: name,
-  date: date,
-  time: time,
-  db: db,
-  callback: cbName,
-  files: JSON.stringify(filesArray)
- });
- 
- const script = document.createElement('script');
- script.src = API_URL + '?' + params.toString();
- script.onerror = () => {
-  delete window[cbName];
-  callback('Ошибка сети при загрузке');
- };
- document.body.appendChild(script);
- 
- setTimeout(() => {
-  if(window[cbName]){
-   delete window[cbName];
-   callback('Таймаут загрузки');
-  }
- }, 30000);
- })
- .catch(err => {
- callback('Ошибка обработки файлов: ' + err);
  });
 }
 
-// Вспомогательная функция для конвертации файла в base64
-function fileToBase64(file){
- return new Promise((resolve, reject) => {
- const reader = new FileReader();
- reader.onload = () => {
- // Убираем префикс data:image/jpeg;base64,
- const base64 = reader.result.split(',')[1];
- resolve(base64);
- };
- reader.onerror = reject;
- reader.readAsDataURL(file);
+// Функция для загрузки изображения
+function loadImage(file){
+ return new Promise((resolve, reject)=>{
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = ()=>{
+   URL.revokeObjectURL(url);
+   resolve(img);
+  };
+  img.onerror = ()=>{
+   URL.revokeObjectURL(url);
+   reject('Ошибка загрузки изображения');
+  };
+  img.src = url;
  });
 }
 
