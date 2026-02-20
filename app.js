@@ -292,7 +292,7 @@ function openPhotoDialog(stage, color, btn) {
         let packagingCount = '';
         if (stage === 'upakovka' && packagingInput) {
             packagingCount = packagingInput.value.trim();
-            if (!packagingCount || parseInt(packagingCount) < 1) {
+            if (!packagingCount || parseInt(packagingCount) < 0) {
                 msgEl.textContent = 'Введите корректное количество упаковок';
                 return;
             }
@@ -904,3 +904,4 @@ if ('serviceWorker' in navigator) {
         } catch (e) { }
     });
 }
+
