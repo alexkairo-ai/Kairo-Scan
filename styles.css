@@ -369,6 +369,16 @@ button:active {
     z-index: 9999;
 }
 
+#packagingOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
 .photo-modal {
     background: rgba(28, 30, 34, .95);
     border: 2px solid #caa24f;
