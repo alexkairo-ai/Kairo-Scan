@@ -146,7 +146,7 @@ function flashStage(btn){
  setTimeout(()=>btn.classList.remove('stage-active'),700);
 }
 
-// ИЗМЕНЕНА: добавлен параметр packagingCount
+// ИЗМЕНЕНО: добавлен параметр packagingCount
 function sendStage(stage, color, btn, photoUrl, packagingCount, facades){
  const parsed = parseDbOrderClient(orderInput.value);
  let raw = parsed.order;
@@ -262,7 +262,7 @@ function openFacadesDialog(onChoose){
  };
 }
 
-// ИЗМЕНЕНА: добавлено поле для количества упаковок
+// ИЗМЕНЕНО: добавлено поле для количества упаковок
 function openPhotoDialog(stage, color, btn){
  const overlay = document.createElement('div');
  overlay.id = 'photoOverlay';
@@ -337,13 +337,7 @@ function openPhotoDialog(stage, color, btn){
  if(!files.length){ msgEl.textContent='Выберите фото'; return; }
 
  msgEl.textContent='Загрузка...';
- 
- // ИСПРАВЛЕНО: используем JSONP вместо fetch для загрузки фото
- uploadPhotosViaJsonp(files, stage, (err, folderUrl) => {
- if(err){
- msgEl.textContent = err;
- return;
- }
+ const folderUrl = await uploadPhotos(files, stage).catch(err=>{ msgEl.textContent=err; return null; });
  if(folderUrl){
  overlay.remove();
  if(stage === 'prisadka'){
@@ -354,147 +348,113 @@ function openPhotoDialog(stage, color, btn){
  sendStage(stage, color, btn, folderUrl, packagingCount);
  }
  }
- });
  };
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: загрузка фото через JSONP
-function uploadPhotosViaJsonp(files, stage, callback){
+async function uploadPhotos(files, stage){
  const parsed = parseDbOrderClient(orderInput.value);
  const order = parsed.order;
  const db = parsed.db;
- const name = workerInput.value.trim();
 
- if(!order || !name){
-  callback('Введите заказ и имя');
-  return;
+ const name = workerInput.value.trim();
+ if(!order || !name) throw 'Введите заказ и имя';
+
+ const now = new Date();
+ const date = now.toLocaleDateString('ru-RU');
+ const time = now.toTimeString().slice(0,5);
+
+ const payload = {action:'upload_photos',order,stage,name,date,time,db,files:[]};
+
+ for(const f of files){
+ const item = await fileToPayload(f);
+ payload.files.push(item);
  }
 
- // Создаем массив промисов для конвертации файлов в base64 с сжатием
- Promise.all(Array.from(files).map(file => compressAndConvertToBase64(file)))
-  .then(filesData => {
-   const now = new Date();
-   const date = now.toLocaleDateString('ru-RU');
-   const time = now.toTimeString().slice(0,5);
-   
-   const cbName = 'upload_cb_' + Math.random().toString(36).slice(2);
-   
-   window[cbName] = function(res){
-    delete window[cbName];
-    if(res && res.ok){
-     callback(null, res.folderUrl);
-    }else{
-     callback(res?.msg || 'Ошибка загрузки');
-    }
-   };
-   
-   // Формируем параметры
-   let params = `action=upload_photos&order=${encodeURIComponent(order)}&stage=${encodeURIComponent(stage)}&name=${encodeURIComponent(name)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&db=${encodeURIComponent(db)}&callback=${cbName}`;
-   
-   // Добавляем файлы в параметры
-   filesData.forEach((file, index) => {
-    params += `&files[${index}][name]=${encodeURIComponent(file.name)}`;
-    params += `&files[${index}][type]=${encodeURIComponent('image/jpeg')}`;
-    params += `&files[${index}][data]=${encodeURIComponent(file.data)}`;
-   });
-   
-   const script = document.createElement('script');
-   script.src = API_URL + '?' + params;
-   script.onerror = () => {
-    delete window[cbName];
-    callback('Ошибка сети при загрузке');
-   };
-   document.body.appendChild(script);
-   
-   setTimeout(() => {
-    if(window[cbName]){
-     delete window[cbName];
-     callback('Таймаут загрузки');
-    }
-   }, 30000);
-  })
-  .catch(err => {
-   callback('Ошибка обработки файлов: ' + err);
-  });
+ const res = await fetch(API_URL, {
+ method: 'POST',
+ headers: { 'Content-Type':'text/plain;charset=utf-8' },
+ body: JSON.stringify(payload)
+ }).then(r=>r.json());
+
+ if(!res.ok) throw (res.msg || 'Ошибка загрузки');
+ return res.folderUrl;
 }
 
-// НОВАЯ ФУНКЦИЯ: сжатие и конвертация файла в base64
-function compressAndConvertToBase64(file){
- return new Promise(async (resolve, reject) => {
-  try {
-   const MAX_SIZE = 1600;
-   const QUALITY = 0.8;
-   
-   // Загружаем изображение
-   const img = await loadImage(file);
-   let width = img.width;
-   let height = img.height;
-   
-   // Изменяем размер если нужно
-   if (Math.max(width, height) > MAX_SIZE) {
-    if (width >= height) {
-     height = Math.round(height * (MAX_SIZE / width));
-     width = MAX_SIZE;
-    } else {
-     width = Math.round(width * (MAX_SIZE / height));
-     height = MAX_SIZE;
-    }
-   }
-   
-   // Создаем canvas и рисуем изображение
-   const canvas = document.createElement('canvas');
-   canvas.width = width;
-   canvas.height = height;
-   const ctx = canvas.getContext('2d');
-   ctx.drawImage(img, 0, 0, width, height);
-   
-   // Конвертируем в blob и затем в base64
-   const blob = await new Promise((resolve) => {
-    canvas.toBlob(resolve, 'image/jpeg', QUALITY);
-   });
-   
-   const reader = new FileReader();
-   reader.onload = () => {
-    const base64 = reader.result.split(',')[1];
-    const baseName = file.name.replace(/\.[^/.]+$/, '');
-    resolve({
-     name: baseName + '.jpg',
-     data: base64
-    });
-   };
-   reader.onerror = reject;
-   reader.readAsDataURL(blob);
-   
-  } catch (e) {
-   // Если не удалось сжать, отправляем как есть
-   const reader = new FileReader();
-   reader.onload = () => {
-    const base64 = reader.result.split(',')[1];
-    resolve({
-     name: file.name,
-     data: base64
-    });
-   };
-   reader.onerror = reject;
-   reader.readAsDataURL(file);
-  }
+async function fileToPayload(file){
+ const MAX_SIZE =1600;
+ const QUALITY =0.8;
+ try{
+ const img = await loadImage(file);
+ let w = img.width, h = img.height;
+
+ if (Math.max(w,h) > MAX_SIZE){
+ if (w >= h){
+ h = Math.round(h * (MAX_SIZE / w));
+ w = MAX_SIZE;
+ }else{
+ w = Math.round(w * (MAX_SIZE / h));
+ h = MAX_SIZE;
+ }
+ }
+
+ const canvas = document.createElement('canvas');
+ canvas.width = w;
+ canvas.height = h;
+ const cctx = canvas.getContext('2d');
+ cctx.drawImage(img,0,0, w, h);
+
+ const blob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
+ const data = await blobToBase64(blob);
+
+ const baseName = file.name.replace(/\.[^/.]+$/, '');
+ return { name: baseName + '.jpg', type: 'image/jpeg', data };
+
+ }catch(e){
+ const data = await fileToBase64(file);
+ return { name: file.name, type: file.type, data };
+ }
+}
+
+function loadImage(file){
+ return new Promise((resolve, reject)=>{
+ const url = URL.createObjectURL(file);
+ const img = new Image();
+ img.onload = ()=>{
+ URL.revokeObjectURL(url);
+ resolve(img);
+ };
+ img.onerror = ()=>{
+ URL.revokeObjectURL(url);
+ reject('Ошибка загрузки изображения');
+ };
+ img.src = url;
  });
 }
 
-// Функция для загрузки изображения
-function loadImage(file){
+function canvasToBlob(canvas, type, quality){
  return new Promise((resolve, reject)=>{
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = ()=>{
-   URL.revokeObjectURL(url);
-   resolve(img);
-  };
-  img.onerror = ()=>{
-   URL.revokeObjectURL(url);
-   reject('Ошибка загрузки изображения');
-  };
-  img.src = url;
+ canvas.toBlob(b=>{
+ if(!b) return reject('Ошибка сжатия');
+ resolve(b);
+ }, type, quality);
+ });
+}
+
+function blobToBase64(blob){
+ return new Promise((resolve,reject)=>{
+ const r = new FileReader();
+ r.onload = ()=> resolve(r.result.split(',')[1]);
+ r.onerror = ()=> reject('Ошибка чтения');
+ r.readAsDataURL(blob);
+ });
+}
+
+function fileToBase64(file){
+ return new Promise((resolve,reject)=>{
+ const r = new FileReader();
+ r.onload = ()=> resolve(r.result.split(',')[1]);
+ r.onerror = ()=> reject('Ошибка чтения файла');
+ r.readAsDataURL(file);
  });
 }
 
@@ -925,6 +885,6 @@ if ('serviceWorker' in navigator) {
  location.reload();
  }
  });
- }catch(e){}
+ }catch(e){ }
  });
 }
