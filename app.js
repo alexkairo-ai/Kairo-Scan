@@ -240,9 +240,7 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
         const params = new URLSearchParams(location.search);
         const only = (params.get('only') || '').toLowerCase();
 
-        if (only === 'upakovka' && stage === 'upakovka') {
-            openPackagingDialog(stage, color, btn);
-        } else if (photoStages.has(stage)) {
+        if (photoStages.has(stage)) {
             openPhotoDialog(stage, color, btn);
         } else {
             sendStage(stage, color, btn, '');
@@ -252,105 +250,30 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
 });
 if (only) stageTitle.textContent = "Этап:";
 
-function openPackagingDialog(stage, color, btn) {
-    console.log('openPackagingDialog called'); // Для отладки
+function openPhotoDialog(stage, color, btn) {
+    const params = new URLSearchParams(location.search);
+    const only = (params.get('only') || '').toLowerCase();
+    const isPackagingMode = (only === 'upakovka' && stage === 'upakovka');
     
     const overlay = document.createElement('div');
-    overlay.id = 'packagingOverlay';
-    overlay.innerHTML = `
-        <div class="photo-modal">
-            <div class="photo-title">УПАКОВКА</div>
-            
-            <!-- Поле для количества упаковок -->
-            <div style="margin: 20px 0; text-align: left;">
-                <label style="display: block; margin-bottom: 10px; color: #f4e3a1; font-size: 16px;">Количество упаковок:</label>
-                <input type="number" id="packagingCount" min="1" value="1" 
-                    style="width: 100%; padding: 12px; border: 2px solid #caa24f; border-radius: 14px; background: rgba(6,8,12,.8); color: white; font-size: 20px; text-align: center;">
-            </div>
-            
-            <!-- Кнопки действий -->
-            <div class="photo-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                <button id="packagingWithPhoto" style="flex: 1; background: #caa24f; color: black; text-shadow: none;">Загрузить с фото</button>
-                <button id="packagingWithoutPhoto" style="flex: 1;">Без фото</button>
-                <button id="packagingCancel" style="flex: 1;">Отмена</button>
-            </div>
-            <div id="packagingMsg" class="small" style="margin-top: 15px; text-align: center;"></div>
-        </div>`;
-    document.body.appendChild(overlay);
-
-    const msgEl = document.getElementById('packagingMsg');
-    const countInput = document.getElementById('packagingCount');
-
-    document.getElementById('packagingCancel').onclick = () => overlay.remove();
-
-    document.getElementById('packagingWithoutPhoto').onclick = () => {
-        const count = countInput.value.trim();
-        if (!count || parseInt(count) < 1) {
-            msgEl.textContent = 'Введите корректное количество';
-            return;
-        }
-        overlay.remove();
-        sendStage(stage, color, btn, '', count);
-    };
-
-    document.getElementById('packagingWithPhoto').onclick = async () => {
-        const count = countInput.value.trim();
-        if (!count || parseInt(count) < 1) {
-            msgEl.textContent = 'Введите корректное количество';
-            return;
-        }
-
-        overlay.remove(); // Убираем первое окно
-        
-        // Создаем окно загрузки фото
-        const photoOverlay = document.createElement('div');
-        photoOverlay.id = 'photoOverlay';
-        photoOverlay.innerHTML = `
-            <div class="photo-modal">
-                <div class="photo-title">Загрузите фото для упаковки</div>
-                <div style="margin: 10px 0; padding: 10px; background: rgba(202,162,79,0.2); border-radius: 10px; text-align: center;">
-                    Количество упаковок: <strong style="color: #f4e3a1; font-size: 18px;">${count}</strong>
-                </div>
-                <input id="photoInput" type="file" accept="image/*" multiple />
-                <div class="photo-actions">
-                    <button id="photoUpload">Загрузить</button>
-                    <button id="photoSkip">Продолжить без фото</button>
-                    <button id="photoCancel">Отмена</button>
-                </div>
-                <div id="photoMsg" class="small"></div>
-            </div>`;
-        document.body.appendChild(photoOverlay);
-
-        const input = document.getElementById('photoInput');
-        const photoMsgEl = document.getElementById('photoMsg');
-
-        document.getElementById('photoCancel').onclick = () => photoOverlay.remove();
-
-        document.getElementById('photoSkip').onclick = () => {
-            photoOverlay.remove();
-            sendStage(stage, color, btn, '', count);
-        };
-
-        document.getElementById('photoUpload').onclick = async () => {
-            const files = Array.from(input.files || []);
-            if (!files.length) { photoMsgEl.textContent = 'Выберите фото'; return; }
-
-            photoMsgEl.textContent = 'Загрузка...';
-            const folderUrl = await uploadPhotos(files, stage).catch(err => { photoMsgEl.textContent = err; return null; });
-            if (folderUrl) {
-                photoOverlay.remove();
-                sendStage(stage, color, btn, folderUrl, count);
-            }
-        };
-    };
-}
-
-function openPhotoDialog(stage, color, btn) {
-    const overlay = document.createElement('div');
     overlay.id = 'photoOverlay';
-    overlay.innerHTML = `
+    
+    let html = `
         <div class="photo-modal">
-            <div class="photo-title">Загрузите фото для этапа</div>
+            <div class="photo-title">${isPackagingMode ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
+    `;
+    
+    if (isPackagingMode) {
+        html += `
+            <div style="margin: 15px 0; text-align: left;">
+                <label style="display: block; margin-bottom: 8px; color: var(--gold-hi); font-weight: 600;">Количество упаковок:</label>
+                <input type="number" id="packagingCount" min="1" value="1" 
+                    style="width: 100%; padding: 12px; border: 2px solid var(--gold); border-radius: 14px; background: rgba(6,8,12,.8); color: white; font-size: 18px; text-align: center;">
+            </div>
+        `;
+    }
+    
+    html += `
             <input id="photoInput" type="file" accept="image/*" multiple />
             <div class="photo-actions">
                 <button id="photoUpload">Загрузить</button>
@@ -359,30 +282,57 @@ function openPhotoDialog(stage, color, btn) {
             </div>
             <div id="photoMsg" class="small"></div>
         </div>`;
+    
+    overlay.innerHTML = html;
     document.body.appendChild(overlay);
 
     const input = document.getElementById('photoInput');
     const msgEl = document.getElementById('photoMsg');
+    const packagingInput = document.getElementById('packagingCount');
 
     document.getElementById('photoCancel').onclick = () => overlay.remove();
 
     document.getElementById('photoSkip').onclick = () => {
+        let packagingCount = '';
+        if (isPackagingMode && packagingInput) {
+            packagingCount = packagingInput.value.trim();
+            if (!packagingCount || parseInt(packagingCount) < 1) {
+                msgEl.textContent = 'Введите корректное количество упаковок';
+                return;
+            }
+        }
         overlay.remove();
         if (stage === 'prisadka') {
             openFacadesDialog((hasFacades) => {
                 sendStage(stage, color, btn, '', hasFacades);
             });
         } else {
-            sendStage(stage, color, btn, '');
+            sendStage(stage, color, btn, '', packagingCount);
         }
     };
 
     document.getElementById('photoUpload').onclick = async () => {
+        let packagingCount = '';
+        if (isPackagingMode && packagingInput) {
+            packagingCount = packagingInput.value.trim();
+            if (!packagingCount || parseInt(packagingCount) < 1) {
+                msgEl.textContent = 'Введите корректное количество упаковок';
+                return;
+            }
+        }
+        
         const files = Array.from(input.files || []);
-        if (!files.length) { msgEl.textContent = 'Выберите фото'; return; }
+        if (!files.length) { 
+            msgEl.textContent = 'Выберите фото'; 
+            return; 
+        }
 
         msgEl.textContent = 'Загрузка...';
-        const folderUrl = await uploadPhotos(files, stage).catch(err => { msgEl.textContent = err; return null; });
+        const folderUrl = await uploadPhotos(files, stage).catch(err => { 
+            msgEl.textContent = err; 
+            return null; 
+        });
+        
         if (folderUrl) {
             overlay.remove();
             if (stage === 'prisadka') {
@@ -390,7 +340,7 @@ function openPhotoDialog(stage, color, btn) {
                     sendStage(stage, color, btn, folderUrl, hasFacades);
                 });
             } else {
-                sendStage(stage, color, btn, folderUrl);
+                sendStage(stage, color, btn, folderUrl, packagingCount);
             }
         }
     };
@@ -928,7 +878,6 @@ document.getElementById('refreshBtn').onclick = async () => {
     location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
-// автообновление PWA при новой версии SW
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
