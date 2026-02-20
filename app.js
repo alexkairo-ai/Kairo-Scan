@@ -263,7 +263,7 @@ function openPhotoDialog(stage, color, btn) {
         html += `
             <div style="margin: 15px 0; text-align: left;">
                 <label style="display: block; margin-bottom: 8px; color: var(--gold-hi); font-weight: 600;">Количество упаковок:</label>
-                <input type="number" id="packagingCount" min="1" value="1" 
+                <input type="number" id="packagingCount" min="0" value="0" 
                     style="width: 100%; padding: 12px; border: 2px solid var(--gold); border-radius: 14px; background: rgba(6,8,12,.8); color: white; font-size: 18px; text-align: center;">
             </div>
         `;
@@ -289,30 +289,31 @@ function openPhotoDialog(stage, color, btn) {
     document.getElementById('photoCancel').onclick = () => overlay.remove();
 
     document.getElementById('photoSkip').onclick = () => {
-        let packagingCount = '';
         if (stage === 'upakovka' && packagingInput) {
-            packagingCount = packagingInput.value.trim();
-            if (!packagingCount || parseInt(packagingCount) < 1) {
-                msgEl.textContent = 'Введите корректное количество упаковок';
+            const count = parseInt(packagingInput.value);
+            if (isNaN(count) || count <= 0) {
+                msgEl.textContent = 'Введите количество больше 0';
+                packagingInput.focus();
                 return;
             }
         }
         overlay.remove();
         if (stage === 'prisadka') {
             openFacadesDialog((hasFacades) => {
-                sendStage(stage, color, btn, '', hasFacades);
+                sendStage(stage, color, btn, '', hasFacades ? '1' : '0');
             });
         } else {
+            const packagingCount = stage === 'upakovka' ? packagingInput.value : '';
             sendStage(stage, color, btn, '', packagingCount);
         }
     };
 
     document.getElementById('photoUpload').onclick = async () => {
-        let packagingCount = '';
         if (stage === 'upakovka' && packagingInput) {
-            packagingCount = packagingInput.value.trim();
-            if (!packagingCount || parseInt(packagingCount) < 1) {
-                msgEl.textContent = 'Введите корректное количество упаковок';
+            const count = parseInt(packagingInput.value);
+            if (isNaN(count) || count <= 0) {
+                msgEl.textContent = 'Введите количество больше 0';
+                packagingInput.focus();
                 return;
             }
         }
@@ -333,9 +334,10 @@ function openPhotoDialog(stage, color, btn) {
             overlay.remove();
             if (stage === 'prisadka') {
                 openFacadesDialog((hasFacades) => {
-                    sendStage(stage, color, btn, folderUrl, hasFacades);
+                    sendStage(stage, color, btn, folderUrl, hasFacades ? '1' : '0');
                 });
             } else {
+                const packagingCount = stage === 'upakovka' ? packagingInput.value : '';
                 sendStage(stage, color, btn, folderUrl, packagingCount);
             }
         }
