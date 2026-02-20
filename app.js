@@ -175,7 +175,8 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
         facades: ''
     };
     
-    if (packagingCount) {
+    // Добавляем количество упаковок для этапа упаковки
+    if (stage === 'upakovka' && packagingCount) {
         params.packaging_count = packagingCount;
     }
 
@@ -237,9 +238,6 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
     const key = (btn.dataset.only || stage).toLowerCase();
     const color = btn.dataset.color || '';
     btn.onclick = () => {
-        const params = new URLSearchParams(location.search);
-        const only = (params.get('only') || '').toLowerCase();
-
         if (photoStages.has(stage)) {
             openPhotoDialog(stage, color, btn);
         } else {
@@ -250,20 +248,18 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
 });
 if (only) stageTitle.textContent = "Этап:";
 
+// МОДИФИЦИРОВАННАЯ ФУНКЦИЯ - теперь всегда показывает поле количества для упаковки
 function openPhotoDialog(stage, color, btn) {
-    const params = new URLSearchParams(location.search);
-    const only = (params.get('only') || '').toLowerCase();
-    const isPackagingMode = (only === 'upakovka' && stage === 'upakovka');
-    
     const overlay = document.createElement('div');
     overlay.id = 'photoOverlay';
     
     let html = `
         <div class="photo-modal">
-            <div class="photo-title">${isPackagingMode ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
+            <div class="photo-title">${stage === 'upakovka' ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
     `;
     
-    if (isPackagingMode) {
+    // Для этапа упаковки добавляем поле ввода количества
+    if (stage === 'upakovka') {
         html += `
             <div style="margin: 15px 0; text-align: left;">
                 <label style="display: block; margin-bottom: 8px; color: var(--gold-hi); font-weight: 600;">Количество упаковок:</label>
@@ -294,7 +290,7 @@ function openPhotoDialog(stage, color, btn) {
 
     document.getElementById('photoSkip').onclick = () => {
         let packagingCount = '';
-        if (isPackagingMode && packagingInput) {
+        if (stage === 'upakovka' && packagingInput) {
             packagingCount = packagingInput.value.trim();
             if (!packagingCount || parseInt(packagingCount) < 1) {
                 msgEl.textContent = 'Введите корректное количество упаковок';
@@ -313,7 +309,7 @@ function openPhotoDialog(stage, color, btn) {
 
     document.getElementById('photoUpload').onclick = async () => {
         let packagingCount = '';
-        if (isPackagingMode && packagingInput) {
+        if (stage === 'upakovka' && packagingInput) {
             packagingCount = packagingInput.value.trim();
             if (!packagingCount || parseInt(packagingCount) < 1) {
                 msgEl.textContent = 'Введите корректное количество упаковок';
