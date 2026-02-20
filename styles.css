@@ -92,7 +92,6 @@ video {
     pointer-events: none
 }
 
-/* фиксированный блок видео, чтобы не прыгал */
 .video-wrap {
     position: relative;
     width: 100%;
@@ -369,16 +368,6 @@ button:active {
     z-index: 9999;
 }
 
-#packagingOverlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, .6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
 .photo-modal {
     background: rgba(28, 30, 34, .95);
     border: 2px solid #caa24f;
@@ -407,7 +396,6 @@ button:active {
     border-radius: 10px
 }
 
-/* ФАСАДЫ — по центру */
 #facadesOverlay {
     position: fixed;
     inset: 0;
@@ -448,4 +436,30 @@ button:active {
 .pager .active {
     background: rgba(0, 0, 0, .45);
     border-color: var(--gold-hi)
+}
+
+#photoOverlay input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    background: rgba(6,8,12,.8);
+    color: white;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+#photoOverlay input[type="number"]:focus {
+    border-color: var(--gold-hi);
+    box-shadow: 0 0 0 3px rgba(244,227,161,.18);
+    outline: none;
+}
+
+#photoOverlay label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--gold-hi);
+    font-weight: 600;
+    font-size: 16px;
 }
