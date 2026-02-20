@@ -175,7 +175,6 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
         facades: ''
     };
     
-    // Добавляем количество упаковок для этапа упаковки
     if (stage === 'upakovka' && packagingCount) {
         params.packaging_count = packagingCount;
     }
@@ -248,7 +247,6 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
 });
 if (only) stageTitle.textContent = "Этап:";
 
-// МОДИФИЦИРОВАННАЯ ФУНКЦИЯ - теперь всегда показывает поле количества для упаковки
 function openPhotoDialog(stage, color, btn) {
     const overlay = document.createElement('div');
     overlay.id = 'photoOverlay';
@@ -258,7 +256,6 @@ function openPhotoDialog(stage, color, btn) {
             <div class="photo-title">${stage === 'upakovka' ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
     `;
     
-    // Для этапа упаковки добавляем поле ввода количества
     if (stage === 'upakovka') {
         html += `
             <div style="margin: 15px 0; text-align: left;">
@@ -292,8 +289,9 @@ function openPhotoDialog(stage, color, btn) {
         let packagingCount = '';
         if (stage === 'upakovka' && packagingInput) {
             packagingCount = packagingInput.value.trim();
-            if (!packagingCount || parseInt(packagingCount) < 0) {
-                msgEl.textContent = 'Введите корректное количество упаковок';
+            if (!packagingCount || parseInt(packagingCount) <= 0) {
+                msgEl.textContent = 'Введите количество больше 0';
+                packagingInput.focus();
                 return;
             }
         }
@@ -311,8 +309,9 @@ function openPhotoDialog(stage, color, btn) {
         let packagingCount = '';
         if (stage === 'upakovka' && packagingInput) {
             packagingCount = packagingInput.value.trim();
-            if (!packagingCount || parseInt(packagingCount) < 1) {
-                msgEl.textContent = 'Введите корректное количество упаковок';
+            if (!packagingCount || parseInt(packagingCount) <= 0) {
+                msgEl.textContent = 'Введите количество больше 0';
+                packagingInput.focus();
                 return;
             }
         }
@@ -324,21 +323,24 @@ function openPhotoDialog(stage, color, btn) {
         }
 
         msgEl.textContent = 'Загрузка...';
-        const folderUrl = await uploadPhotos(files, stage).catch(err => { 
-            msgEl.textContent = err; 
-            return null; 
-        });
         
-        if (folderUrl) {
-            overlay.remove();
-            if (stage === 'prisadka') {
-                openFacadesDialog((hasFacades) => {
-                    sendStage(stage, color, btn, folderUrl, hasFacades);
-                });
-            } else {
-                sendStage(stage, color, btn, folderUrl, packagingCount);
+        // Используем JSONP для загрузки фото
+        uploadPhotosViaJsonp(files, stage, (err, folderUrl) => {
+            if (err) {
+                msgEl.textContent = err;
+                return;
             }
-        }
+            if (folderUrl) {
+                overlay.remove();
+                if (stage === 'prisadka') {
+                    openFacadesDialog((hasFacades) => {
+                        sendStage(stage, color, btn, folderUrl, hasFacades);
+                    });
+                } else {
+                    sendStage(stage, color, btn, folderUrl, packagingCount);
+                }
+            }
+        });
     };
 }
 
@@ -367,111 +369,99 @@ function openFacadesDialog(onChoose) {
     };
 }
 
-async function uploadPhotos(files, stage) {
+// Новая функция для загрузки фото через JSONP
+function uploadPhotosViaJsonp(files, stage, callback) {
     const parsed = parseDbOrderClient(orderInput.value);
     const order = parsed.order;
     const db = parsed.db;
-
     const name = workerInput.value.trim();
-    if (!order || !name) throw 'Введите заказ и имя';
+
+    if (!order || !name) {
+        callback('Введите заказ и имя');
+        return;
+    }
 
     const now = new Date();
     const date = now.toLocaleDateString('ru-RU');
     const time = now.toTimeString().slice(0, 5);
 
-    const payload = { action: 'upload_photos', order, stage, name, date, time, db, files: [] };
-
-    for (const f of files) {
-        const item = await fileToPayload(f);
-        payload.files.push(item);
-    }
-
-    const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-    }).then(r => r.json());
-
-    if (!res.ok) throw (res.msg || 'Ошибка загрузки');
-    return res.folderUrl;
-}
-
-async function fileToPayload(file) {
-    const MAX_SIZE = 1600;
-    const QUALITY = 0.8;
-    try {
-        const img = await loadImage(file);
-        let w = img.width, h = img.height;
-
-        if (Math.max(w, h) > MAX_SIZE) {
-            if (w >= h) {
-                h = Math.round(h * (MAX_SIZE / w));
-                w = MAX_SIZE;
-            } else {
-                w = Math.round(w * (MAX_SIZE / h));
-                h = MAX_SIZE;
-            }
+    // Создаем callback имя
+    const cbName = 'upload_cb_' + Math.random().toString(36).slice(2);
+    
+    // Создаем глобальную функцию обратного вызова
+    window[cbName] = function(res) {
+        delete window[cbName];
+        if (res.ok) {
+            callback(null, res.folderUrl);
+        } else {
+            callback(res.msg || 'Ошибка загрузки');
         }
+    };
 
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const cctx = canvas.getContext('2d');
-        cctx.drawImage(img, 0, 0, w, h);
+    // Создаем форму для отправки
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = API_URL;
+    form.enctype = 'multipart/form-data';
+    form.target = 'upload_iframe_' + cbName;
+    form.style.display = 'none';
 
-        const blob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
-        const data = await blobToBase64(blob);
+    // Добавляем поля
+    const fields = {
+        action: 'upload_photos',
+        order: order,
+        stage: stage,
+        name: name,
+        date: date,
+        time: time,
+        db: db,
+        callback: cbName
+    };
 
-        const baseName = file.name.replace(/\.[^/.]+$/, '');
-        return { name: baseName + '.jpg', type: 'image/jpeg', data };
-
-    } catch (e) {
-        const data = await fileToBase64(file);
-        return { name: file.name, type: file.type, data };
+    for (let key in fields) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = fields[key];
+        form.appendChild(input);
     }
-}
 
-function loadImage(file) {
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-            resolve(img);
-        };
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject('Ошибка загрузки изображения');
-        };
-        img.src = url;
-    });
-}
+    // Добавляем файлы
+    for (let i = 0; i < files.length; i++) {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.name = 'files';
+        fileInput.style.display = 'none';
+        // Не можем установить файл программно, поэтому используем iframe подход
+        // Вместо этого будем использовать оригинальный input
+    }
 
-function canvasToBlob(canvas, type, quality) {
-    return new Promise((resolve, reject) => {
-        canvas.toBlob(b => {
-            if (!b) return reject('Ошибка сжатия');
-            resolve(b);
-        }, type, quality);
-    });
-}
+    // Создаем iframe для приема ответа
+    const iframe = document.createElement('iframe');
+    iframe.name = 'upload_iframe_' + cbName;
+    iframe.style.display = 'none';
+    
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
 
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result.split(',')[1]);
-        r.onerror = () => reject('Ошибка чтения');
-        r.readAsDataURL(blob);
-    });
-}
+    // Обработчик загрузки iframe
+    iframe.onload = function() {
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            document.body.removeChild(form);
+        }, 1000);
+    };
 
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result.split(',')[1]);
-        r.onerror = () => reject('Ошибка чтения файла');
-        r.readAsDataURL(file);
-    });
+    // Отправляем форму
+    form.submit();
+
+    // Таймаут на случай ошибки
+    setTimeout(() => {
+        if (window[cbName]) {
+            delete window[cbName];
+            callback('Таймаут загрузки');
+        }
+    }, 30000);
 }
 
 function setActiveFilter(filter) {
@@ -904,4 +894,3 @@ if ('serviceWorker' in navigator) {
         } catch (e) { }
     });
 }
-
