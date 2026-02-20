@@ -253,31 +253,28 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
 if (only) stageTitle.textContent = "Этап:";
 
 function openPackagingDialog(stage, color, btn) {
+    console.log('openPackagingDialog called'); // Для отладки
+    
     const overlay = document.createElement('div');
-    overlay.id = 'photoOverlay'; // Используем тот же id что и для фото
+    overlay.id = 'packagingOverlay';
     overlay.innerHTML = `
         <div class="photo-modal">
             <div class="photo-title">УПАКОВКА</div>
             
             <!-- Поле для количества упаковок -->
-            <div style="margin: 15px 0; text-align: left;">
-                <label style="display: block; margin-bottom: 5px; color: var(--gold-hi);">Количество упаковок:</label>
+            <div style="margin: 20px 0; text-align: left;">
+                <label style="display: block; margin-bottom: 10px; color: #f4e3a1; font-size: 16px;">Количество упаковок:</label>
                 <input type="number" id="packagingCount" min="1" value="1" 
-                    style="width: 100%; padding: 10px; border: 2px solid var(--gold); border-radius: 10px; background: rgba(0,0,0,0.5); color: white; font-size: 18px;">
+                    style="width: 100%; padding: 12px; border: 2px solid #caa24f; border-radius: 14px; background: rgba(6,8,12,.8); color: white; font-size: 20px; text-align: center;">
             </div>
             
-            <!-- Ссылка на фотоархив как в оригинале -->
-            <div class="small" style="margin: 10px 0;">
-                <a href="https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ" target="_blank" style="color: var(--gold-hi);">📷 Загрузить фотографии</a>
+            <!-- Кнопки действий -->
+            <div class="photo-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+                <button id="packagingWithPhoto" style="flex: 1; background: #caa24f; color: black; text-shadow: none;">Загрузить с фото</button>
+                <button id="packagingWithoutPhoto" style="flex: 1;">Без фото</button>
+                <button id="packagingCancel" style="flex: 1;">Отмена</button>
             </div>
-            
-            <!-- Кнопки как в оригинале -->
-            <div class="photo-actions">
-                <button id="packagingUpload">Загрузить с фото</button>
-                <button id="packagingSkip">Продолжить без фото</button>
-                <button id="packagingCancel">Отмена</button>
-            </div>
-            <div id="packagingMsg" class="small"></div>
+            <div id="packagingMsg" class="small" style="margin-top: 15px; text-align: center;"></div>
         </div>`;
     document.body.appendChild(overlay);
 
@@ -286,7 +283,7 @@ function openPackagingDialog(stage, color, btn) {
 
     document.getElementById('packagingCancel').onclick = () => overlay.remove();
 
-    document.getElementById('packagingSkip').onclick = () => {
+    document.getElementById('packagingWithoutPhoto').onclick = () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
             msgEl.textContent = 'Введите корректное количество';
@@ -296,7 +293,7 @@ function openPackagingDialog(stage, color, btn) {
         sendStage(stage, color, btn, '', count);
     };
 
-    document.getElementById('packagingUpload').onclick = async () => {
+    document.getElementById('packagingWithPhoto').onclick = async () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
             msgEl.textContent = 'Введите корректное количество';
@@ -305,12 +302,15 @@ function openPackagingDialog(stage, color, btn) {
 
         overlay.remove(); // Убираем первое окно
         
-        // Создаем окно загрузки фото как в оригинале
+        // Создаем окно загрузки фото
         const photoOverlay = document.createElement('div');
         photoOverlay.id = 'photoOverlay';
         photoOverlay.innerHTML = `
             <div class="photo-modal">
-                <div class="photo-title">Загрузите фото для этапа</div>
+                <div class="photo-title">Загрузите фото для упаковки</div>
+                <div style="margin: 10px 0; padding: 10px; background: rgba(202,162,79,0.2); border-radius: 10px; text-align: center;">
+                    Количество упаковок: <strong style="color: #f4e3a1; font-size: 18px;">${count}</strong>
+                </div>
                 <input id="photoInput" type="file" accept="image/*" multiple />
                 <div class="photo-actions">
                     <button id="photoUpload">Загрузить</button>
