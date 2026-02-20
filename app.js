@@ -164,7 +164,7 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
     if (btn) flashStage(btn);
     statusEl.innerHTML = "Отправка...";
 
-    const params = {
+    let params = {
         action: 'mark',
         stage,
         order: raw,
@@ -254,120 +254,91 @@ if (only) stageTitle.textContent = "Этап:";
 
 function openPackagingDialog(stage, color, btn) {
     const overlay = document.createElement('div');
-    overlay.id = 'packagingOverlay';
+    overlay.id = 'photoOverlay'; // Используем тот же id что и для фото
     overlay.innerHTML = `
-        <div class="photo-modal" style="max-width: 420px;">
-            <div class="photo-title">📦 УПАКОВКА</div>
+        <div class="photo-modal">
+            <div class="photo-title">УПАКОВКА</div>
             
-            <div style="margin: 25px 0; background: rgba(202, 162, 79, 0.1); padding: 20px; border-radius: 16px; border: 1px solid var(--gold);">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
-                    <span style="font-size: 18px; font-weight: 600; color: var(--gold-hi);">Количество упаковок:</span>
-                    <input type="number" id="packagingCount" min="1" value="1" 
-                        style="width: 120px; font-size: 24px; font-weight: bold; text-align: center; padding: 10px; 
-                        border: 2px solid var(--gold); border-radius: 12px; background: rgba(0,0,0,0.7); color: white;">
-                </div>
+            <!-- Поле для количества упаковок -->
+            <div style="margin: 15px 0; text-align: left;">
+                <label style="display: block; margin-bottom: 5px; color: var(--gold-hi);">Количество упаковок:</label>
+                <input type="number" id="packagingCount" min="1" value="1" 
+                    style="width: 100%; padding: 10px; border: 2px solid var(--gold); border-radius: 10px; background: rgba(0,0,0,0.5); color: white; font-size: 18px;">
             </div>
-
-            <div class="small" style="text-align: center; margin: 15px 0; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-                <a href="https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ" target="_blank" 
-                    style="color: var(--gold-hi); text-decoration: none; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    📷 <span>Загрузить фотографии в архив</span>
-                </a>
+            
+            <!-- Ссылка на фотоархив как в оригинале -->
+            <div class="small" style="margin: 10px 0;">
+                <a href="https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ" target="_blank" style="color: var(--gold-hi);">📷 Загрузить фотографии</a>
             </div>
-
-            <div class="photo-actions" style="display: flex; gap: 12px; margin-top: 20px;">
-                <button id="packagingWithoutPhoto" style="flex: 1; padding: 14px; font-size: 16px;">Без фото</button>
-                <button id="packagingWithPhoto" style="flex: 1; padding: 14px; font-size: 16px; background: var(--gold); color: #000;">С фото</button>
-                <button id="packagingCancel" style="flex: 1; padding: 14px; font-size: 16px;">Отмена</button>
+            
+            <!-- Кнопки как в оригинале -->
+            <div class="photo-actions">
+                <button id="packagingUpload">Загрузить с фото</button>
+                <button id="packagingSkip">Продолжить без фото</button>
+                <button id="packagingCancel">Отмена</button>
             </div>
-
-            <div id="packagingMsg" class="small" style="margin-top: 15px; text-align: center; min-height: 24px; color: #ffaa66; font-weight: 500;"></div>
+            <div id="packagingMsg" class="small"></div>
         </div>`;
     document.body.appendChild(overlay);
 
     const msgEl = document.getElementById('packagingMsg');
     const countInput = document.getElementById('packagingCount');
 
-    // Валидация ввода
-    countInput.addEventListener('input', function() {
-        if (this.value < 1) this.value = 1;
-        if (this.value > 9999) this.value = 9999;
-    });
-
     document.getElementById('packagingCancel').onclick = () => overlay.remove();
 
-    document.getElementById('packagingWithoutPhoto').onclick = () => {
+    document.getElementById('packagingSkip').onclick = () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
-            msgEl.textContent = '⚠️ Введите корректное количество (минимум 1)';
-            countInput.focus();
+            msgEl.textContent = 'Введите корректное количество';
             return;
         }
         overlay.remove();
         sendStage(stage, color, btn, '', count);
     };
 
-    document.getElementById('packagingWithPhoto').onclick = async () => {
+    document.getElementById('packagingUpload').onclick = async () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
-            msgEl.textContent = '⚠️ Введите корректное количество (минимум 1)';
-            countInput.focus();
+            msgEl.textContent = 'Введите корректное количество';
             return;
         }
 
-        // Скрываем основное окно
-        overlay.style.display = 'none';
-
-        // Создаем окно для загрузки фото
+        overlay.remove(); // Убираем первое окно
+        
+        // Создаем окно загрузки фото как в оригинале
         const photoOverlay = document.createElement('div');
-        photoOverlay.id = 'tempPhotoOverlay';
+        photoOverlay.id = 'photoOverlay';
         photoOverlay.innerHTML = `
-            <div class="photo-modal" style="max-width: 420px;">
-                <div class="photo-title">📸 ЗАГРУЗКА ФОТО</div>
-                
-                <div style="margin: 15px 0; padding: 15px; background: rgba(202, 162, 79, 0.15); border-radius: 12px; border: 1px dashed var(--gold);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 600;">Количество упаковок:</span>
-                        <span style="font-size: 22px; font-weight: bold; color: var(--gold-hi);">${count}</span>
-                    </div>
+            <div class="photo-modal">
+                <div class="photo-title">Загрузите фото для этапа</div>
+                <input id="photoInput" type="file" accept="image/*" multiple />
+                <div class="photo-actions">
+                    <button id="photoUpload">Загрузить</button>
+                    <button id="photoSkip">Продолжить без фото</button>
+                    <button id="photoCancel">Отмена</button>
                 </div>
-
-                <input id="tempPhotoInput" type="file" accept="image/*" multiple 
-                    style="width: 100%; margin: 10px 0; padding: 15px; background: rgba(0,0,0,0.3); border: 2px dashed var(--gold); border-radius: 12px; color: white;">
-                
-                <div class="photo-actions" style="display: flex; gap: 12px; margin-top: 20px;">
-                    <button id="tempPhotoUpload" style="flex: 2; padding: 14px; background: var(--gold); color: #000;">Загрузить</button>
-                    <button id="tempPhotoCancel" style="flex: 1; padding: 14px;">Назад</button>
-                </div>
-                
-                <div id="tempPhotoMsg" class="small" style="margin-top: 15px; text-align: center; min-height: 24px;"></div>
+                <div id="photoMsg" class="small"></div>
             </div>`;
         document.body.appendChild(photoOverlay);
 
-        const tempInput = document.getElementById('tempPhotoInput');
-        const tempMsg = document.getElementById('tempPhotoMsg');
+        const input = document.getElementById('photoInput');
+        const photoMsgEl = document.getElementById('photoMsg');
 
-        document.getElementById('tempPhotoCancel').onclick = () => {
+        document.getElementById('photoCancel').onclick = () => photoOverlay.remove();
+
+        document.getElementById('photoSkip').onclick = () => {
             photoOverlay.remove();
-            overlay.style.display = 'flex';
+            sendStage(stage, color, btn, '', count);
         };
 
-        document.getElementById('tempPhotoUpload').onclick = async () => {
-            const files = Array.from(tempInput.files || []);
-            if (!files.length) {
-                tempMsg.textContent = '⚠️ Выберите фото для загрузки';
-                return;
-            }
+        document.getElementById('photoUpload').onclick = async () => {
+            const files = Array.from(input.files || []);
+            if (!files.length) { photoMsgEl.textContent = 'Выберите фото'; return; }
 
-            tempMsg.innerHTML = '⏳ Загрузка фотографий...';
-            const folderUrl = await uploadPhotos(files, stage).catch(err => {
-                tempMsg.innerHTML = '❌ Ошибка: ' + err;
-                return null;
-            });
-
+            photoMsgEl.textContent = 'Загрузка...';
+            const folderUrl = await uploadPhotos(files, stage).catch(err => { photoMsgEl.textContent = err; return null; });
             if (folderUrl) {
                 photoOverlay.remove();
-                overlay.remove();
                 sendStage(stage, color, btn, folderUrl, count);
             }
         };
