@@ -164,7 +164,7 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
     if (btn) flashStage(btn);
     statusEl.innerHTML = "Отправка...";
 
-    callApi({
+    const params = {
         action: 'mark',
         stage,
         order: raw,
@@ -172,9 +172,14 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
         color: color || '',
         db: db,
         photo_url: photoUrl || '',
-        facades: '',
-        packaging_count: packagingCount || ''
-    },
+        facades: ''
+    };
+    
+    if (packagingCount) {
+        params.packaging_count = packagingCount;
+    }
+
+    callApi(params,
         res => {
             statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg;
         },
@@ -251,33 +256,51 @@ function openPackagingDialog(stage, color, btn) {
     const overlay = document.createElement('div');
     overlay.id = 'packagingOverlay';
     overlay.innerHTML = `
-        <div class="photo-modal" style="max-width: 400px;">
-            <div class="photo-title">УПАКОВКА</div>
-            <div style="margin: 16px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span style="font-size: 18px; font-weight: 600;">Количество упаковок:</span>
-                <input type="number" id="packagingCount" min="1" value="1" style="width: 80px; font-size: 18px; text-align: center; margin: 0;">
+        <div class="photo-modal" style="max-width: 420px;">
+            <div class="photo-title">📦 УПАКОВКА</div>
+            
+            <div style="margin: 25px 0; background: rgba(202, 162, 79, 0.1); padding: 20px; border-radius: 16px; border: 1px solid var(--gold);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+                    <span style="font-size: 18px; font-weight: 600; color: var(--gold-hi);">Количество упаковок:</span>
+                    <input type="number" id="packagingCount" min="1" value="1" 
+                        style="width: 120px; font-size: 24px; font-weight: bold; text-align: center; padding: 10px; 
+                        border: 2px solid var(--gold); border-radius: 12px; background: rgba(0,0,0,0.7); color: white;">
+                </div>
             </div>
-            <div class="small" style="margin-bottom: 12px;">
-                <a href="https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ" target="_blank" style="color: var(--gold-hi);">📷 Загрузить фотографии</a>
+
+            <div class="small" style="text-align: center; margin: 15px 0; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+                <a href="https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ" target="_blank" 
+                    style="color: var(--gold-hi); text-decoration: none; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    📷 <span>Загрузить фотографии в архив</span>
+                </a>
             </div>
-            <div class="photo-actions" style="justify-content: space-between;">
-                <button id="packagingWithoutPhoto" style="width: auto;">Без фото</button>
-                <button id="packagingWithPhoto" style="width: auto; background: var(--gold); color: #000;">С фото</button>
-                <button id="packagingCancel" style="width: auto;">Отмена</button>
+
+            <div class="photo-actions" style="display: flex; gap: 12px; margin-top: 20px;">
+                <button id="packagingWithoutPhoto" style="flex: 1; padding: 14px; font-size: 16px;">Без фото</button>
+                <button id="packagingWithPhoto" style="flex: 1; padding: 14px; font-size: 16px; background: var(--gold); color: #000;">С фото</button>
+                <button id="packagingCancel" style="flex: 1; padding: 14px; font-size: 16px;">Отмена</button>
             </div>
-            <div id="packagingMsg" class="small" style="margin-top: 12px;"></div>
+
+            <div id="packagingMsg" class="small" style="margin-top: 15px; text-align: center; min-height: 24px; color: #ffaa66; font-weight: 500;"></div>
         </div>`;
     document.body.appendChild(overlay);
 
     const msgEl = document.getElementById('packagingMsg');
     const countInput = document.getElementById('packagingCount');
 
+    // Валидация ввода
+    countInput.addEventListener('input', function() {
+        if (this.value < 1) this.value = 1;
+        if (this.value > 9999) this.value = 9999;
+    });
+
     document.getElementById('packagingCancel').onclick = () => overlay.remove();
 
     document.getElementById('packagingWithoutPhoto').onclick = () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
-            msgEl.textContent = 'Введите корректное количество';
+            msgEl.textContent = '⚠️ Введите корректное количество (минимум 1)';
+            countInput.focus();
             return;
         }
         overlay.remove();
@@ -287,21 +310,37 @@ function openPackagingDialog(stage, color, btn) {
     document.getElementById('packagingWithPhoto').onclick = async () => {
         const count = countInput.value.trim();
         if (!count || parseInt(count) < 1) {
-            msgEl.textContent = 'Введите корректное количество';
+            msgEl.textContent = '⚠️ Введите корректное количество (минимум 1)';
+            countInput.focus();
             return;
         }
 
+        // Скрываем основное окно
+        overlay.style.display = 'none';
+
+        // Создаем окно для загрузки фото
         const photoOverlay = document.createElement('div');
         photoOverlay.id = 'tempPhotoOverlay';
         photoOverlay.innerHTML = `
-            <div class="photo-modal">
-                <div class="photo-title">Загрузите фото для упаковки</div>
-                <input id="tempPhotoInput" type="file" accept="image/*" multiple />
-                <div class="photo-actions">
-                    <button id="tempPhotoUpload">Загрузить</button>
-                    <button id="tempPhotoCancel">Отмена</button>
+            <div class="photo-modal" style="max-width: 420px;">
+                <div class="photo-title">📸 ЗАГРУЗКА ФОТО</div>
+                
+                <div style="margin: 15px 0; padding: 15px; background: rgba(202, 162, 79, 0.15); border-radius: 12px; border: 1px dashed var(--gold);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600;">Количество упаковок:</span>
+                        <span style="font-size: 22px; font-weight: bold; color: var(--gold-hi);">${count}</span>
+                    </div>
                 </div>
-                <div id="tempPhotoMsg" class="small"></div>
+
+                <input id="tempPhotoInput" type="file" accept="image/*" multiple 
+                    style="width: 100%; margin: 10px 0; padding: 15px; background: rgba(0,0,0,0.3); border: 2px dashed var(--gold); border-radius: 12px; color: white;">
+                
+                <div class="photo-actions" style="display: flex; gap: 12px; margin-top: 20px;">
+                    <button id="tempPhotoUpload" style="flex: 2; padding: 14px; background: var(--gold); color: #000;">Загрузить</button>
+                    <button id="tempPhotoCancel" style="flex: 1; padding: 14px;">Назад</button>
+                </div>
+                
+                <div id="tempPhotoMsg" class="small" style="margin-top: 15px; text-align: center; min-height: 24px;"></div>
             </div>`;
         document.body.appendChild(photoOverlay);
 
@@ -310,19 +349,19 @@ function openPackagingDialog(stage, color, btn) {
 
         document.getElementById('tempPhotoCancel').onclick = () => {
             photoOverlay.remove();
-            document.body.appendChild(overlay);
+            overlay.style.display = 'flex';
         };
 
         document.getElementById('tempPhotoUpload').onclick = async () => {
             const files = Array.from(tempInput.files || []);
             if (!files.length) {
-                tempMsg.textContent = 'Выберите фото';
+                tempMsg.textContent = '⚠️ Выберите фото для загрузки';
                 return;
             }
 
-            tempMsg.textContent = 'Загрузка...';
+            tempMsg.innerHTML = '⏳ Загрузка фотографий...';
             const folderUrl = await uploadPhotos(files, stage).catch(err => {
-                tempMsg.textContent = err;
+                tempMsg.innerHTML = '❌ Ошибка: ' + err;
                 return null;
             });
 
