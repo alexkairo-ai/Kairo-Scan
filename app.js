@@ -87,6 +87,7 @@ function parseDbOrderClient(raw) {
     return { db: '', order: s };
 }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ - возвращена к исходному рабочему состоянию
 async function startCamera() {
     if (starting) return;
     starting = true;
@@ -175,7 +176,6 @@ function sendStage(stage, color, btn, photoUrl, packagingCount) {
         facades: ''
     };
     
-    // Добавляем количество упаковок для этапа упаковки
     if (stage === 'upakovka' && packagingCount) {
         params.packaging_count = packagingCount;
     }
@@ -248,7 +248,7 @@ document.querySelectorAll('#stageButtons button').forEach(btn => {
 });
 if (only) stageTitle.textContent = "Этап:";
 
-// МОДИФИЦИРОВАННАЯ ФУНКЦИЯ - теперь всегда показывает поле количества для упаковки
+// МОДИФИЦИРОВАННАЯ ФУНКЦИЯ ДЛЯ УПАКОВКИ
 function openPhotoDialog(stage, color, btn) {
     const overlay = document.createElement('div');
     overlay.id = 'photoOverlay';
@@ -258,7 +258,6 @@ function openPhotoDialog(stage, color, btn) {
             <div class="photo-title">${stage === 'upakovka' ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
     `;
     
-    // Для этапа упаковки добавляем поле ввода количества
     if (stage === 'upakovka') {
         html += `
             <div style="margin: 15px 0; text-align: left;">
