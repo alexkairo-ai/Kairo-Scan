@@ -146,8 +146,7 @@ function flashStage(btn){
  setTimeout(()=>btn.classList.remove('stage-active'),700);
 }
 
-// ИЗМЕНЕНО: добавлен параметр packagingCount
-function sendStage(stage, color, btn, photoUrl, packagingCount, facades){
+function sendStage(stage, color, btn, photoUrl, facades){
  const parsed = parseDbOrderClient(orderInput.value);
  let raw = parsed.order;
  let db = parsed.db;
@@ -156,24 +155,16 @@ function sendStage(stage, color, btn, photoUrl, packagingCount, facades){
  if(!name){ statusEl.innerHTML="Введите имя"; return; }
  if(btn) flashStage(btn);
  statusEl.innerHTML="Отправка...";
- 
- let params = {
-  action:'mark',
-  stage,
-  order:raw,
-  name,
-  color:color||'',
-  db:db,
-  photo_url:photoUrl||'',
-  facades: (facades === true ? '1' : facades === false ? '0' : '')
- };
- 
- // Добавляем количество упаковок для этапа упаковки
- if(stage === 'upakovka' && packagingCount){
-  params.packaging_count = packagingCount;
- }
- 
- callApi(params,
+ callApi({
+ action:'mark',
+ stage,
+ order:raw,
+ name,
+ color:color||'',
+ db:db,
+ photo_url:photoUrl||'',
+ facades: (facades === true ? '1' : facades === false ? '0' : '')
+ },
  res=>{ statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
  err=>{ statusEl.innerHTML = err; }
  );
@@ -262,28 +253,12 @@ function openFacadesDialog(onChoose){
  };
 }
 
-// ИЗМЕНЕНО: добавлено поле для количества упаковок
 function openPhotoDialog(stage, color, btn){
  const overlay = document.createElement('div');
  overlay.id = 'photoOverlay';
- 
- let html = `
+ overlay.innerHTML = `
  <div class="photo-modal">
- <div class="photo-title">${stage === 'upakovka' ? 'УПАКОВКА' : 'Загрузите фото для этапа'}</div>
- `;
- 
- // Для этапа упаковки добавляем поле ввода количества
- if(stage === 'upakovka'){
- html += `
- <div style="margin: 15px 0; text-align: left;">
- <label style="display: block; margin-bottom: 8px; color: var(--gold-hi); font-weight: 600;">Количество упаковок:</label>
- <input type="number" id="packagingCount" min="0" value="0" 
- style="width: 100%; padding: 12px; border: 2px solid var(--gold); border-radius: 14px; background: rgba(6,8,12,.8); color: white; font-size: 18px; text-align: center;">
- </div>
- `;
- }
- 
- html += `
+ <div class="photo-title">Загрузите фото для этапа</div>
  <input id="photoInput" type="file" accept="image/*" multiple />
  <div class="photo-actions">
  <button id="photoUpload">Загрузить</button>
@@ -292,47 +267,25 @@ function openPhotoDialog(stage, color, btn){
  </div>
  <div id="photoMsg" class="small"></div>
  </div>`;
- 
- overlay.innerHTML = html;
  document.body.appendChild(overlay);
 
  const input = document.getElementById('photoInput');
  const msgEl = document.getElementById('photoMsg');
- const packagingInput = document.getElementById('packagingCount');
 
- document.getElementById('photoCancel').onclick = () => overlay.remove();
+ document.getElementById('photoCancel').onclick = ()=> overlay.remove();
 
- document.getElementById('photoSkip').onclick = () => {
- let packagingCount = '';
- if(stage === 'upakovka' && packagingInput){
- packagingCount = packagingInput.value.trim();
- if(!packagingCount || parseInt(packagingCount) <= 0){
- msgEl.textContent = 'Введите количество больше 0';
- packagingInput.focus();
- return;
- }
- }
+ document.getElementById('photoSkip').onclick = ()=>{
  overlay.remove();
  if(stage === 'prisadka'){
  openFacadesDialog((hasFacades)=>{
- sendStage(stage, color, btn, '', packagingCount, hasFacades);
+ sendStage(stage, color, btn, '', hasFacades);
  });
  }else{
- sendStage(stage, color, btn, '', packagingCount);
+ sendStage(stage, color, btn, '');
  }
  };
 
  document.getElementById('photoUpload').onclick = async ()=>{
- let packagingCount = '';
- if(stage === 'upakovka' && packagingInput){
- packagingCount = packagingInput.value.trim();
- if(!packagingCount || parseInt(packagingCount) <= 0){
- msgEl.textContent = 'Введите количество больше 0';
- packagingInput.focus();
- return;
- }
- }
- 
  const files = Array.from(input.files || []);
  if(!files.length){ msgEl.textContent='Выберите фото'; return; }
 
@@ -342,10 +295,10 @@ function openPhotoDialog(stage, color, btn){
  overlay.remove();
  if(stage === 'prisadka'){
  openFacadesDialog((hasFacades)=>{
- sendStage(stage, color, btn, folderUrl, packagingCount, hasFacades);
+ sendStage(stage, color, btn, folderUrl, hasFacades);
  });
  }else{
- sendStage(stage, color, btn, folderUrl, packagingCount);
+ sendStage(stage, color, btn, folderUrl);
  }
  }
  };
@@ -858,6 +811,7 @@ document.getElementById('refreshBtn').onclick = async () => {
  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
+// автообновление PWA при новой версии SW
 if ('serviceWorker' in navigator) {
  window.addEventListener('load', async () => {
  try{
@@ -885,6 +839,7 @@ if ('serviceWorker' in navigator) {
  location.reload();
  }
  });
- }catch(e){ }
+ }catch(e){}
  });
 }
+
