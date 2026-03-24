@@ -688,7 +688,7 @@ exportPdfBtn.onclick=async ()=>{
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.stage||'')}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name||'')}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db||'')}</td>
-  </tr>
+   </tr>
  `).join('');
 
  printArea.innerHTML = `
@@ -704,37 +704,37 @@ exportPdfBtn.onclick=async ()=>{
  <div style="margin-top:12px;font-size:12px;font-weight:700;">Сводка по сотрудникам:</div>
  <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
  <thead>
-  <tr>
+   <tr>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Кол-во заказов</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Номера заказов</th>
-  </tr>
+   </tr>
  </thead>
  <tbody>
  ${summaryRows.map(s=>`
-  <tr>
+   <tr>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.stage)}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.date)}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.name)}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(String(s.count))}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.orders)}</td>
-  </tr>
+   </tr>
  `).join('')}
  </tbody>
  </table>
 
  <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;">
  <thead>
-  <tr>
+   <tr>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Заказ</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
  <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
-  </tr>
+   </tr>
  </thead>
  <tbody>
  ${rowsHtml}
@@ -856,158 +856,202 @@ function addSalaryButton() {
 }
 
 function openSalaryDialog() {
-  if (!rawReports || rawReports.length === 0) {
-    // Загружаем все отчёты, если ещё не загружены
-    const wasLoading = reportsLoading;
-    loadReports('all', true);
-    // Ждём окончания загрузки
-    const checkInterval = setInterval(() => {
-      if (!reportsLoading && rawReports && rawReports.length) {
-        clearInterval(checkInterval);
-        showSalaryModal();
-      } else if (!reportsLoading && (!rawReports || rawReports.length === 0)) {
-        clearInterval(checkInterval);
-        alert('Нет данных для формирования списка сотрудников');
-      }
-    }, 200);
-    // Если загрузка не была запущена, loadReports запустит её; если была, просто ждём
-    if (!wasLoading) {
-      // дополнительно таймаут на случай ошибки
-      setTimeout(() => {
-        if (checkInterval) clearInterval(checkInterval);
-        if (!rawReports || rawReports.length === 0) alert('Не удалось загрузить данные');
-      }, 5000);
-    }
-  } else {
-    showSalaryModal();
-  }
+  showSalaryModal();
 }
 
 function showSalaryModal() {
-  // Получаем уникальных сотрудников из rawReports
-  const workersSet = new Set();
-  rawReports.forEach(r => {
-    const name = r.name?.trim();
-    if (name) workersSet.add(name);
-  });
-  const workers = Array.from(workersSet).sort();
-
-  if (workers.length === 0) {
-    alert('Нет данных о сотрудниках');
-    return;
-  }
-
-  // Создаём overlay
   const overlay = document.createElement('div');
   overlay.id = 'salaryOverlay';
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-title">Сбор ЗП</div>
-      <div class="workers-list">
-        <label class="select-all">
-          <input type="checkbox" id="selectAllWorkers"> Выбрать всех
-        </label>
-        <div id="workersCheckboxes">
-          ${workers.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}
-        </div>
-      </div>
-      <div class="date-range">
+      <div id="workersLoading" class="small">Загрузка списка сотрудников...</div>
+      <div id="workersCheckboxesContainer" style="display:none;"></div>
+      <div class="date-range" style="margin-top:10px;">
         <label>Период с: <input type="date" id="salaryDateFrom"></label>
         <label>по: <input type="date" id="salaryDateTo"></label>
       </div>
       <div class="modal-actions">
-        <button id="salaryExportBtn">Экспорт Excel</button>
+        <button id="salaryExportBtn" disabled>Экспорт Excel</button>
         <button id="salaryCancelBtn">Отмена</button>
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
 
-  const selectAll = document.getElementById('selectAllWorkers');
-  const checkboxes = overlay.querySelectorAll('#workersCheckboxes input');
-  selectAll.addEventListener('change', () => {
-    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+  const loadingDiv = document.getElementById('workersLoading');
+  const container = document.getElementById('workersCheckboxesContainer');
+  const exportBtn = document.getElementById('salaryExportBtn');
+  const cancelBtn = document.getElementById('salaryCancelBtn');
+
+  cancelBtn.onclick = () => overlay.remove();
+
+  // Загружаем список сотрудников (делаем запрос всех отчётов, но только для извлечения имён)
+  callApi({ action: 'reports', filter: 'all' }, (res) => {
+    if (!res.ok) {
+      loadingDiv.textContent = 'Ошибка загрузки списка сотрудников';
+      return;
+    }
+    const workersSet = new Set();
+    (res.data || []).forEach(r => {
+      const name = r.name?.trim();
+      if (name) workersSet.add(name);
+    });
+    const workers = Array.from(workersSet).sort();
+    if (workers.length === 0) {
+      loadingDiv.textContent = 'Нет данных о сотрудниках';
+      return;
+    }
+    // Скрываем загрузку, показываем чекбоксы
+    loadingDiv.style.display = 'none';
+    container.style.display = 'block';
+    container.innerHTML = `
+      <label class="select-all">
+        <input type="checkbox" id="selectAllWorkers"> Выбрать всех
+      </label>
+      <div id="workersCheckboxes">
+        ${workers.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}
+      </div>
+    `;
+    const selectAll = document.getElementById('selectAllWorkers');
+    const checkboxes = container.querySelectorAll('#workersCheckboxes input');
+    selectAll.addEventListener('change', () => {
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    });
+    exportBtn.disabled = false;
+    exportBtn.onclick = async () => {
+      const selected = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+      if (selected.length === 0) {
+        alert('Выберите хотя бы одного сотрудника');
+        return;
+      }
+      const fromStr = document.getElementById('salaryDateFrom').value;
+      const toStr = document.getElementById('salaryDateTo').value;
+      if (!fromStr || !toStr) {
+        alert('Укажите период');
+        return;
+      }
+      const fromDate = new Date(fromStr + 'T00:00:00');
+      const toDate = new Date(toStr + 'T23:59:59');
+      if (isNaN(fromDate) || isNaN(toDate)) {
+        alert('Некорректная дата');
+        return;
+      }
+      exportBtn.disabled = true;
+      exportBtn.textContent = 'Загрузка...';
+      try {
+        await exportSalaryToExcel(selected, fromDate.getTime(), toDate.getTime());
+      } catch (err) {
+        alert('Ошибка: ' + err.message);
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = 'Экспорт Excel';
+      }
+    };
   });
-
-  document.getElementById('salaryCancelBtn').onclick = () => overlay.remove();
-
-  document.getElementById('salaryExportBtn').onclick = () => {
-    const selected = Array.from(checkboxes)
-      .filter(cb => cb.checked)
-      .map(cb => cb.value);
-    if (selected.length === 0) {
-      alert('Выберите хотя бы одного сотрудника');
-      return;
-    }
-    const fromStr = document.getElementById('salaryDateFrom').value;
-    const toStr = document.getElementById('salaryDateTo').value;
-    if (!fromStr || !toStr) {
-      alert('Укажите период');
-      return;
-    }
-    // Преобразуем строки дат в timestamp (в локальном времени)
-    const fromDate = new Date(fromStr + 'T00:00:00');
-    const toDate = new Date(toStr + 'T23:59:59');
-    if (isNaN(fromDate) || isNaN(toDate)) {
-      alert('Некорректная дата');
-      return;
-    }
-    exportSalaryToExcel(selected, fromDate.getTime(), toDate.getTime());
-    overlay.remove();
-  };
 }
 
-function exportSalaryToExcel(selectedNames, fromTs, toTs) {
-  // Фильтруем записи по выбранным сотрудникам и периоду
-  const filtered = rawReports.filter(r => {
-    if (!selectedNames.includes(r.name)) return false;
-    const ts = Number(r.ts);
-    return ts >= fromTs && ts <= toTs;
+async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
+  return new Promise((resolve, reject) => {
+    callApi(
+      {
+        action: 'reports',
+        filter: 'date_range',
+        from: fromTs,
+        to: toTs
+      },
+      (res) => {
+        if (!res.ok) {
+          reject(new Error(res.msg || 'Ошибка загрузки данных'));
+          return;
+        }
+        const data = res.data || [];
+        const filtered = data.filter(r => selectedNames.includes(r.name));
+        if (filtered.length === 0) {
+          alert('За выбранный период нет данных для указанных сотрудников');
+          resolve();
+          return;
+        }
+
+        // Группируем: имя -> этап -> массив заказов
+        const groups = new Map(); // key = name|stage, value = { orders: [], count: 0 }
+        filtered.forEach(r => {
+          const key = `${r.name}|${r.stage}`;
+          if (!groups.has(key)) {
+            groups.set(key, { orders: [], count: 0 });
+          }
+          const group = groups.get(key);
+          if (!group.orders.includes(r.order)) {
+            group.orders.push(r.order);
+            group.count++;
+          }
+        });
+
+        // Сортируем по имени, затем по этапу
+        const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+          const [nameA, stageA] = a.split('|');
+          const [nameB, stageB] = b.split('|');
+          if (nameA !== nameB) return nameA.localeCompare(nameB);
+          return stageA.localeCompare(stageB);
+        });
+
+        // Определяем максимальное количество заказов среди всех групп
+        let maxOrders = 0;
+        for (const key of sortedKeys) {
+          const group = groups.get(key);
+          maxOrders = Math.max(maxOrders, group.orders.length);
+        }
+
+        // Формируем CSV
+        const rows = [];
+        // Заголовки
+        const headers = ['Сотрудник', 'Этап', 'Количество'];
+        for (let i = 1; i <= maxOrders; i++) {
+          headers.push(`Заказ ${i}`);
+        }
+        rows.push(headers.join(';'));
+
+        // Данные
+        for (const key of sortedKeys) {
+          const [name, stage] = key.split('|');
+          const group = groups.get(key);
+          const orderCells = [...group.orders];
+          // Дополняем пустыми ячейками до maxOrders
+          while (orderCells.length < maxOrders) orderCells.push('');
+          const row = [name, stage, group.count, ...orderCells];
+          rows.push(row.join(';'));
+        }
+
+        // Добавляем информацию о дате формирования и периоде в начало файла (комментарии)
+        const now = new Date();
+        const periodStr = `${new Date(fromTs).toLocaleDateString()} – ${new Date(toTs).toLocaleDateString()}`;
+        const infoRows = [
+          `Дата формирования: ${now.toLocaleString()}`,
+          `Период: ${periodStr}`,
+          ''
+        ];
+        const finalRows = [...infoRows, ...rows];
+
+        const blob = new Blob(['\uFEFF' + finalRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        const date = now.toISOString().slice(0, 10);
+        link.download = `zarplata_${date}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        resolve();
+      },
+      (err) => {
+        reject(new Error(err));
+      }
+    );
   });
-
-  if (filtered.length === 0) {
-    alert('За выбранный период нет данных для указанных сотрудников');
-    return;
-  }
-
-  // Группируем: имя -> этап -> Set заказов
-  const dataMap = new Map(); // key = name|stage, value = Set orders
-  filtered.forEach(r => {
-    const key = `${r.name}|${r.stage}`;
-    if (!dataMap.has(key)) dataMap.set(key, new Set());
-    dataMap.get(key).add(r.order);
-  });
-
-  // Сортируем по имени и этапу для удобства
-  const sortedKeys = Array.from(dataMap.keys()).sort((a,b) => {
-    const [nameA, stageA] = a.split('|');
-    const [nameB, stageB] = b.split('|');
-    if (nameA !== nameB) return nameA.localeCompare(nameB);
-    return stageA.localeCompare(stageB);
-  });
-
-  // Формируем строки CSV
-  const rows = [];
-  rows.push(['Сотрудник', 'Этап', 'Заказы'].join(';'));
-  for (const key of sortedKeys) {
-    const [name, stage] = key.split('|');
-    const orders = Array.from(dataMap.get(key)).sort();
-    const ordersStr = orders.join(', ');
-    rows.push([name, stage, ordersStr].join(';'));
-  }
-
-  // Создаём BLOB с BOM для корректной кириллицы
-  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.href = url;
-  const date = new Date().toISOString().slice(0,10);
-  link.download = `zarplata_${date}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 // Добавляем кнопку после загрузки DOM
