@@ -3,6 +3,13 @@ const EDIT_PASS = '1990';
 const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
 const photoStages = new Set(['hdf','prisadka','upakovka']);
 
+// ========== IndexedDB настройки ==========
+const DB_NAME = 'KairoScanDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'reports';
+let db = null;
+
+// ========== Остальные глобальные переменные ==========
 const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
 const statusEl = document.getElementById("status");
@@ -417,17 +424,38 @@ function setActiveFilter(filter){
  });
 }
 
-function openReports(){
- mainView.classList.add('hidden');
- reportsView.classList.remove('hidden');
+// ========== ИЗМЕНЁННАЯ ФУНКЦИЯ openReports ==========
+function openReports() {
+  mainView.classList.add('hidden');
+  reportsView.classList.remove('hidden');
 
- if(!currentFilter) currentFilter='day';
- setActiveFilter(currentFilter);
- loadReports(currentFilter, true);
+  if (!currentFilter) currentFilter = 'day';
+  setActiveFilter(currentFilter);
 
- if(reportsTimer) clearInterval(reportsTimer);
- reportsTimer = setInterval(()=>{ loadReports(currentFilter); },7000);
+  // Сначала показываем данные из кэша, если есть
+  loadReportsFromDB().then(cachedData => {
+    if (cachedData && cachedData.length) {
+      rawReports = cachedData;
+      applyFilterSort(false);
+      reportsStatus.textContent = 'Найдено: ' + currentReports.length + ' (кэш)';
+    } else {
+      reportsTableBody.innerHTML = '';
+      reportsStatus.textContent = 'Загрузка данных...';
+    }
+  }).catch(err => {
+    console.error('Ошибка чтения кэша:', err);
+    reportsStatus.textContent = 'Ошибка чтения кэша';
+  });
+
+  // Затем обновляем данные с сервера (фоново)
+  loadReports(currentFilter, true);
+
+  if (reportsTimer) clearInterval(reportsTimer);
+  reportsTimer = setInterval(() => {
+    loadReports(currentFilter);
+  }, 7000);
 }
+
 function closeReports(){
  reportsView.classList.add('hidden');
  mainView.classList.remove('hidden');
@@ -435,6 +463,7 @@ function closeReports(){
 }
 if (view==='reports'){ setTimeout(openReports,0); }
 
+// ========== ИЗМЕНЁННАЯ ФУНКЦИЯ loadReports (с сохранением в БД) ==========
 function loadReports(filter, force){
  if(!force && reportsLoading) return;
  reportsLoading = true;
@@ -442,11 +471,13 @@ function loadReports(filter, force){
 
  const reqId = ++reportsReqId;
 
- callApi({action:'reports', filter}, res=>{
+ callApi({action:'reports', filter}, async (res)=>{
  if(reqId !== reportsReqId) return;
  reportsLoading=false;
  if(!res.ok){ reportsStatus.textContent='⚠️ '+res.msg; return; }
  rawReports=res.data||[];
+ // Сохраняем в базу данных
+ await saveReportsToDB(rawReports);
  applyFilterSort(false);
  }, err=>{
  if(reqId !== reportsReqId) return;
@@ -681,7 +712,7 @@ exportPdfBtn.onclick=async ()=>{
  const logoData = await loadImageAsDataURL(logoUrl).catch(()=>'');
 
  const rowsHtml = data.map(r=>`
-  <tr>
+   <tr>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order||'')}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date||'')}</td>
  <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time||'')}</td>
@@ -843,6 +874,65 @@ if ('serviceWorker' in navigator) {
  });
 }
 
+// ========== ФУНКЦИИ РАБОТЫ С INDEXEDDB ==========
+function initDB() {
+  return new Promise((resolve, reject) => {
+    if (db) {
+      resolve(db);
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = (event) => {
+      console.error('IndexedDB error:', event);
+      reject(event);
+    };
+    request.onsuccess = (event) => {
+      db = event.target.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function saveReportsToDB(reports) {
+  try {
+    const database = await initDB();
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    await store.put({ id: 'reports', data: reports, timestamp: Date.now() });
+  } catch (err) {
+    console.error('Failed to save reports to DB:', err);
+  }
+}
+
+async function loadReportsFromDB() {
+  try {
+    const database = await initDB();
+    const transaction = database.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const request = store.get('reports');
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && result.data) {
+          resolve(result.data);
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('Failed to load reports from DB:', err);
+    return null;
+  }
+}
+
 // ========== НОВЫЙ ФУНКЦИОНАЛ: СБОР ЗП ==========
 
 function addSalaryButton() {
@@ -860,20 +950,38 @@ function openSalaryDialog() {
 }
 
 function showSalaryModal() {
+  // Сначала пробуем использовать уже загруженные rawReports (если есть)
+  let workersList = [];
+  if (rawReports && rawReports.length) {
+    const workersSet = new Set();
+    rawReports.forEach(r => {
+      const name = r.name?.trim();
+      if (name) workersSet.add(name);
+    });
+    workersList = Array.from(workersSet).sort();
+  }
+
   const overlay = document.createElement('div');
   overlay.id = 'salaryOverlay';
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-title">Сбор ЗП</div>
-      <div id="workersLoading" class="small">Загрузка списка сотрудников...</div>
-      <div id="workersCheckboxesContainer" style="display:none;"></div>
+      <div id="workersLoading" class="small" ${workersList.length ? 'style="display:none;"' : ''}>Загрузка списка сотрудников...</div>
+      <div id="workersCheckboxesContainer" style="display:${workersList.length ? 'block' : 'none'};">
+        <label class="select-all">
+          <input type="checkbox" id="selectAllWorkers"> Выбрать всех
+        </label>
+        <div id="workersCheckboxes">
+          ${workersList.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}
+        </div>
+      </div>
       <div class="date-range" style="margin-top:10px;">
         <label>Период с: <input type="date" id="salaryDateFrom"></label>
         <label>по: <input type="date" id="salaryDateTo"></label>
       </div>
       <div class="modal-actions">
-        <button id="salaryExportBtn" disabled>Экспорт Excel</button>
+        <button id="salaryExportBtn" ${workersList.length ? '' : 'disabled'}>Экспорт Excel</button>
         <button id="salaryCancelBtn">Отмена</button>
       </div>
     </div>
@@ -887,33 +995,8 @@ function showSalaryModal() {
 
   cancelBtn.onclick = () => overlay.remove();
 
-  // Загружаем список сотрудников (делаем запрос всех отчётов, но только для извлечения имён)
-  callApi({ action: 'reports', filter: 'all' }, (res) => {
-    if (!res.ok) {
-      loadingDiv.textContent = 'Ошибка загрузки списка сотрудников';
-      return;
-    }
-    const workersSet = new Set();
-    (res.data || []).forEach(r => {
-      const name = r.name?.trim();
-      if (name) workersSet.add(name);
-    });
-    const workers = Array.from(workersSet).sort();
-    if (workers.length === 0) {
-      loadingDiv.textContent = 'Нет данных о сотрудниках';
-      return;
-    }
-    // Скрываем загрузку, показываем чекбоксы
-    loadingDiv.style.display = 'none';
-    container.style.display = 'block';
-    container.innerHTML = `
-      <label class="select-all">
-        <input type="checkbox" id="selectAllWorkers"> Выбрать всех
-      </label>
-      <div id="workersCheckboxes">
-        ${workers.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}
-      </div>
-    `;
+  // Если список уже есть, сразу активируем чекбоксы
+  if (workersList.length) {
     const selectAll = document.getElementById('selectAllWorkers');
     const checkboxes = container.querySelectorAll('#workersCheckboxes input');
     selectAll.addEventListener('change', () => {
@@ -951,7 +1034,72 @@ function showSalaryModal() {
         exportBtn.textContent = 'Экспорт Excel';
       }
     };
-  });
+  } else {
+    // Загружаем список сотрудников с сервера
+    callApi({ action: 'reports', filter: 'all' }, (res) => {
+      if (!res.ok) {
+        loadingDiv.textContent = 'Ошибка загрузки списка сотрудников';
+        return;
+      }
+      const workersSet = new Set();
+      (res.data || []).forEach(r => {
+        const name = r.name?.trim();
+        if (name) workersSet.add(name);
+      });
+      const workers = Array.from(workersSet).sort();
+      if (workers.length === 0) {
+        loadingDiv.textContent = 'Нет данных о сотрудниках';
+        return;
+      }
+      loadingDiv.style.display = 'none';
+      container.style.display = 'block';
+      container.innerHTML = `
+        <label class="select-all">
+          <input type="checkbox" id="selectAllWorkers"> Выбрать всех
+        </label>
+        <div id="workersCheckboxes">
+          ${workers.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}
+        </div>
+      `;
+      const selectAll = document.getElementById('selectAllWorkers');
+      const checkboxes = container.querySelectorAll('#workersCheckboxes input');
+      selectAll.addEventListener('change', () => {
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      });
+      exportBtn.disabled = false;
+      exportBtn.onclick = async () => {
+        const selected = Array.from(checkboxes)
+          .filter(cb => cb.checked)
+          .map(cb => cb.value);
+        if (selected.length === 0) {
+          alert('Выберите хотя бы одного сотрудника');
+          return;
+        }
+        const fromStr = document.getElementById('salaryDateFrom').value;
+        const toStr = document.getElementById('salaryDateTo').value;
+        if (!fromStr || !toStr) {
+          alert('Укажите период');
+          return;
+        }
+        const fromDate = new Date(fromStr + 'T00:00:00');
+        const toDate = new Date(toStr + 'T23:59:59');
+        if (isNaN(fromDate) || isNaN(toDate)) {
+          alert('Некорректная дата');
+          return;
+        }
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Загрузка...';
+        try {
+          await exportSalaryToExcel(selected, fromDate.getTime(), toDate.getTime());
+        } catch (err) {
+          alert('Ошибка: ' + err.message);
+        } finally {
+          exportBtn.disabled = false;
+          exportBtn.textContent = 'Экспорт Excel';
+        }
+      };
+    });
+  }
 }
 
 async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
@@ -1056,3 +1204,6 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
 
 // Добавляем кнопку после загрузки DOM
 document.addEventListener('DOMContentLoaded', addSalaryButton);
+
+// Инициализация IndexedDB
+initDB().catch(console.error);
