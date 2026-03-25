@@ -15,7 +15,7 @@ const stageNamesRu = {
 
 // ========== IndexedDB настройки ==========
 const DB_NAME = 'KairoScanDB';
-const DB_VERSION = 2; // увеличил версию для новой структуры
+const DB_VERSION = 2;
 const STORE_NAME = 'reports_cache';
 let db = null;
 
@@ -61,7 +61,6 @@ let stream = null, locked = false, starting = false, stopTimer = null, editMode 
 let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
 let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
 let reportsReqId = 0;
-let filterChangeTimer = null; // для debounce
 
 const deletedTombstones = new Map();
 function reportKey(r) {
@@ -143,12 +142,12 @@ async function startCamera() {
 }
 startBtn.addEventListener("click", startCamera);
 
-// JSONP-вызов для старых методов (mark, delete_report)
+// JSONP-вызов для всех методов (включая отчёты с пагинацией)
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).slice(2);
   let done = false;
   window[cbName] = function () { };
-  const timeout = setTimeout(() => { if (!done) { done = true; if (onError) onError("⚠️ Нет ответа от сервера"); } }, 15000);
+  const timeout = setTimeout(() => { if (!done) { done = true; if (onError) onError("⚠️ Нет ответа от сервера"); } }, 30000);
   window[cbName] = function (res) {
     if (done) return;
     done = true; clearTimeout(timeout); cb(res);
@@ -160,26 +159,6 @@ function callApiJsonp(params, cb, onError) {
   script.src = API_URL + '?' + query.toString();
   script.onerror = () => { if (done) return; done = true; clearTimeout(timeout); if (onError) onError("⚠️ Ошибка связи с сервером"); };
   document.body.appendChild(script);
-}
-
-// POST-запрос для новых методов (reports_paged)
-async function callApiPost(action, data, timeout = 30000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...data }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Превышен таймаут запроса');
-    throw err;
-  }
 }
 
 function flashStage(btn) {
@@ -458,30 +437,25 @@ function setActiveFilter(filter) {
   });
 }
 
-// ========== РАБОТА С ОТЧЁТАМИ (НОВЫЙ МЕТОД) ==========
+// ========== НОВЫЕ ФУНКЦИИ РАБОТЫ С ОТЧЁТАМИ (JSONP с пагинацией) ==========
 
-async function loadReportsPaged(filter, pageNum = 1, perPageNum = 20) {
-  try {
-    const result = await callApiPost('reports_paged', {
+function loadReportsPaged(filter, pageNum = 1, perPageNum = 200) {
+  return new Promise((resolve, reject) => {
+    callApiJsonp({
+      action: 'reports_paged',
       filter,
       page: pageNum,
       per_page: perPageNum
-    }, 30000);
-    if (!result.ok) throw new Error(result.msg);
-    return result;
-  } catch (err) {
-    console.error('Ошибка загрузки отчётов:', err);
-    throw err;
-  }
+    }, resolve, reject);
+  });
 }
 
-// Загружаем все страницы последовательно и объединяем
 async function loadAllReports(filter, onProgress = null) {
   let allData = [];
   let page = 1;
   let total = 0;
   do {
-    const result = await loadReportsPaged(filter, page, 200); // берём по 200 записей за раз
+    const result = await loadReportsPaged(filter, page, 200);
     if (!result.ok) throw new Error(result.msg);
     allData = allData.concat(result.data);
     total = result.total;
@@ -491,13 +465,8 @@ async function loadAllReports(filter, onProgress = null) {
   return allData;
 }
 
-// Основная функция загрузки отчётов (с кэшем)
 let currentLoadPromise = null;
 async function loadReportsWithCache(filter, forceRefresh = false) {
-  // Отменяем предыдущий запрос
-  if (currentLoadPromise) {
-    // Можно отменить через AbortController, но для простоты просто дождёмся или игнорируем
-  }
   const cacheKey = `reports_${filter}`;
   if (!forceRefresh) {
     const cached = await loadReportsFromDB(cacheKey);
@@ -715,7 +684,6 @@ statsBtn.onclick = () => {
   const d = statsDate.value, stage = statsStage.value;
   if (!d) { statsResult.textContent = 'Выберите дату'; return; }
   statsResult.textContent = 'Считаю...';
-  // Для статистики используем старый метод (загружаем все данные за период)
   callApiJsonp({ action: 'reports', filter: 'all' }, res => {
     if (!res.ok) { statsResult.textContent = 'Ошибка'; return; }
     const prefix = d.split('-'); if (prefix.length !== 3) { statsResult.textContent = 'Ошибка даты'; return; }
@@ -805,14 +773,14 @@ exportPdfBtn.onclick = async () => {
   const logoData = await loadImageAsDataURL(logoUrl).catch(() => '');
 
   const rowsHtml = data.map(r => `
-     <tr>
+      <tr>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(stageNamesRu[r.stage] || r.stage)}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db || '')}</td>
-     </tr>
+      </tr>
   `).join('');
 
   printArea.innerHTML = `
@@ -1195,7 +1163,6 @@ function showSalaryModal() {
 }
 
 async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
-  // Для экспорта ЗП используем старый метод (загружаем все данные за период)
   return new Promise((resolve, reject) => {
     callApiJsonp(
       {
@@ -1284,9 +1251,9 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           const orderCells = [...group.orders];
           while (orderCells.length < maxOrders) orderCells.push('');
           html += `<tr>
-                       <td>${escapeHtml(name)}</td>
-                       <td>${escapeHtml(stageNamesRu[stage] || stage)}</td>
-                       <td>${group.count}</td>`;
+                        <td>${escapeHtml(name)}</td>
+                        <td>${escapeHtml(stageNamesRu[stage] || stage)}</td>
+                        <td>${group.count}</td>`;
           for (const order of orderCells) {
             html += `<td class="orders-col">${escapeHtml(order)}</td>`;
           }
