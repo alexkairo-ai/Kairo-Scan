@@ -61,6 +61,7 @@ let stream = null, locked = false, starting = false, stopTimer = null, editMode 
 let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
 let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
 let reportsReqId = 0;
+let filterChangeTimer = null; // для debounce
 
 const deletedTombstones = new Map();
 function reportKey(r) {
@@ -436,11 +437,18 @@ function setActiveFilter(filter) {
   });
 }
 
+// ========== УПРАВЛЕНИЕ ЗАПРОСАМИ С DEBOUNCE ==========
+function debouncedLoadReports(filter) {
+  if (filterChangeTimer) clearTimeout(filterChangeTimer);
+  filterChangeTimer = setTimeout(() => {
+    loadReports(filter, true);
+  }, 300); // небольшая задержка для предотвращения множественных запросов
+}
+
 function openReports() {
   mainView.classList.add('hidden');
   reportsView.classList.remove('hidden');
 
-  // Восстанавливаем последний использованный фильтр из localStorage
   const savedFilter = localStorage.getItem('lastReportsFilter');
   if (savedFilter && ['day', 'week', 'month', 'all'].includes(savedFilter)) {
     currentFilter = savedFilter;
@@ -449,7 +457,7 @@ function openReports() {
   }
   setActiveFilter(currentFilter);
 
-  // Сначала показываем данные из кэша (если есть)
+  // Сначала показываем кэш
   loadReportsFromDB().then(cachedData => {
     if (cachedData && cachedData.length) {
       rawReports = cachedData;
@@ -464,7 +472,7 @@ function openReports() {
     reportsStatus.textContent = 'Ошибка чтения кэша';
   });
 
-  // Затем обновляем данные с сервера (фоново)
+  // Фоновое обновление с сервера
   loadReports(currentFilter, true);
 
   if (reportsTimer) clearInterval(reportsTimer);
@@ -482,27 +490,25 @@ if (view === 'reports') { setTimeout(openReports, 0); }
 
 function loadReports(filter, force) {
   if (!force && reportsLoading) return;
+  // Отменяем предыдущий запрос, увеличивая reqId
+  const currentReqId = ++reportsReqId;
   reportsLoading = true;
   currentFilter = filter;
-  localStorage.setItem('lastReportsFilter', filter); // запоминаем выбранный фильтр
-
-  const reqId = ++reportsReqId;
+  localStorage.setItem('lastReportsFilter', filter);
 
   callApi({ action: 'reports', filter }, async (res) => {
-    if (reqId !== reportsReqId) return;
+    if (currentReqId !== reportsReqId) return; // отменено
     reportsLoading = false;
     if (!res.ok) {
       reportsStatus.textContent = '⚠️ ' + res.msg;
       return;
     }
     rawReports = res.data || [];
-    // Сохраняем в базу данных (кэш)
     await saveReportsToDB(rawReports);
-    // Применяем текущие настройки поиска и сортировки
     applyFilterSort(false);
     reportsStatus.textContent = `Найдено: ${currentReports.length} (обновлено, фильтр: ${filter})`;
   }, err => {
-    if (reqId !== reportsReqId) return;
+    if (currentReqId !== reportsReqId) return;
     reportsLoading = false;
     reportsStatus.textContent = '⚠️ Ошибка связи с сервером';
   });
@@ -572,7 +578,6 @@ function renderReports() {
     orderTd.textContent = r.order;
     dateTd.textContent = r.date;
     timeTd.textContent = r.time;
-    // Отображаем русское название этапа, если есть, иначе оригинал
     stageTd.textContent = stageNamesRu[r.stage] || r.stage;
     nameTd.textContent = r.name;
     dbTd.textContent = r.db || '';
@@ -629,13 +634,14 @@ function renderPager() {
   pager.appendChild(next);
 }
 
+// Обработчики фильтров с debounce
 document.querySelectorAll('.filters button').forEach(btn => {
   btn.onclick = () => {
     const f = btn.dataset.filter;
     if (!f) return;
     currentFilter = f;
     setActiveFilter(f);
-    loadReports(f, true); // force = true, сразу запрашиваем с сервера
+    debouncedLoadReports(f);
     if (reportsTimer) clearInterval(reportsTimer);
     reportsTimer = setInterval(() => {
       loadReports(currentFilter);
@@ -968,7 +974,7 @@ async function loadReportsFromDB() {
   }
 }
 
-// ========== НОВЫЙ ФУНКЦИОНАЛ: СБОР ЗП ==========
+// ========== НОВЫЙ ФУНКЦИОНАЛ: СБОР ЗП (улучшенный экспорт в XLS) ==========
 
 function addSalaryButton() {
   const editBtn = document.getElementById('editReports');
@@ -985,7 +991,6 @@ function openSalaryDialog() {
 }
 
 function showSalaryModal() {
-  // Сначала пробуем использовать уже загруженные rawReports (если есть)
   let workersList = [];
   if (rawReports && rawReports.length) {
     const workersSet = new Set();
@@ -1030,7 +1035,6 @@ function showSalaryModal() {
 
   cancelBtn.onclick = () => overlay.remove();
 
-  // Если список уже есть, сразу активируем чекбоксы
   if (workersList.length) {
     const selectAll = document.getElementById('selectAllWorkers');
     const checkboxes = container.querySelectorAll('#workersCheckboxes input');
@@ -1070,7 +1074,6 @@ function showSalaryModal() {
       }
     };
   } else {
-    // Загружаем список сотрудников с сервера
     callApi({ action: 'reports', filter: 'all' }, (res) => {
       if (!res.ok) {
         loadingDiv.textContent = 'Ошибка загрузки списка сотрудников';
@@ -1137,6 +1140,7 @@ function showSalaryModal() {
   }
 }
 
+// Улучшенный экспорт в Excel (HTML-таблица с границами, центрированием)
 async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
   return new Promise((resolve, reject) => {
     callApi(
@@ -1159,8 +1163,8 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           return;
         }
 
-        // Группируем: имя -> этап -> массив заказов
-        const groups = new Map(); // key = name|stage, value = { orders: [], count: 0 }
+        // Группировка
+        const groups = new Map();
         filtered.forEach(r => {
           const key = `${r.name}|${r.stage}`;
           if (!groups.has(key)) {
@@ -1173,7 +1177,6 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           }
         });
 
-        // Сортируем по имени, затем по этапу
         const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
           const [nameA, stageA] = a.split('|');
           const [nameB, stageB] = b.split('|');
@@ -1181,49 +1184,71 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           return stageA.localeCompare(stageB);
         });
 
-        // Определяем максимальное количество заказов среди всех групп
         let maxOrders = 0;
         for (const key of sortedKeys) {
-          const group = groups.get(key);
-          maxOrders = Math.max(maxOrders, group.orders.length);
+          maxOrders = Math.max(maxOrders, groups.get(key).orders.length);
         }
 
-        // Формируем CSV
-        const rows = [];
-        // Заголовки
-        const headers = ['Сотрудник', 'Этап', 'Количество'];
+        // Формируем HTML-таблицу
+        const now = new Date();
+        const periodStr = `${new Date(fromTs).toLocaleDateString()} – ${new Date(toTs).toLocaleDateString()}`;
+        let html = `
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Сбор ЗП ${periodStr}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .info { margin-bottom: 20px; font-size: 12px; color: #555; }
+              table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+              th, td { border: 1px solid #000; padding: 8px; text-align: center; vertical-align: top; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              td:first-child, th:first-child { text-align: left; }
+              td:nth-child(2), th:nth-child(2) { text-align: left; }
+              .orders-col { text-align: left; }
+            </style>
+          </head>
+          <body>
+            <div class="info">
+              <strong>Дата формирования:</strong> ${now.toLocaleString()}<br>
+              <strong>Период:</strong> ${periodStr}
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Сотрудник</th>
+                  <th>Этап</th>
+                  <th>Количество</th>
+        `;
         for (let i = 1; i <= maxOrders; i++) {
-          headers.push(`Заказ ${i}`);
+          html += `<th>Заказ ${i}</th>`;
         }
-        rows.push(headers.join(';'));
+        html += `</tr></thead><tbody>`;
 
-        // Данные
         for (const key of sortedKeys) {
           const [name, stage] = key.split('|');
           const group = groups.get(key);
           const orderCells = [...group.orders];
-          // Дополняем пустыми ячейками до maxOrders
           while (orderCells.length < maxOrders) orderCells.push('');
-          const row = [name, stage, group.count, ...orderCells];
-          rows.push(row.join(';'));
+          html += `<tr>
+                      <td>${escapeHtml(name)}</td>
+                      <td>${escapeHtml(stageNamesRu[stage] || stage)}</td>
+                      <td>${group.count}</td>`;
+          for (const order of orderCells) {
+            html += `<td class="orders-col">${escapeHtml(order)}</td>`;
+          }
+          html += `</tr>`;
         }
 
-        // Добавляем информацию о дате формирования и периоде в начало файла (комментарии)
-        const now = new Date();
-        const periodStr = `${new Date(fromTs).toLocaleDateString()} – ${new Date(toTs).toLocaleDateString()}`;
-        const infoRows = [
-          `Дата формирования: ${now.toLocaleString()}`,
-          `Период: ${periodStr}`,
-          ''
-        ];
-        const finalRows = [...infoRows, ...rows];
+        html += `</tbody></table></body></html>`;
 
-        const blob = new Blob(['\uFEFF' + finalRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        // Сохраняем как .xls
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
         const date = now.toISOString().slice(0, 10);
-        link.download = `zarplata_${date}.csv`;
+        link.download = `zarplata_${date}.xls`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
