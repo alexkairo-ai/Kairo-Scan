@@ -3,7 +3,7 @@ const EDIT_PASS = '1990';
 const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
 const photoStages = new Set(['hdf','prisadka','upakovka']);
 
-// ========== Локализация названий этапов ==========
+// ========== Локализация этапов ==========
 const stageNamesRu = {
   'pila': 'Пила',
   'hdf': 'ХДФ',
@@ -15,11 +15,11 @@ const stageNamesRu = {
 
 // ========== IndexedDB настройки ==========
 const DB_NAME = 'KairoScanDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'reports';
+const DB_VERSION = 2; // увеличил версию для новой структуры
+const STORE_NAME = 'reports_cache';
 let db = null;
 
-// ========== Остальные глобальные переменные ==========
+// ========== Глобальные переменные ==========
 const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
 const statusEl = document.getElementById("status");
@@ -143,11 +143,12 @@ async function startCamera() {
 }
 startBtn.addEventListener("click", startCamera);
 
-function callApi(params, cb, onError) {
+// JSONP-вызов для старых методов (mark, delete_report)
+function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).slice(2);
   let done = false;
   window[cbName] = function () { };
-  const timeout = setTimeout(() => { if (!done) { done = true; if (onError) onError("⚠️ Нет ответа от сервера"); } }, 12000);
+  const timeout = setTimeout(() => { if (!done) { done = true; if (onError) onError("⚠️ Нет ответа от сервера"); } }, 15000);
   window[cbName] = function (res) {
     if (done) return;
     done = true; clearTimeout(timeout); cb(res);
@@ -159,6 +160,26 @@ function callApi(params, cb, onError) {
   script.src = API_URL + '?' + query.toString();
   script.onerror = () => { if (done) return; done = true; clearTimeout(timeout); if (onError) onError("⚠️ Ошибка связи с сервером"); };
   document.body.appendChild(script);
+}
+
+// POST-запрос для новых методов (reports_paged)
+async function callApiPost(action, data, timeout = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...data }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Превышен таймаут запроса');
+    throw err;
+  }
 }
 
 function flashStage(btn) {
@@ -175,7 +196,7 @@ function sendStage(stage, color, btn, photoUrl, facades) {
   if (!name) { statusEl.innerHTML = "Введите имя"; return; }
   if (btn) flashStage(btn);
   statusEl.innerHTML = "Отправка...";
-  callApi({
+  callApiJsonp({
     action: 'mark',
     stage,
     order: raw,
@@ -229,9 +250,9 @@ function scan() {
   requestAnimationFrame(scan);
 }
 
-const params = new URLSearchParams(location.search);
-const only = (params.get('only') || '').toLowerCase();
-const view = (params.get('view') || '').toLowerCase();
+const urlParams = new URLSearchParams(location.search);
+const only = (urlParams.get('only') || '').toLowerCase();
+const view = (urlParams.get('view') || '').toLowerCase();
 
 document.querySelectorAll('#stageButtons button').forEach(btn => {
   const stage = btn.dataset.stage;
@@ -437,14 +458,72 @@ function setActiveFilter(filter) {
   });
 }
 
-// ========== УПРАВЛЕНИЕ ЗАПРОСАМИ С DEBOUNCE ==========
-function debouncedLoadReports(filter) {
-  if (filterChangeTimer) clearTimeout(filterChangeTimer);
-  filterChangeTimer = setTimeout(() => {
-    loadReports(filter, true);
-  }, 300); // небольшая задержка для предотвращения множественных запросов
+// ========== РАБОТА С ОТЧЁТАМИ (НОВЫЙ МЕТОД) ==========
+
+async function loadReportsPaged(filter, pageNum = 1, perPageNum = 20) {
+  try {
+    const result = await callApiPost('reports_paged', {
+      filter,
+      page: pageNum,
+      per_page: perPageNum
+    }, 30000);
+    if (!result.ok) throw new Error(result.msg);
+    return result;
+  } catch (err) {
+    console.error('Ошибка загрузки отчётов:', err);
+    throw err;
+  }
 }
 
+// Загружаем все страницы последовательно и объединяем
+async function loadAllReports(filter, onProgress = null) {
+  let allData = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const result = await loadReportsPaged(filter, page, 200); // берём по 200 записей за раз
+    if (!result.ok) throw new Error(result.msg);
+    allData = allData.concat(result.data);
+    total = result.total;
+    if (onProgress) onProgress(allData.length, total);
+    page++;
+  } while (allData.length < total);
+  return allData;
+}
+
+// Основная функция загрузки отчётов (с кэшем)
+let currentLoadPromise = null;
+async function loadReportsWithCache(filter, forceRefresh = false) {
+  // Отменяем предыдущий запрос
+  if (currentLoadPromise) {
+    // Можно отменить через AbortController, но для простоты просто дождёмся или игнорируем
+  }
+  const cacheKey = `reports_${filter}`;
+  if (!forceRefresh) {
+    const cached = await loadReportsFromDB(cacheKey);
+    if (cached && cached.data && cached.data.length) {
+      rawReports = cached.data;
+      applyFilterSort(false);
+      reportsStatus.textContent = `Найдено: ${currentReports.length} (кэш, фильтр: ${filter})`;
+      return;
+    }
+  }
+  reportsStatus.textContent = 'Загрузка данных с сервера...';
+  try {
+    const allData = await loadAllReports(filter, (loaded, total) => {
+      reportsStatus.textContent = `Загрузка: ${loaded}/${total}`;
+    });
+    rawReports = allData;
+    await saveReportsToDB(cacheKey, rawReports);
+    applyFilterSort(false);
+    reportsStatus.textContent = `Найдено: ${currentReports.length} (обновлено, фильтр: ${filter})`;
+  } catch (err) {
+    reportsStatus.textContent = `⚠️ Ошибка: ${err.message}`;
+    console.error(err);
+  }
+}
+
+// Открытие отчётов
 function openReports() {
   mainView.classList.add('hidden');
   reportsView.classList.remove('hidden');
@@ -457,28 +536,26 @@ function openReports() {
   }
   setActiveFilter(currentFilter);
 
-  // Сначала показываем кэш
-  loadReportsFromDB().then(cachedData => {
-    if (cachedData && cachedData.length) {
-      rawReports = cachedData;
+  // Сначала пытаемся показать кэш
+  const cacheKey = `reports_${currentFilter}`;
+  loadReportsFromDB(cacheKey).then(cached => {
+    if (cached && cached.data && cached.data.length) {
+      rawReports = cached.data;
       applyFilterSort(false);
       reportsStatus.textContent = `Найдено: ${currentReports.length} (кэш, фильтр: ${currentFilter})`;
     } else {
       reportsTableBody.innerHTML = '';
       reportsStatus.textContent = 'Загрузка данных с сервера...';
     }
-  }).catch(err => {
-    console.error('Ошибка чтения кэша:', err);
-    reportsStatus.textContent = 'Ошибка чтения кэша';
-  });
+  }).catch(console.error);
 
-  // Фоновое обновление с сервера
-  loadReports(currentFilter, true);
+  // Затем фоново обновляем
+  loadReportsWithCache(currentFilter, true);
 
   if (reportsTimer) clearInterval(reportsTimer);
   reportsTimer = setInterval(() => {
-    loadReports(currentFilter);
-  }, 7000);
+    loadReportsWithCache(currentFilter, true);
+  }, 60000); // каждую минуту обновляем
 }
 
 function closeReports() {
@@ -487,32 +564,6 @@ function closeReports() {
   if (reportsTimer) { clearInterval(reportsTimer); reportsTimer = null; }
 }
 if (view === 'reports') { setTimeout(openReports, 0); }
-
-function loadReports(filter, force) {
-  if (!force && reportsLoading) return;
-  // Отменяем предыдущий запрос, увеличивая reqId
-  const currentReqId = ++reportsReqId;
-  reportsLoading = true;
-  currentFilter = filter;
-  localStorage.setItem('lastReportsFilter', filter);
-
-  callApi({ action: 'reports', filter }, async (res) => {
-    if (currentReqId !== reportsReqId) return; // отменено
-    reportsLoading = false;
-    if (!res.ok) {
-      reportsStatus.textContent = '⚠️ ' + res.msg;
-      return;
-    }
-    rawReports = res.data || [];
-    await saveReportsToDB(rawReports);
-    applyFilterSort(false);
-    reportsStatus.textContent = `Найдено: ${currentReports.length} (обновлено, фильтр: ${filter})`;
-  }, err => {
-    if (currentReqId !== reportsReqId) return;
-    reportsLoading = false;
-    reportsStatus.textContent = '⚠️ Ошибка связи с сервером';
-  });
-}
 
 function applyFilterSort(resetPage) {
   currentReports = rawReports.slice().filter(r => {
@@ -591,7 +642,7 @@ function renderReports() {
       const key = reportId(r);
       btn.onclick = () => {
         if (!confirm('Удалить строку?')) return;
-        callApi({ action: 'delete_report', db: r.db, row: r.row }, res => {
+        callApiJsonp({ action: 'delete_report', db: r.db, row: r.row }, res => {
           if (!res.ok) { reportsStatus.textContent = '⚠️ ' + res.msg; return; }
           deletedTombstones.set(key, Date.now());
           rawReports = rawReports.filter(x => reportId(x) !== key);
@@ -634,18 +685,19 @@ function renderPager() {
   pager.appendChild(next);
 }
 
-// Обработчики фильтров с debounce
+// Обработчики фильтров
 document.querySelectorAll('.filters button').forEach(btn => {
   btn.onclick = () => {
     const f = btn.dataset.filter;
     if (!f) return;
     currentFilter = f;
     setActiveFilter(f);
-    debouncedLoadReports(f);
+    localStorage.setItem('lastReportsFilter', f);
+    loadReportsWithCache(f, true);
     if (reportsTimer) clearInterval(reportsTimer);
     reportsTimer = setInterval(() => {
-      loadReports(currentFilter);
-    }, 7000);
+      loadReportsWithCache(currentFilter, true);
+    }, 60000);
     page = 1;
   };
 });
@@ -663,7 +715,8 @@ statsBtn.onclick = () => {
   const d = statsDate.value, stage = statsStage.value;
   if (!d) { statsResult.textContent = 'Выберите дату'; return; }
   statsResult.textContent = 'Считаю...';
-  callApi({ action: 'reports', filter: 'all' }, res => {
+  // Для статистики используем старый метод (загружаем все данные за период)
+  callApiJsonp({ action: 'reports', filter: 'all' }, res => {
     if (!res.ok) { statsResult.textContent = 'Ошибка'; return; }
     const prefix = d.split('-'); if (prefix.length !== 3) { statsResult.textContent = 'Ошибка даты'; return; }
     const datePrefix = prefix[2] + '.' + prefix[1] + '.' + prefix[0].slice(-2);
@@ -752,14 +805,14 @@ exportPdfBtn.onclick = async () => {
   const logoData = await loadImageAsDataURL(logoUrl).catch(() => '');
 
   const rowsHtml = data.map(r => `
-    <tr>
+     <tr>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(stageNamesRu[r.stage] || r.stage)}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name || '')}</td>
       <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db || '')}</td>
-    </tr>
+     </tr>
   `).join('');
 
   printArea.innerHTML = `
@@ -879,19 +932,22 @@ document.getElementById('refreshBtn').onclick = async () => {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
     }
+    // Очищаем IndexedDB
+    const database = await initDB();
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    await store.clear();
   } catch (e) { }
   location.href = location.href.split('?')[0] + '?hard=' + Date.now();
 };
 
-// автообновление PWA при новой версии SW
+// автообновление PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('sw.js');
       reg.update();
-
       if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
-
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
@@ -904,7 +960,6 @@ if ('serviceWorker' in navigator) {
           }
         });
       });
-
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!sessionStorage.getItem('sw-reloaded')) {
           sessionStorage.setItem('sw-reloaded', '1');
@@ -940,28 +995,28 @@ function initDB() {
   });
 }
 
-async function saveReportsToDB(reports) {
+async function saveReportsToDB(key, reports) {
   try {
     const database = await initDB();
     const transaction = database.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    await store.put({ id: 'reports', data: reports, timestamp: Date.now() });
+    await store.put({ id: key, data: reports, timestamp: Date.now() });
   } catch (err) {
     console.error('Failed to save reports to DB:', err);
   }
 }
 
-async function loadReportsFromDB() {
+async function loadReportsFromDB(key) {
   try {
     const database = await initDB();
     const transaction = database.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     return new Promise((resolve, reject) => {
-      const request = store.get('reports');
+      const request = store.get(key);
       request.onsuccess = () => {
         const result = request.result;
         if (result && result.data) {
-          resolve(result.data);
+          resolve(result);
         } else {
           resolve(null);
         }
@@ -974,8 +1029,7 @@ async function loadReportsFromDB() {
   }
 }
 
-// ========== НОВЫЙ ФУНКЦИОНАЛ: СБОР ЗП (улучшенный экспорт в XLS) ==========
-
+// ========== СБОР ЗП ==========
 function addSalaryButton() {
   const editBtn = document.getElementById('editReports');
   if (!editBtn || document.getElementById('salaryBtn')) return;
@@ -1074,7 +1128,7 @@ function showSalaryModal() {
       }
     };
   } else {
-    callApi({ action: 'reports', filter: 'all' }, (res) => {
+    callApiJsonp({ action: 'reports', filter: 'all' }, (res) => {
       if (!res.ok) {
         loadingDiv.textContent = 'Ошибка загрузки списка сотрудников';
         return;
@@ -1140,10 +1194,10 @@ function showSalaryModal() {
   }
 }
 
-// Улучшенный экспорт в Excel (HTML-таблица с границами, центрированием)
 async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
+  // Для экспорта ЗП используем старый метод (загружаем все данные за период)
   return new Promise((resolve, reject) => {
-    callApi(
+    callApiJsonp(
       {
         action: 'reports',
         filter: 'date_range',
@@ -1189,7 +1243,6 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           maxOrders = Math.max(maxOrders, groups.get(key).orders.length);
         }
 
-        // Формируем HTML-таблицу
         const now = new Date();
         const periodStr = `${new Date(fromTs).toLocaleDateString()} – ${new Date(toTs).toLocaleDateString()}`;
         let html = `
@@ -1231,9 +1284,9 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
           const orderCells = [...group.orders];
           while (orderCells.length < maxOrders) orderCells.push('');
           html += `<tr>
-                      <td>${escapeHtml(name)}</td>
-                      <td>${escapeHtml(stageNamesRu[stage] || stage)}</td>
-                      <td>${group.count}</td>`;
+                       <td>${escapeHtml(name)}</td>
+                       <td>${escapeHtml(stageNamesRu[stage] || stage)}</td>
+                       <td>${group.count}</td>`;
           for (const order of orderCells) {
             html += `<td class="orders-col">${escapeHtml(order)}</td>`;
           }
@@ -1242,7 +1295,6 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
 
         html += `</tbody></table></body></html>`;
 
-        // Сохраняем как .xls
         const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -1262,8 +1314,5 @@ async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
   });
 }
 
-// Добавляем кнопку после загрузки DOM
 document.addEventListener('DOMContentLoaded', addSalaryButton);
-
-// Инициализация IndexedDB
 initDB().catch(console.error);
