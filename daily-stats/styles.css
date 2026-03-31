@@ -1,0 +1,154 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #0a0c0f;
+  color: #fff;
+  padding: 20px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 28px;
+}
+
+.worker-input {
+  margin-bottom: 20px;
+}
+
+.worker-input input {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  border-radius: 12px;
+  border: 1px solid #caa24f;
+  background: #1e1e2a;
+  color: #fff;
+}
+
+.stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.stages button {
+  background: #2a2a36;
+  border: 1px solid #caa24f;
+  color: #caa24f;
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 40px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stages button:hover {
+  background: #caa24f;
+  color: #000;
+}
+
+/* Стили для форм (страниц этапов) */
+.form-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.order-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  background: #1e1e2a;
+  padding: 12px;
+  border-radius: 12px;
+  align-items: center;
+}
+
+.order-row input {
+  flex: 2;
+  min-width: 120px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #caa24f;
+  background: #0f1216;
+  color: #fff;
+}
+
+.order-row input.metric {
+  flex: 1;
+}
+
+.order-row button.remove {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+button {
+  background: #caa24f;
+  border: none;
+  color: #000;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+button.secondary {
+  background: #2a2a36;
+  color: #caa24f;
+  border: 1px solid #caa24f;
+}
+
+button.danger {
+  background: #8b0000;
+  color: #fff;
+}
+
+.summary {
+  margin-top: 20px;
+  padding: 16px;
+  background: #1e1e2a;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 20px;
+}
+
+.total {
+  font-weight: bold;
+  color: #caa24f;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.hidden {
+  display: none;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: #caa24f;
+  text-decoration: none;
+}
