@@ -24,29 +24,37 @@
     <div id="inputPanel" class="panel">
       <div class="form-row">
         <div class="form-group">
-          <label>Дата отчёта</label>
+          <label>Дата</label>
           <input type="date" id="reportDate">
         </div>
         <div class="form-group">
-          <label>Сотрудник (этап)</label>
-          <select id="employeeStageSelect">
-            <option value="">-- Выберите сотрудника и этап --</option>
+          <label>Сотрудник</label>
+          <select id="employeeSelect">
+            <option value="">-- Выберите имя --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Этап</label>
+          <select id="stageSelect">
+            <option value="">-- Выберите этап --</option>
+            <option value="pila">Пила</option>
+            <option value="kromka">Кромка</option>
+            <option value="prisadka">Присадка</option>
+            <option value="upakovka">Упаковка</option>
+            <option value="hdf">Пила ХДФ</option>
           </select>
         </div>
       </div>
 
-      <div class="orders-section">
-        <h3>Заказы (можно добавить несколько)</h3>
-        <div id="ordersContainer"></div>
-        <div class="actions">
-          <button id="addOrderBtn" class="secondary">+ Добавить заказ</button>
-          <button id="loadFromScanBtn" class="secondary">📥 Загрузить из Kairo-Scan</button>
+      <div class="stats-section">
+        <div class="form-group">
+          <label>Количество заказов</label>
+          <input type="number" id="orderCount" step="1" min="0" value="0">
         </div>
-      </div>
-
-      <div class="total-section">
-        <label for="totalMetric">Общий итог (метраж / отверстия / упаковки)</label>
-        <input type="number" id="totalMetric" step="any" placeholder="Автоматически суммируется">
+        <div class="form-group">
+          <label>Метраж / кол-во упаковок</label>
+          <input type="number" id="totalAmount" step="any" value="0">
+        </div>
       </div>
 
       <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
@@ -56,17 +64,13 @@
     <div id="reportsPanel" class="panel" style="display:none;">
       <div class="filters">
         <div class="form-group">
-          <label>Дата с</label>
-          <input type="date" id="filterDateFrom">
-        </div>
-        <div class="form-group">
-          <label>Дата по</label>
-          <input type="date" id="filterDateTo">
+          <label>Месяц</label>
+          <input type="month" id="reportMonth">
         </div>
         <div class="form-group">
           <label>Этап</label>
           <select id="filterStage">
-            <option value="all">Все</option>
+            <option value="all">Все этапы</option>
             <option value="pila">Пила</option>
             <option value="kromka">Кромка</option>
             <option value="prisadka">Присадка</option>
@@ -77,28 +81,16 @@
         <div class="form-group">
           <label>Сотрудник</label>
           <select id="filterEmployee">
-            <option value="">Все</option>
+            <option value="">Все сотрудники</option>
           </select>
         </div>
         <div class="actions">
-          <button id="applyFilters" class="secondary">Применить</button>
+          <button id="applyFilters" class="secondary">Показать</button>
           <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
         </div>
       </div>
       <div class="table-wrapper">
-        <table id="reportsTable">
-          <thead>
-            <tr>
-              <th>Дата</th>
-              <th>Этап</th>
-              <th>Сотрудник</th>
-              <th>Заказы</th>
-              <th>Кол-во заказов</th>
-              <th>Итого</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div id="matrixContainer"></div>
       </div>
     </div>
   </div>
@@ -111,8 +103,7 @@
         <h2>Управление сотрудниками</h2>
       </div>
       <div class="modal-body">
-        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно (например, Макс и Максим → Макс).<br>
-        <strong>Примечание:</strong> объединение работает для всех этапов сотрудника.</p>
+        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно.</p>
         <div id="employeesSettingsList"></div>
         <div class="actions" style="margin-top: 20px;">
           <button id="saveSettingsBtn" class="primary">Сохранить настройки</button>
