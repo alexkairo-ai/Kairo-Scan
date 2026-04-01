@@ -12,6 +12,7 @@ const stageSelectGroup = document.getElementById('stageSelectGroup');
 const stageSelect = document.getElementById('stageSelect');
 const stageInfo = document.getElementById('stageInfo');
 const stageReadonly = document.getElementById('stageReadonly');
+const stageReadonlyDisplay = document.getElementById('stageReadonlyDisplay');
 const ordersContainer = document.getElementById('ordersContainer');
 const addOrderBtn = document.getElementById('addOrderBtn');
 const loadFromScanBtn = document.getElementById('loadFromScanBtn');
@@ -244,8 +245,15 @@ function loadEmployees() {
 
 function populateEmployeeSelect() {
   employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
+  const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   employeesData.forEach(emp => {
-    employeeSelect.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`;
+    let displayName = emp.name;
+    if (emp.stages.length === 1) {
+      const stageKey = emp.stages[0];
+      const stageDisplay = stageNames[stageKey] || stageKey;
+      displayName = `${emp.name} (${stageDisplay})`;
+    }
+    employeeSelect.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(displayName)}</option>`;
   });
   // Также заполняем фильтр сотрудников
   filterEmployee.innerHTML = '<option value="">Все</option>';
@@ -271,19 +279,22 @@ function onEmployeeChange() {
     return;
   }
   if (currentStages.length === 1) {
-    // Показываем read-only поле
+    // Показываем read-only поле с ключом и отображаем красивое имя
     stageInfo.style.display = 'block';
     stageSelectGroup.style.display = 'none';
-    const stageDisplay = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-    stageReadonly.value = stageDisplay[currentStages[0]] || currentStages[0];
+    const stageKey = currentStages[0];
+    const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+    const stageDisplayText = stageNames[stageKey] || stageKey;
+    stageReadonly.value = stageKey;          // сохраняем ключ
+    stageReadonlyDisplay.textContent = stageDisplayText;
   } else {
     // Показываем выпадающий список
     stageInfo.style.display = 'none';
     stageSelectGroup.style.display = 'block';
     stageSelect.innerHTML = '<option value="">-- Выберите этап --</option>';
+    const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
     currentStages.forEach(stage => {
-      const display = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-      stageSelect.innerHTML += `<option value="${stage}">${display[stage] || stage}</option>`;
+      stageSelect.innerHTML += `<option value="${stage}">${stageNames[stage] || stage}</option>`;
     });
   }
 }
