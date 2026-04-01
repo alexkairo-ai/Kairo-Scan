@@ -28,15 +28,9 @@
           <input type="date" id="reportDate">
         </div>
         <div class="form-group">
-          <label>Сотрудник</label>
-          <select id="employeeSelect">
-            <option value="">-- Выберите имя --</option>
-          </select>
-        </div>
-        <div class="form-group" id="stageSelectGroup" style="display: none;">
-          <label>Этап</label>
-          <select id="stageSelect">
-            <option value="">-- Выберите этап --</option>
+          <label>Сотрудник (этап)</label>
+          <select id="employeeStageSelect">
+            <option value="">-- Выберите сотрудника и этап --</option>
           </select>
         </div>
       </div>
@@ -117,7 +111,8 @@
         <h2>Управление сотрудниками</h2>
       </div>
       <div class="modal-body">
-        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно (например, Макс и Максим → Макс).</p>
+        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно (например, Макс и Максим → Макс).<br>
+        <strong>Примечание:</strong> объединение работает для всех этапов сотрудника.</p>
         <div id="employeesSettingsList"></div>
         <div class="actions" style="margin-top: 20px;">
           <button id="saveSettingsBtn" class="primary">Сохранить настройки</button>
