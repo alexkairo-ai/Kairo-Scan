@@ -10,7 +10,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>📊 ИТОГИ ДНЯ</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>📊 ИТОГИ ДНЯ</h1>
+      <button id="settingsBtn" class="secondary" style="width: auto; padding: 8px 16px;">⚙️ Настройки</button>
+    </div>
     <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
     <div class="tabs">
       <button id="tabInput" class="active">Ввод данных</button>
@@ -105,6 +108,25 @@
       </div>
     </div>
   </div>
+
+  <!-- Модальное окно настроек -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="close">&times;</span>
+        <h2>Управление сотрудниками</h2>
+      </div>
+      <div class="modal-body">
+        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно (например, Макс и Максим → Макс).</p>
+        <div id="employeesSettingsList"></div>
+        <div class="actions" style="margin-top: 20px;">
+          <button id="saveSettingsBtn" class="primary">Сохранить настройки</button>
+          <button id="resetSettingsBtn" class="secondary">Сбросить все настройки</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
