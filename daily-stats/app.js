@@ -1,91 +1,73 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой URL
+const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой
 
-let currentStage = null;
-let ordersData = []; // [{order, metric}]
+let orders = []; // массив { order, metric }
+let currentMode = 'list';
+let stageMap = {
+  pila: 'Пила',
+  kromka: 'Кромка',
+  prisadka: 'Присадка',
+  upakovka: 'Упаковка',
+  hdf: 'Пила ХДФ'
+};
 
-// Получить имя сотрудника
-function getWorkerName() {
-  return document.getElementById('workerName').value.trim();
+// Элементы
+const stageSelect = document.getElementById('stageSelect');
+const employeeSelect = document.getElementById('employeeSelect');
+const modeRadios = document.querySelectorAll('input[name="mode"]');
+const listModeDiv = document.getElementById('listMode');
+const totalModeDiv = document.getElementById('totalMode');
+const ordersContainer = document.getElementById('ordersContainer');
+const addOrderBtn = document.getElementById('addOrderBtn');
+const loadFromScanBtn = document.getElementById('loadFromScanBtn');
+const saveBtn = document.getElementById('saveBtn');
+const totalMetricInput = document.getElementById('totalMetricInput');
+const listTotalSpan = document.getElementById('listTotal');
+
+// Табы
+const tabInput = document.getElementById('tabInput');
+const tabReports = document.getElementById('tabReports');
+const inputPanel = document.getElementById('inputPanel');
+const reportsPanel = document.getElementById('reportsPanel');
+
+// Фильтры для отчётов
+const filterDateFrom = document.getElementById('filterDateFrom');
+const filterDateTo = document.getElementById('filterDateTo');
+const filterStage = document.getElementById('filterStage');
+const filterEmployee = document.getElementById('filterEmployee');
+const applyFiltersBtn = document.getElementById('applyFilters');
+const exportExcelBtn = document.getElementById('exportExcel');
+const reportsTableBody = document.querySelector('#reportsTable tbody');
+
+// Загрузка списка сотрудников
+function loadEmployees() {
+  callApiJsonp({ action: 'get_employees' }, (res) => {
+    if (res.ok) {
+      const employees = res.employees || [];
+      employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>' +
+        employees.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      // также заполняем фильтр сотрудников
+      filterEmployee.innerHTML = '<option value="">Все</option>' +
+        employees.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    } else {
+      console.error('Ошибка загрузки сотрудников');
+    }
+  }, (err) => console.error(err));
 }
 
-// Сохранить имя в localStorage
-document.getElementById('workerName').addEventListener('input', (e) => {
-  localStorage.setItem('workerName', e.target.value);
-});
-
-// Восстановить имя при загрузке
-window.addEventListener('load', () => {
-  const saved = localStorage.getItem('workerName');
-  if (saved) document.getElementById('workerName').value = saved;
-});
-
-// Переключение на страницу этапа
-function showStageForm(stage) {
-  currentStage = stage;
-  // Загружаем HTML формы (можно загружать динамически, но для простоты создадим разметку в JS)
-  const container = document.querySelector('.container');
-  container.innerHTML = `
-    <a href="#" class="back-link" id="backLink">← Назад</a>
-    <div class="form-page">
-      <h2>${getStageTitle(stage)}</h2>
-      <div id="ordersContainer"></div>
-      <button id="addRow">+ Добавить заказ</button>
-      <div class="summary">
-        <div>Общий ${getMetricLabel(stage)}:</div>
-        <div class="total" id="totalValue">0</div>
-      </div>
-      <div class="actions">
-        <button id="loadFromScan" class="secondary">📥 Загрузить из Kairo-Scan</button>
-        <button id="saveTotals">💾 Сохранить итоги</button>
-      </div>
-    </div>
-  `;
-
-  // Добавляем обработчики
-  document.getElementById('backLink').addEventListener('click', (e) => {
-    e.preventDefault();
-    location.reload(); // возвращаем на главную
-  });
-  document.getElementById('addRow').addEventListener('click', addOrderRow);
-  document.getElementById('loadFromScan').addEventListener('click', loadFromScan);
-  document.getElementById('saveTotals').addEventListener('click', saveTotals);
-
-  // Инициализируем одну пустую строку
-  ordersData = [];
-  addOrderRow();
+// Обновление итога в режиме поштучно
+function updateListTotal() {
+  const total = orders.reduce((sum, item) => sum + (item.metric || 0), 0);
+  listTotalSpan.textContent = total;
 }
 
-function getStageTitle(stage) {
-  const titles = {
-    pila: 'Пила',
-    kromka: 'Кромка',
-    prisadka: 'Присадка',
-    upakovka: 'Упаковка',
-    hdf: 'Пила ХДФ'
-  };
-  return titles[stage] || stage;
-}
-
-function getMetricLabel(stage) {
-  const labels = {
-    pila: 'метраж (м²)',
-    kromka: 'метраж (м)',
-    prisadка: 'количество отверстий',
-    upakovka: 'количество упаковок',
-    hdf: 'метраж (м²)'
-  };
-  return labels[stage] || 'показатель';
-}
-
-function addOrderRow() {
-  const container = document.getElementById('ordersContainer');
-  const index = ordersData.length;
+// Добавление строки заказа
+function addOrderRow(orderVal = '', metricVal = '') {
+  const index = orders.length;
   const rowDiv = document.createElement('div');
   rowDiv.className = 'order-row';
-  rowDiv.dataset.index = index;
   rowDiv.innerHTML = `
-    <input type="text" placeholder="Номер заказа" class="order-input" value="${ordersData[index]?.order || ''}">
-    <input type="number" placeholder="${getMetricLabel(currentStage)}" class="metric-input" step="any" value="${ordersData[index]?.metric || ''}">
+    <input type="text" placeholder="Номер заказа" class="order-input" value="${escapeHtml(orderVal)}">
+    <input type="number" placeholder="Показатель" class="metric-input" step="any" value="${metricVal}">
     <button class="remove">✖</button>
   `;
   const orderInput = rowDiv.querySelector('.order-input');
@@ -93,130 +75,233 @@ function addOrderRow() {
   const removeBtn = rowDiv.querySelector('.remove');
 
   orderInput.addEventListener('input', (e) => {
-    ordersData[index] = ordersData[index] || {};
-    ordersData[index].order = e.target.value;
-    updateTotal();
+    orders[index].order = e.target.value;
+    updateListTotal();
   });
   metricInput.addEventListener('input', (e) => {
-    ordersData[index] = ordersData[index] || {};
-    ordersData[index].metric = parseFloat(e.target.value) || 0;
-    updateTotal();
+    orders[index].metric = parseFloat(e.target.value) || 0;
+    updateListTotal();
   });
   removeBtn.addEventListener('click', () => {
-    ordersData.splice(index, 1);
+    orders.splice(index, 1);
     renderOrders();
+    updateListTotal();
   });
 
-  container.appendChild(rowDiv);
-  if (index >= ordersData.length) {
-    ordersData.push({ order: '', metric: 0 });
-  }
-  updateTotal();
+  ordersContainer.appendChild(rowDiv);
+  orders.push({ order: orderVal, metric: parseFloat(metricVal) || 0 });
+  updateListTotal();
 }
 
 function renderOrders() {
-  const container = document.getElementById('ordersContainer');
-  container.innerHTML = '';
-  ordersData.forEach((item, idx) => {
+  ordersContainer.innerHTML = '';
+  orders.forEach((item, idx) => {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'order-row';
-    rowDiv.dataset.index = idx;
     rowDiv.innerHTML = `
       <input type="text" placeholder="Номер заказа" class="order-input" value="${escapeHtml(item.order)}">
-      <input type="number" placeholder="${getMetricLabel(currentStage)}" class="metric-input" step="any" value="${item.metric}">
+      <input type="number" placeholder="Показатель" class="metric-input" step="any" value="${item.metric}">
       <button class="remove">✖</button>
     `;
     const orderInput = rowDiv.querySelector('.order-input');
     const metricInput = rowDiv.querySelector('.metric-input');
     const removeBtn = rowDiv.querySelector('.remove');
-
-    orderInput.addEventListener('input', (e) => {
-      ordersData[idx].order = e.target.value;
-      updateTotal();
-    });
-    metricInput.addEventListener('input', (e) => {
-      ordersData[idx].metric = parseFloat(e.target.value) || 0;
-      updateTotal();
-    });
-    removeBtn.addEventListener('click', () => {
-      ordersData.splice(idx, 1);
-      renderOrders();
-    });
-    container.appendChild(rowDiv);
+    orderInput.addEventListener('input', (e) => { orders[idx].order = e.target.value; updateListTotal(); });
+    metricInput.addEventListener('input', (e) => { orders[idx].metric = parseFloat(e.target.value) || 0; updateListTotal(); });
+    removeBtn.addEventListener('click', () => { orders.splice(idx, 1); renderOrders(); updateListTotal(); });
+    ordersContainer.appendChild(rowDiv);
   });
-  updateTotal();
+  updateListTotal();
 }
 
-function updateTotal() {
-  const total = ordersData.reduce((sum, item) => sum + (item.metric || 0), 0);
-  const totalEl = document.getElementById('totalValue');
-  if (totalEl) totalEl.textContent = total;
-}
-
-// Загрузить заказы из Kairo-Scan
-async function loadFromScan() {
-  const name = getWorkerName();
-  if (!name) {
-    alert('Введите ваше имя');
+// Загрузка заказов из Kairo-Scan
+function loadFromScan() {
+  const stage = stageSelect.value;
+  const employee = employeeSelect.value;
+  if (!employee) {
+    alert('Выберите сотрудника');
     return;
   }
-  const stage = currentStage;
-  // Используем JSONP для запроса
-  callApiJsonp({ action: 'get_today_orders', name, stage }, (res) => {
+  callApiJsonp({ action: 'get_today_orders', name: employee, stage }, (res) => {
     if (!res.ok) {
       alert('Ошибка загрузки: ' + res.msg);
       return;
     }
-    const orders = res.orders || [];
-    if (orders.length === 0) {
+    const ordersList = res.orders || [];
+    if (ordersList.length === 0) {
       alert('За сегодня заказов не найдено');
       return;
     }
-    // Добавляем заказы, которых ещё нет в списке
-    for (const order of orders) {
-      if (!ordersData.some(item => item.order === order)) {
-        ordersData.push({ order, metric: 0 });
+    // Добавляем заказы, которых нет в текущем списке
+    for (const order of ordersList) {
+      if (!orders.some(o => o.order === order)) {
+        orders.push({ order, metric: 0 });
       }
     }
     renderOrders();
-  }, (err) => {
-    alert('Ошибка связи с сервером: ' + err);
-  });
+  }, (err) => alert('Ошибка связи: ' + err));
 }
 
-// Сохранить итоги
-async function saveTotals() {
-  const name = getWorkerName();
-  if (!name) {
-    alert('Введите ваше имя');
+// Сохранение итогов
+function saveTotals() {
+  const stage = stageSelect.value;
+  const employee = employeeSelect.value;
+  if (!employee) {
+    alert('Выберите сотрудника');
     return;
   }
-  const orders = ordersData.map(item => item.order).filter(o => o);
-  const metrics = ordersData.map(item => item.metric);
-  const total = ordersData.reduce((sum, item) => sum + (item.metric || 0), 0);
   const date = new Date().toLocaleDateString('ru-RU');
-  const data = {
-    stage: currentStage,
-    name,
-    date,
-    orders,
-    metrics,
-    total
+  let mode, ordersList, metrics, total;
+
+  if (currentMode === 'list') {
+    mode = 'поштучно';
+    ordersList = orders.map(o => o.order).filter(o => o);
+    metrics = orders.map(o => o.metric);
+    total = orders.reduce((sum, o) => sum + (o.metric || 0), 0);
+  } else {
+    mode = 'общий итог';
+    ordersList = [];
+    metrics = [];
+    total = parseFloat(totalMetricInput.value) || 0;
+  }
+
+  const payload = {
+    action: 'save_totals',
+    data: JSON.stringify({ stage, name: employee, date, orders: ordersList, metrics, total, mode })
   };
-  callApiJsonp({ action: 'save_totals', data: JSON.stringify(data) }, (res) => {
+  callApiJsonp(payload, (res) => {
     if (res.ok) {
       alert('Итоги сохранены!');
-      // Очищаем форму или возвращаемся на главную
-      location.reload();
+      // Очистка формы
+      orders = [];
+      renderOrders();
+      totalMetricInput.value = '';
+      // Обновляем список отчётов, если открыт
+      if (reportsPanel.style.display !== 'none') loadReports();
     } else {
-      alert('Ошибка сохранения: ' + res.msg);
+      alert('Ошибка: ' + res.msg);
     }
+  }, (err) => alert('Ошибка связи: ' + err));
+}
+
+// Загрузка отчётов
+function loadReports() {
+  const from = filterDateFrom.value;
+  const to = filterDateTo.value;
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+
+  callApiJsonp({
+    action: 'get_totals',
+    from, to, stage, employee
+  }, (res) => {
+    if (!res.ok) {
+      reportsTableBody.innerHTML = '<tr><td colspan="7">Ошибка загрузки</td></tr>';
+      return;
+    }
+    const data = res.data || [];
+    reportsTableBody.innerHTML = data.map(row => `
+      <tr>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(stageMap[row.stage] || row.stage)}</td>
+        <td>${escapeHtml(row.employee)}</td>
+        <td>${escapeHtml(row.orders)}</td>
+        <td>${escapeHtml(row.metrics)}</td>
+        <td>${escapeHtml(row.total)}</td>
+        <td>${escapeHtml(row.mode)}</td>
+      </tr>
+    `).join('');
   }, (err) => {
-    alert('Ошибка связи с сервером: ' + err);
+    reportsTableBody.innerHTML = '<tr><td colspan="7">Ошибка связи</td></tr>';
   });
 }
 
-// JSONP функция
+// Экспорт в Excel (простой CSV)
+function exportToExcel() {
+  const from = filterDateFrom.value;
+  const to = filterDateTo.value;
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+
+  callApiJsonp({
+    action: 'get_totals',
+    from, to, stage, employee
+  }, (res) => {
+    if (!res.ok) {
+      alert('Ошибка загрузки');
+      return;
+    }
+    const data = res.data || [];
+    const headers = ['Дата', 'Этап', 'Сотрудник', 'Заказы', 'Показатели', 'Итого', 'Тип'];
+    const rows = data.map(row => [
+      row.date,
+      stageMap[row.stage] || row.stage,
+      row.employee,
+      row.orders,
+      row.metrics,
+      row.total,
+      row.mode
+    ]);
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `totals_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, (err) => alert('Ошибка связи'));
+}
+
+// Переключение режимов ввода
+function setMode(mode) {
+  currentMode = mode;
+  if (mode === 'list') {
+    listModeDiv.style.display = 'block';
+    totalModeDiv.style.display = 'none';
+  } else {
+    listModeDiv.style.display = 'none';
+    totalModeDiv.style.display = 'block';
+  }
+}
+
+// Переключение вкладок
+function switchTab(tab) {
+  if (tab === 'input') {
+    inputPanel.style.display = 'block';
+    reportsPanel.style.display = 'none';
+    tabInput.classList.add('active');
+    tabReports.classList.remove('active');
+  } else {
+    inputPanel.style.display = 'none';
+    reportsPanel.style.display = 'block';
+    tabReports.classList.add('active');
+    tabInput.classList.remove('active');
+    loadReports();
+  }
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+  loadEmployees();
+  addOrderRow(); // начальная пустая строка
+
+  // Обработчики
+  modeRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.checked) setMode(e.target.value);
+    });
+  });
+  addOrderBtn.addEventListener('click', () => addOrderRow());
+  loadFromScanBtn.addEventListener('click', loadFromScan);
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+});
+
+// JSONP helper
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).slice(2);
   let done = false;
@@ -259,11 +344,3 @@ function escapeHtml(str) {
     return m;
   });
 }
-
-// Обработчики кнопок выбора этапа
-document.querySelectorAll('.stages button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const stage = btn.dataset.stage;
-    showStageForm(stage);
-  });
-});
