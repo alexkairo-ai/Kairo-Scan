@@ -78,7 +78,7 @@ function resetSettings() {
 
 // Построение списка вариантов (имя + этап) с учётом объединения и скрытия
 function rebuildEmployeeStageOptions() {
-  // Сначала все исходные сотрудники, которые не скрыты
+  // Все исходные сотрудники, которые не скрыты
   const visibleEmployees = employeesData.filter(emp => !hiddenNames.includes(emp.name));
   
   // Группируем по алиасам (для каждого имени, которое будет отображаться)
@@ -117,7 +117,6 @@ function rebuildEmployeeStageOptions() {
       });
     }
   }
-  // Сортируем по отображаемому имени
   employeeStageOptions.sort((a,b) => a.displayName.localeCompare(b.displayName));
 }
 
@@ -186,6 +185,7 @@ async function loadOrdersForOption(option, formattedDate) {
   const allOrders = [];
   const promises = originalNames.map(name => {
     return new Promise((resolve) => {
+      console.log('📤 Отправка запроса:', { action: 'get_today_orders', name, stage, date: formattedDate });
       callApiJsonp({ action: 'get_today_orders', name, stage, date: formattedDate }, (res) => {
         if (res.ok && res.orders) {
           resolve(res.orders);
@@ -257,7 +257,6 @@ function saveTotals() {
   const metricsList = orders.map(o => o.metric);
   const total = parseFloat(totalMetricInput.value) || 0;
   
-  // Имя для сохранения — отображаемое имя без этапа (например, "Виталий")
   const displayName = option.displayName.split(' (')[0];
   
   setLoading(true, 'Сохранение...');
@@ -578,17 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
   resetSettingsBtn.addEventListener('click', resetSettings);
 });
 
-// JSONP helper
+// ========== JSONP helper (исправленная версия) ==========
 function callApiJsonp(params, cb, onError) {
-  const cbName = 'cb_' + Math.random().toString(36).slice(2);
+  const cbName = 'cb_' + Math.random().toString(36).substring(2);
   let done = false;
-  window[cbName] = function (res) {
-    if (done) return;
-    done = true;
-    clearTimeout(timeout);
-    cb(res);
-    setTimeout(() => delete window[cbName], 30000);
-  };
   const timeout = setTimeout(() => {
     if (!done) {
       done = true;
@@ -596,10 +588,16 @@ function callApiJsonp(params, cb, onError) {
       delete window[cbName];
     }
   }, 15000);
+  window[cbName] = function(data) {
+    if (done) return;
+    done = true;
+    clearTimeout(timeout);
+    cb(data);
+    setTimeout(() => delete window[cbName], 1000);
+  };
   const query = new URLSearchParams(params);
   query.set('api', '1');
   query.set('callback', cbName);
-  query.set('_ts', Date.now());
   const script = document.createElement('script');
   script.src = API_URL + '?' + query.toString();
   script.onerror = () => {
