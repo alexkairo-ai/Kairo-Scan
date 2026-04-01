@@ -12,7 +12,7 @@ body {
 }
 
 .container {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -22,6 +22,7 @@ h1 {
   font-size: 28px;
 }
 
+/* Вкладки */
 .tabs {
   display: flex;
   gap: 10px;
@@ -36,13 +37,13 @@ h1 {
   cursor: pointer;
   color: #caa24f;
   font-size: 16px;
-  transition: all 0.2s;
 }
 .tabs button.active {
   background: #caa24f;
   color: #000;
 }
 
+/* Панели */
 .panel {
   background: #1e1e2a;
   padding: 20px;
@@ -50,47 +51,64 @@ h1 {
   margin-bottom: 20px;
 }
 
+/* Формы */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
 .form-group {
-  margin-bottom: 16px;
+  flex: 1;
+  min-width: 150px;
 }
 .form-group label {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #caa24f;
 }
-select, input {
+select, input, button {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 10px;
+  border-radius: 10px;
   border: 1px solid #caa24f;
   background: #0f1216;
   color: #fff;
   font-size: 16px;
 }
-input:focus, select:focus {
-  outline: none;
-  border-color: #e6c771;
-}
-
-.radio-group {
-  display: flex;
-  gap: 20px;
-  margin-top: 5px;
-}
-.radio-group label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: normal;
+button {
+  background: #2a2a36;
   cursor: pointer;
+  transition: all 0.2s;
+}
+button:hover {
+  background: #3a3a46;
+}
+button.primary {
+  background: #caa24f;
+  color: #000;
+  font-weight: bold;
+}
+button.secondary {
+  background: #2a2a36;
+  color: #caa24f;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.actions button {
+  width: auto;
+  padding: 8px 16px;
 }
 
-.mode-panel {
+/* Заказы */
+.orders-section {
   margin-top: 20px;
   margin-bottom: 20px;
 }
-
 .order-row {
   display: flex;
   gap: 10px;
@@ -104,87 +122,33 @@ input:focus, select:focus {
   flex: 1;
 }
 .order-row button.remove {
+  width: 32px;
   background: none;
   border: none;
   color: #ff6b6b;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 0 8px;
-  line-height: 1;
-}
-.order-row button.remove:hover {
-  color: #ff4444;
+  padding: 0;
 }
 
-.summary {
-  margin-top: 15px;
-  padding: 12px;
+.total-section {
+  margin-top: 20px;
+}
+.total-section label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+#totalMetric {
   background: #0f1216;
-  border-radius: 8px;
-  text-align: center;
   font-size: 18px;
-}
-.total {
-  font-size: 24px;
-  font-weight: bold;
-  color: #caa24f;
-  margin-top: 4px;
-}
-
-button {
-  background: #caa24f;
-  border: none;
-  color: #000;
-  padding: 10px 20px;
-  border-radius: 30px;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 8px;
-  transition: all 0.2s;
-}
-button:hover {
-  background: #e6c771;
-}
-button.primary {
-  background: #caa24f;
-  color: #000;
   font-weight: bold;
 }
-button.secondary {
-  background: #2a2a36;
-  color: #caa24f;
-  border: 1px solid #caa24f;
-}
-button.secondary:hover {
-  background: #3a3a46;
-}
-button.danger {
-  background: #8b0000;
-  color: #fff;
-}
 
-.filters {
-  background: #0f1216;
-  padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-end;
-}
-.filters .form-group {
-  margin-bottom: 0;
-  flex: 1;
-  min-width: 150px;
-}
-.filters button {
-  margin-top: 0;
-  padding: 8px 20px;
-}
-
-#reportsTableContainer {
+/* Таблица отчётов */
+.table-wrapper {
   overflow-x: auto;
+  margin-top: 20px;
 }
 #reportsTable {
   width: 100%;
@@ -193,44 +157,42 @@ button.danger {
 }
 #reportsTable th, #reportsTable td {
   border: 1px solid #333;
-  padding: 10px 8px;
+  padding: 8px;
   text-align: left;
-  vertical-align: top;
 }
 #reportsTable th {
   background: #2a2a36;
   font-weight: 600;
-  color: #caa24f;
-}
-#reportsTable tr:nth-child(even) {
-  background: #14161e;
 }
 #reportsTable tr:hover {
-  background: #1e2028;
+  background: #2a2a36;
 }
 
-.hidden {
-  display: none;
+/* Фильтры */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+.filters .form-group {
+  margin-bottom: 0;
+}
+.filters .actions {
+  margin-top: 0;
 }
 
 @media (max-width: 768px) {
-  body {
-    padding: 12px;
+  .form-row {
+    flex-direction: column;
+    gap: 12px;
   }
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
-  .order-row {
-    flex-wrap: wrap;
-  }
-  .order-row input {
-    flex: 1 1 100%;
-  }
-  .order-row input.metric-input {
-    flex: 1;
-  }
-  button {
-    padding: 8px 16px;
+  .filters .actions {
+    justify-content: flex-start;
   }
 }
