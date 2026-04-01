@@ -2,7 +2,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7kly
 
 let orders = []; // массив { order, metric }
 let employeesData = []; // массив объектов { name, stages }
-let currentStages = []; // для текущего выбранного сотрудника
+let currentEmployeeStage = null; // этап для текущего выбранного сотрудника (если один)
+let currentStages = []; // список этапов текущего сотрудника
 
 // Элементы
 const loadingIndicator = document.getElementById('loadingIndicator');
@@ -10,9 +11,6 @@ const reportDateInput = document.getElementById('reportDate');
 const employeeSelect = document.getElementById('employeeSelect');
 const stageSelectGroup = document.getElementById('stageSelectGroup');
 const stageSelect = document.getElementById('stageSelect');
-const stageInfo = document.getElementById('stageInfo');
-const stageReadonly = document.getElementById('stageReadonly');
-const stageReadonlyDisplay = document.getElementById('stageReadonlyDisplay');
 const ordersContainer = document.getElementById('ordersContainer');
 const addOrderBtn = document.getElementById('addOrderBtn');
 const loadFromScanBtn = document.getElementById('loadFromScanBtn');
@@ -113,31 +111,46 @@ function loadFromScan() {
     alert('Выберите сотрудника');
     return;
   }
-  // Определяем выбранный этап
+
+  // Определяем этап
   let stage = null;
-  if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
+  if (currentEmployeeStage) {
+    // У сотрудника один этап
+    stage = currentEmployeeStage;
+  } else if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
+    // У сотрудника несколько этапов, выбираем из списка
     stage = stageSelect.value;
-  } else if (stageInfo.style.display !== 'none' && stageReadonly.value) {
-    stage = stageReadonly.value;
   }
+
   if (!stage) {
-    alert('Не определён этап для сотрудника');
+    alert('Не удалось определить этап для сотрудника. Возможно, у него несколько этапов — выберите вручную.');
     return;
   }
+
   const date = reportDateInput.value;
   if (!date) {
     alert('Выберите дату');
     return;
   }
-  // преобразуем дату в формат DD.MM.YYYY
+
+  // Преобразуем дату в формат DD.MM.YY (как в Kairo-Scan)
   const [year, month, day] = date.split('-');
-  const formattedDate = `${day}.${month}.${year}`;
+  const shortYear = year.slice(-2);
+  const formattedDate = `${day}.${month}.${shortYear}`;
+
+  console.log('📤 Отправка запроса:', {
+    action: 'get_today_orders',
+    name: employee,
+    stage: stage,
+    date: formattedDate
+  });
 
   setLoading(true, 'Загрузка заказов...');
   callApiJsonp({ action: 'get_today_orders', name: employee, stage, date: formattedDate }, (res) => {
     setLoading(false);
+    console.log('📥 Ответ от сервера:', res);
     if (!res.ok) {
-      alert('Ошибка загрузки: ' + res.msg);
+      alert('Ошибка загрузки: ' + (res.msg || 'неизвестная ошибка'));
       return;
     }
     const ordersList = res.orders || [];
@@ -154,6 +167,7 @@ function loadFromScan() {
     renderOrders();
   }, (err) => {
     setLoading(false);
+    console.error('❌ Ошибка связи:', err);
     alert('Ошибка связи: ' + err);
   });
 }
@@ -170,19 +184,21 @@ function saveTotals() {
     alert('Выберите дату');
     return;
   }
-  // Определяем этап
+
   let stage = null;
-  if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
+  if (currentEmployeeStage) {
+    stage = currentEmployeeStage;
+  } else if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
     stage = stageSelect.value;
-  } else if (stageInfo.style.display !== 'none' && stageReadonly.value) {
-    stage = stageReadonly.value;
   }
+
   if (!stage) {
     alert('Не определён этап для сотрудника');
     return;
   }
+
   const [year, month, day] = date.split('-');
-  const formattedDate = `${day}.${month}.${year}`;
+  const formattedDate = `${day}.${month}.${year.slice(-2)}`;
 
   const ordersList = orders.map(o => o.order).filter(o => o);
   const metricsList = orders.map(o => o.metric);
@@ -214,10 +230,9 @@ function saveTotals() {
 
 // Загрузка списка сотрудников (с этапами)
 function loadEmployees() {
-  // Проверяем кэш в localStorage
   const cached = localStorage.getItem('employeesData');
   const cacheTime = localStorage.getItem('employeesDataTime');
-  if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) { // 1 час
+  if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
     try {
       employeesData = JSON.parse(cached);
       populateEmployeeSelect();
@@ -255,19 +270,20 @@ function populateEmployeeSelect() {
     }
     employeeSelect.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(displayName)}</option>`;
   });
-  // Также заполняем фильтр сотрудников
+  // Фильтр сотрудников
   filterEmployee.innerHTML = '<option value="">Все</option>';
   employeesData.forEach(emp => {
     filterEmployee.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`;
   });
 }
 
-// Обновление селекта этапов при выборе сотрудника
+// Обновление при выборе сотрудника
 function onEmployeeChange() {
   const name = employeeSelect.value;
   if (!name) {
     stageSelectGroup.style.display = 'none';
-    stageInfo.style.display = 'none';
+    currentEmployeeStage = null;
+    currentStages = [];
     return;
   }
   const employee = employeesData.find(e => e.name === name);
@@ -275,22 +291,17 @@ function onEmployeeChange() {
   currentStages = employee.stages || [];
   if (currentStages.length === 0) {
     stageSelectGroup.style.display = 'none';
-    stageInfo.style.display = 'none';
+    currentEmployeeStage = null;
     return;
   }
   if (currentStages.length === 1) {
-    // Показываем read-only поле с ключом и отображаем красивое имя
-    stageInfo.style.display = 'block';
+    // Один этап – скрываем выбор, сохраняем этап в переменную
     stageSelectGroup.style.display = 'none';
-    const stageKey = currentStages[0];
-    const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-    const stageDisplayText = stageNames[stageKey] || stageKey;
-    stageReadonly.value = stageKey;          // сохраняем ключ
-    stageReadonlyDisplay.textContent = stageDisplayText;
+    currentEmployeeStage = currentStages[0];
   } else {
-    // Показываем выпадающий список
-    stageInfo.style.display = 'none';
+    // Несколько этапов – показываем выбор
     stageSelectGroup.style.display = 'block';
+    currentEmployeeStage = null;
     stageSelect.innerHTML = '<option value="">-- Выберите этап --</option>';
     const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
     currentStages.forEach(stage => {
@@ -407,7 +418,7 @@ function switchTab(tab) {
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   loadEmployees();
-  addOrderRow(); // стартовая пустая строка
+  addOrderRow();
 
   addOrderBtn.addEventListener('click', () => addOrderRow());
   loadFromScanBtn.addEventListener('click', loadFromScan);
