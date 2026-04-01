@@ -6,20 +6,111 @@
   <title>ИТОГИ ДНЯ</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#111111">
+  <meta name="theme-color" content="#0a0c0f">
 </head>
 <body>
   <div class="container">
-    <h1>ИТОГИ ДНЯ</h1>
-    <div class="worker-input">
-      <input type="text" id="workerName" placeholder="Ваше имя" autocomplete="off">
+    <h1>📊 ИТОГИ ДНЯ</h1>
+    <div class="tabs">
+      <button id="tabInput" class="active">Ввод данных</button>
+      <button id="tabReports">Просмотр отчётов</button>
     </div>
-    <div class="stages">
-      <button data-stage="pila">Пила</button>
-      <button data-stage="kromka">Кромка</button>
-      <button data-stage="prisadka">Присадка</button>
-      <button data-stage="upakovka">Упаковка</button>
-      <button data-stage="hdf">Пила ХДФ</button>
+
+    <!-- Форма ввода -->
+    <div id="inputPanel" class="panel">
+      <div class="form-group">
+        <label>Этап</label>
+        <select id="stageSelect">
+          <option value="pila">Пила</option>
+          <option value="kromka">Кромка</option>
+          <option value="prisadka">Присадка</option>
+          <option value="upakovka">Упаковка</option>
+          <option value="hdf">Пила ХДФ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Сотрудник</label>
+        <select id="employeeSelect">
+          <option value="">-- Выберите имя --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Режим ввода</label>
+        <div class="radio-group">
+          <label><input type="radio" name="mode" value="list" checked> Поштучно</label>
+          <label><input type="radio" name="mode" value="total"> Общий итог</label>
+        </div>
+      </div>
+
+      <!-- Режим поштучного ввода -->
+      <div id="listMode" class="mode-panel">
+        <div id="ordersContainer"></div>
+        <button id="addOrderBtn" class="secondary">+ Добавить заказ</button>
+        <button id="loadFromScanBtn" class="secondary">📥 Загрузить из Kairo-Scan</button>
+        <div class="summary">
+          <div>Общий показатель:</div>
+          <div class="total" id="listTotal">0</div>
+        </div>
+      </div>
+
+      <!-- Режим общего итога -->
+      <div id="totalMode" class="mode-panel" style="display:none;">
+        <div class="form-group">
+          <label>Общий показатель</label>
+          <input type="number" id="totalMetricInput" step="any" placeholder="Метраж / отверстия / упаковки">
+        </div>
+      </div>
+
+      <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
+    </div>
+
+    <!-- Панель отчётов -->
+    <div id="reportsPanel" class="panel" style="display:none;">
+      <div class="filters">
+        <div class="form-group">
+          <label>Дата с</label>
+          <input type="date" id="filterDateFrom">
+        </div>
+        <div class="form-group">
+          <label>Дата по</label>
+          <input type="date" id="filterDateTo">
+        </div>
+        <div class="form-group">
+          <label>Этап</label>
+          <select id="filterStage">
+            <option value="all">Все</option>
+            <option value="pila">Пила</option>
+            <option value="kromka">Кромка</option>
+            <option value="prisadka">Присадка</option>
+            <option value="upakovka">Упаковка</option>
+            <option value="hdf">Пила ХДФ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Сотрудник</label>
+          <select id="filterEmployee">
+            <option value="">Все</option>
+          </select>
+        </div>
+        <button id="applyFilters" class="secondary">Применить</button>
+        <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
+      </div>
+      <div id="reportsTableContainer">
+        <table id="reportsTable">
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Этап</th>
+              <th>Сотрудник</th>
+              <th>Заказы</th>
+              <th>Показатели</th>
+              <th>Итого</th>
+              <th>Тип</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
   <script src="app.js"></script>
