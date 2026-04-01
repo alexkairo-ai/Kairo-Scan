@@ -7,10 +7,9 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0c0f">
-  <!-- Правильное подключение Firebase (старая совместимая версия) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-  <!-- Конфигурация Firebase (твои данные) -->
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAOuKHmcqUqfWuwwDR00A1kdFuO6bRHW1g",
@@ -21,7 +20,6 @@
       appId: "1:300424701358:web:924b6dc5026fb4085ad43f",
       measurementId: "G-XEPT2RH3BK"
     };
-    // Инициализация Firebase
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
   </script>
@@ -77,8 +75,12 @@
     <div id="reportsPanel" class="panel" style="display:none;">
       <div class="filters">
         <div class="form-group">
-          <label>Месяц</label>
-          <input type="month" id="reportMonth">
+          <label>Дата с</label>
+          <input type="date" id="dateFrom">
+        </div>
+        <div class="form-group">
+          <label>Дата по</label>
+          <input type="date" id="dateTo">
         </div>
         <div class="form-group">
           <label>Этап</label>
