@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxKimZPQVxqJXlxaVirrr-vjNZS5VXYVI3096jP95FSIQyYELKrh3pAVwNaH9BmXnQ_pQ/exec'; // ваш URL
+const API_URL = 'https://script.google.com/macros/s/ВАШ_URL/exec'; // замените на свой
 
 // Элементы
 const loadingIndicator = document.getElementById('loadingIndicator');
@@ -21,11 +21,11 @@ const applyFiltersBtn = document.getElementById('applyFilters');
 const exportExcelBtn = document.getElementById('exportExcel');
 const matrixContainer = document.getElementById('matrixContainer');
 
-// Установка даты по умолчанию
+// Установка дат по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
 reportMonth.value = new Date().toISOString().slice(0, 7);
 
-// ========== Сохранение итогов ==========
+// ========== СОХРАНЕНИЕ ИТОГОВ ==========
 function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeNameInput.value.trim();
@@ -37,23 +37,13 @@ function saveTotals() {
   if (!employee) { alert('Введите имя сотрудника'); return; }
   if (!stage) { alert('Выберите этап'); return; }
 
-  // Формат даты для хранения: DD.MM.YY
   const [year, month, day] = date.split('-');
   const formattedDate = `${day}.${month}.${year.slice(-2)}`;
 
   setLoading(true, 'Сохранение...');
   const payload = {
     action: 'save_totals',
-    data: JSON.stringify({
-      stage,
-      name: employee,
-      date: formattedDate,
-      count: count,
-      amount: amount,
-      orders: String(count),
-      metrics: String(amount),
-      total: amount
-    })
+    data: JSON.stringify({ stage, name: employee, date: formattedDate, count, amount })
   };
   callApiJsonp(payload, (res) => {
     setLoading(false);
@@ -70,7 +60,7 @@ function saveTotals() {
   });
 }
 
-// ========== Отчёты: матрица ==========
+// ========== ОТОБРАЖЕНИЕ ОТЧЁТОВ (МАТРИЦА) ==========
 function loadReports() {
   const month = reportMonth.value;
   if (!month) return;
@@ -88,8 +78,7 @@ function loadReports() {
   setLoading(true, 'Загрузка данных...');
   callApiJsonp({
     action: 'get_totals',
-    fromDate,
-    toDate,
+    fromDate, toDate,
     stage: stage === 'all' ? 'all' : stage,
     employee: employee || ''
   }, (res) => {
@@ -100,9 +89,10 @@ function loadReports() {
     }
 
     const data = res.data || [];
-    // Группируем по (этап, сотрудник) и дате
     const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-    const map = new Map(); // ключ "этап|сотрудник" -> массив по дням
+    
+    // Группируем по (этап, сотрудник)
+    const map = new Map(); // key: "этап|сотрудник"
     for (const row of data) {
       const key = `${row.stage}|${row.employee}`;
       if (!map.has(key)) {
@@ -115,24 +105,37 @@ function loadReports() {
       }
     }
 
-    // Преобразуем в массив для отображения
+    // Преобразуем в массив и сортируем
     const rows = Array.from(map.values()).sort((a,b) => {
       if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
       return a.stage.localeCompare(b.stage);
     });
 
-    // Строим HTML-таблицу
-    let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th>';
-    for (let d = 1; d <= daysInMonth; d++) {
-      html += `<th>${d}</th>`;
-    }
+    // Строим HTML-таблицу в формате примера
+    let html = '<table class="matrix-table">';
+
+    // Первая строка: месяц и год (объединённые ячейки)
+    const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const monthName = monthNames[parseInt(monthNum)-1];
+    html += `<thead><tr><th rowspan="2" style="vertical-align:middle;">Этап / Сотрудник</th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>`;
+    // Вторая строка: числа месяца
+    html += '<tr>';
+    for (let d = 1; d <= daysInMonth; d++) html += `<th>${d}</th>`;
     html += '</tr></thead><tbody>';
+
+    // Для каждого (этап, сотрудник) выводим две строки
     for (const row of rows) {
       const stageName = stageNames[row.stage] || row.stage;
+      // Строка "кол-во"
       html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
       for (let d = 0; d < daysInMonth; d++) {
-        const dayData = row.days[d];
-        html += `<td class="matrix-cell">${dayData.count}/${dayData.amount}</td>`;
+        html += `<td class="count-cell">${row.days[d].count}</td>`;
+      }
+      html += '</tr>';
+      // Строка "метраж"
+      html += `<tr><td class="row-label"></td>`;
+      for (let d = 0; d < daysInMonth; d++) {
+        html += `<td class="amount-cell">${row.days[d].amount}</td>`;
       }
       html += '</tr>';
     }
@@ -144,7 +147,7 @@ function loadReports() {
   });
 }
 
-// ========== Экспорт в Excel ==========
+// ========== ЭКСПОРТ В EXCEL ==========
 function exportToExcel() {
   const month = reportMonth.value;
   if (!month) return;
@@ -162,8 +165,7 @@ function exportToExcel() {
   setLoading(true, 'Подготовка экспорта...');
   callApiJsonp({
     action: 'get_totals',
-    fromDate,
-    toDate,
+    fromDate, toDate,
     stage: stage === 'all' ? 'all' : stage,
     employee: employee || ''
   }, (res) => {
@@ -175,6 +177,7 @@ function exportToExcel() {
 
     const data = res.data || [];
     const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+    
     const map = new Map();
     for (const row of data) {
       const key = `${row.stage}|${row.employee}`;
@@ -193,7 +196,10 @@ function exportToExcel() {
       return a.stage.localeCompare(b.stage);
     });
 
-    // Формируем HTML для Excel
+    const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const monthName = monthNames[parseInt(monthNum)-1];
+
+    // Генерируем HTML для Excel
     let html = `<html><head><meta charset="UTF-8"><title>Итоги за ${month}</title>
     <style>
       body { font-family: Calibri, Arial; margin: 20px; }
@@ -201,18 +207,25 @@ function exportToExcel() {
       th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
       th { background-color: #f2c94c; font-weight: bold; }
       .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
-      .matrix-cell { text-align: center; }
+      .count-cell, .amount-cell { text-align: center; }
     </style></head><body>
     <h2>Итоги за ${month}</h2>
-    <table><thead><tr><th>Этап / Сотрудник</th>`;
+    <table>
+      <thead>
+        <tr><th rowspan="2">Этап / Сотрудник</th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>
+        <tr>`;
     for (let d = 1; d <= daysInMonth; d++) html += `<th>${d}</th>`;
     html += `</tr></thead><tbody>`;
+
     for (const row of rows) {
       const stageName = stageNames[row.stage] || row.stage;
       html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
       for (let d = 0; d < daysInMonth; d++) {
-        const dayData = row.days[d];
-        html += `<td class="matrix-cell">${dayData.count}/${dayData.amount}</td>`;
+        html += `<td class="count-cell">${row.days[d].count}</td>`;
+      }
+      html += `</tr><tr><td class="row-label"></td>`;
+      for (let d = 0; d < daysInMonth; d++) {
+        html += `<td class="amount-cell">${row.days[d].amount}</td>`;
       }
       html += `</tr>`;
     }
@@ -231,7 +244,7 @@ function exportToExcel() {
   });
 }
 
-// ========== Вспомогательные ==========
+// ========== ВСПОМОГАТЕЛЬНЫЕ ==========
 function setLoading(show, text = 'Загрузка...') {
   if (show) {
     loadingIndicator.textContent = '⏳ ' + text;
@@ -256,7 +269,6 @@ function switchTab(tab) {
   }
 }
 
-// JSONP helper
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).substring(2);
   let done = false;
