@@ -42,6 +42,51 @@ const employeesSettingsList = document.getElementById('employeesSettingsList');
 
 reportDateInput.value = new Date().toISOString().slice(0, 10);
 
+// ========== Вспомогательные функции ==========
+function setLoading(show, text = 'Загрузка...') {
+  if (show) {
+    loadingIndicator.textContent = '⏳ ' + text;
+    loadingIndicator.style.display = 'block';
+  } else {
+    loadingIndicator.style.display = 'none';
+  }
+}
+
+function updateTotal() {
+  const sum = orders.reduce((s, o) => s + (o.metric || 0), 0);
+  totalMetricInput.value = sum;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+// Преобразование YYYY-MM-DD в DD.MM.YY
+function formatToDDMMYY(dateStr) {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year.slice(-2)}`;
+}
+
+// Преобразование YYYY-MM-DD в DD.MM.YYYY
+function formatToDDMMYYYY(dateStr) {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+// Получение количества заказов из строки
+function getOrdersCount(ordersStr) {
+  if (!ordersStr) return 0;
+  const items = ordersStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  return items.length;
+}
+
 // ========== Работа с настройками ==========
 function loadSettings() {
   try {
@@ -80,7 +125,6 @@ function resetSettings() {
 function rebuildFilteredEmployees() {
   const allEmployees = [...employeesData];
   const visible = allEmployees.filter(emp => !hiddenNames.includes(emp.name));
-  
   const aliasMap = new Map();
   for (const emp of visible) {
     let displayName = emp.name;
@@ -99,7 +143,6 @@ function rebuildFilteredEmployees() {
       entry.stages.add(stage);
     }
   }
-  
   filteredEmployees = [];
   for (const [displayName, data] of aliasMap.entries()) {
     filteredEmployees.push({
@@ -190,7 +233,7 @@ function applySettingsFromModal() {
   alert('Настройки применены');
 }
 
-// ========== Загрузка сотрудников ==========
+// ========== Загрузка сотрудников из Kairo-Scan ==========
 function loadEmployees() {
   const cached = localStorage.getItem('employeesData');
   const cacheTime = localStorage.getItem('employeesDataTime');
@@ -224,6 +267,7 @@ function loadEmployees() {
   });
 }
 
+// ========== Обработка выбора сотрудника ==========
 function onEmployeeChange() {
   const displayName = employeeSelect.value;
   if (!displayName) {
@@ -251,14 +295,15 @@ function onEmployeeChange() {
   }
 }
 
+// ========== Загрузка заказов из Kairo-Scan ==========
 async function loadOrdersForAlias(stage, date) {
   if (!currentEmployee) return [];
   const originalNames = currentEmployee.originalNames;
   if (!originalNames.length) return [];
-  
   const allOrders = [];
   const promises = originalNames.map(name => {
     return new Promise((resolve) => {
+      // Передаём дату в формате DD.MM.YYYY, как ожидает Kairo-Scan
       callApiJsonp({ action: 'get_today_orders', name, stage, date }, (res) => {
         if (res.ok && res.orders) {
           resolve(res.orders);
@@ -293,17 +338,16 @@ function loadFromScan() {
     alert('Не определён этап для сотрудника');
     return;
   }
-  const date = reportDateInput.value;
-  if (!date) {
+  const dateInput = reportDateInput.value;
+  if (!dateInput) {
     alert('Выберите дату');
     return;
   }
-  const [year, month, day] = date.split('-');
-  const shortYear = year.slice(-2);
-  const formattedDate = `${day}.${month}.${shortYear}`;
-  
+  // Отправляем дату в формате DD.MM.YYYY (как ожидает Kairo-Scan)
+  const dateYYYY = formatToDDMMYYYY(dateInput);
+  console.log('Загрузка заказов для', currentEmployee.displayName, stage, dateYYYY);
   setLoading(true, 'Загрузка заказов...');
-  loadOrdersForAlias(stage, formattedDate).then(ordersList => {
+  loadOrdersForAlias(stage, dateYYYY).then(ordersList => {
     setLoading(false);
     if (ordersList.length === 0) {
       alert('За выбранную дату заказов не найдено');
@@ -321,13 +365,14 @@ function loadFromScan() {
   });
 }
 
+// ========== Сохранение итогов ==========
 function saveTotals() {
   if (!currentEmployee) {
     alert('Выберите сотрудника');
     return;
   }
-  const date = reportDateInput.value;
-  if (!date) {
+  const dateInput = reportDateInput.value;
+  if (!dateInput) {
     alert('Выберите дату');
     return;
   }
@@ -341,12 +386,10 @@ function saveTotals() {
     alert('Не определён этап для сотрудника');
     return;
   }
-  const [year, month, day] = date.split('-');
-  const formattedDate = `${day}.${month}.${year.slice(-2)}`;
+  const formattedDate = formatToDDMMYY(dateInput); // Сохраняем в формате DD.MM.YY
   const ordersList = orders.map(o => o.order).filter(o => o);
   const metricsList = orders.map(o => o.metric);
   const total = parseFloat(totalMetricInput.value) || 0;
-  
   setLoading(true, 'Сохранение...');
   const payload = {
     action: 'save_totals',
@@ -369,20 +412,137 @@ function saveTotals() {
   });
 }
 
-function setLoading(show, text = 'Загрузка...') {
-  if (show) {
-    loadingIndicator.textContent = '⏳ ' + text;
-    loadingIndicator.style.display = 'block';
-  } else {
-    loadingIndicator.style.display = 'none';
-  }
+// ========== Отчёты и экспорт ==========
+function loadReports() {
+  const from = filterDateFrom.value;
+  const to = filterDateTo.value;
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+  // Преобразуем даты в формат DD.MM.YY для передачи в Kairo-Scan
+  const fromFormatted = from ? formatToDDMMYY(from) : '';
+  const toFormatted = to ? formatToDDMMYY(to) : '';
+  setLoading(true, 'Загрузка отчётов...');
+  callApiJsonp({
+    action: 'get_totals',
+    from: fromFormatted,
+    to: toFormatted,
+    stage,
+    employee
+  }, (res) => {
+    setLoading(false);
+    if (!res.ok) {
+      reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
+      return;
+    }
+    const data = res.data || [];
+    const stageNames = {
+      pila: 'Пила',
+      kromka: 'Кромка',
+      prisadka: 'Присадка',
+      upakovka: 'Упаковка',
+      hdf: 'Пила ХДФ'
+    };
+    reportsTableBody.innerHTML = data.map(row => {
+      const ordersCount = getOrdersCount(row.orders);
+      return `
+        <tr>
+          <td>${escapeHtml(row.date)}</td>
+          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
+          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.orders)}</td>
+          <td style="text-align:center;">${ordersCount}</td>
+          <td style="text-align:right;">${escapeHtml(row.total)}</td>
+        </tr>
+      `;
+    }).join('');
+  }, (err) => {
+    setLoading(false);
+    reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка связи</td></tr>';
+  });
 }
 
-function updateTotal() {
-  const sum = orders.reduce((s, o) => s + (o.metric || 0), 0);
-  totalMetricInput.value = sum;
+function exportToExcel() {
+  const from = filterDateFrom.value;
+  const to = filterDateTo.value;
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+  const fromFormatted = from ? formatToDDMMYY(from) : '';
+  const toFormatted = to ? formatToDDMMYY(to) : '';
+  setLoading(true, 'Подготовка экспорта...');
+  callApiJsonp({
+    action: 'get_totals',
+    from: fromFormatted,
+    to: toFormatted,
+    stage,
+    employee
+  }, (res) => {
+    setLoading(false);
+    if (!res.ok) {
+      alert('Ошибка загрузки');
+      return;
+    }
+    const data = res.data || [];
+    const stageNames = {
+      pila: 'Пила',
+      kromka: 'Кромка',
+      prisadka: 'Присадка',
+      upakovka: 'Упаковка',
+      hdf: 'Пила ХДФ'
+    };
+    let html = `
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Итоги дня</title>
+        <style>
+          body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+          th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
+          th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
+          td { text-align: left; }
+          td:nth-child(5) { text-align: center; }
+          td:nth-child(6) { text-align: right; }
+          .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+          .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">Отчёт по итогам дня</div>
+        <div class="subheader">Период: ${fromFormatted || 'все'} — ${toFormatted || 'все'} | Этап: ${filterStage.options[filterStage.selectedIndex]?.text || 'все'} | Сотрудник: ${employee || 'все'}</div>
+        <table>
+          <thead>
+            <tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr>
+          </thead>
+          <tbody>
+    `;
+    for (const row of data) {
+      const ordersCount = getOrdersCount(row.orders);
+      html += `
+        <tr>
+          <td>${escapeHtml(row.date)}</td>
+          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
+          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.orders)}</td>
+          <td style="text-align:center;">${ordersCount}</td>
+          <td style="text-align:right;">${escapeHtml(row.total)}</td>
+        </tr>
+      `;
+    }
+    html += `</tbody></table></body></html>`;
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `totals_${new Date().toISOString().slice(0,10)}.xls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, (err) => {
+    setLoading(false);
+    alert('Ошибка связи');
+  });
 }
 
+// ========== Работа с заказами (ввод) ==========
 function addOrderRow(orderVal = '', metricVal = '') {
   const index = orders.length;
   const rowDiv = document.createElement('div');
@@ -435,179 +595,7 @@ function renderOrders() {
   updateTotal();
 }
 
-function getOrdersCount(ordersStr) {
-  if (!ordersStr) return 0;
-  const items = ordersStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  return items.length;
-}
-
-// Преобразование строки даты в формате DD.MM.YY в объект Date
-function parseDateDDMMYY(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split('.');
-  if (parts.length !== 3) return null;
-  let day = parseInt(parts[0], 10);
-  let month = parseInt(parts[1], 10) - 1;
-  let year = parseInt(parts[2], 10);
-  if (year < 100) year += 2000;
-  return new Date(year, month, day);
-}
-
-// Фильтрация данных по дате, этапу и сотруднику
-function filterReportsData(data, fromDate, toDate, stageFilter, employeeFilter) {
-  let filtered = data;
-  // Фильтр по дате (на клиенте)
-  if (fromDate || toDate) {
-    const from = fromDate ? new Date(fromDate) : null;
-    const to = toDate ? new Date(toDate) : null;
-    if (from) from.setHours(0,0,0,0);
-    if (to) to.setHours(23,59,59,999);
-    filtered = filtered.filter(row => {
-      const rowDate = parseDateDDMMYY(row.date);
-      if (!rowDate) return false;
-      if (from && rowDate < from) return false;
-      if (to && rowDate > to) return false;
-      return true;
-    });
-  }
-  // Фильтр по этапу (если не 'all')
-  if (stageFilter && stageFilter !== 'all') {
-    filtered = filtered.filter(row => row.stage === stageFilter);
-  }
-  // Фильтр по сотруднику
-  if (employeeFilter) {
-    filtered = filtered.filter(row => row.employee === employeeFilter);
-  }
-  return filtered;
-}
-
-function loadReports() {
-  const from = filterDateFrom.value;
-  const to = filterDateTo.value;
-  const stage = filterStage.value;
-  const employee = filterEmployee.value;
-
-  setLoading(true, 'Загрузка отчётов...');
-  // Запрашиваем все отчёты без фильтрации по дате
-  callApiJsonp({
-    action: 'get_totals',
-    from: '', to: '', stage: 'all', employee: ''
-  }, (res) => {
-    setLoading(false);
-    if (!res.ok) {
-      reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
-      return;
-    }
-    let data = res.data || [];
-    // Применяем фильтры на клиенте
-    data = filterReportsData(data, from, to, stage, employee);
-    
-    const stageNames = {
-      pila: 'Пила',
-      kromka: 'Кромка',
-      prisadka: 'Присадка',
-      upakovka: 'Упаковка',
-      hdf: 'Пила ХДФ'
-    };
-    reportsTableBody.innerHTML = data.map(row => {
-      const ordersCount = getOrdersCount(row.orders);
-      return `
-        <tr>
-          <td>${escapeHtml(row.date)}</td>
-          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.employee)}</td>
-          <td>${escapeHtml(row.orders)}</td>
-          <td style="text-align:center;">${ordersCount}</td>
-          <td style="text-align:right;">${escapeHtml(row.total)}</td>
-        </tr>
-      `;
-    }).join('');
-  }, (err) => {
-    setLoading(false);
-    reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка связи</td></tr>';
-  });
-}
-
-function exportToExcel() {
-  const from = filterDateFrom.value;
-  const to = filterDateTo.value;
-  const stage = filterStage.value;
-  const employee = filterEmployee.value;
-
-  setLoading(true, 'Подготовка экспорта...');
-  callApiJsonp({
-    action: 'get_totals',
-    from: '', to: '', stage: 'all', employee: ''
-  }, (res) => {
-    setLoading(false);
-    if (!res.ok) {
-      alert('Ошибка загрузки');
-      return;
-    }
-    let data = res.data || [];
-    data = filterReportsData(data, from, to, stage, employee);
-    
-    const stageNames = {
-      pila: 'Пила',
-      kromka: 'Кромка',
-      prisadka: 'Присадка',
-      upakovka: 'Упаковка',
-      hdf: 'Пила ХДФ'
-    };
-
-    let html = `
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Итоги дня</title>
-        <style>
-          body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
-          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-          th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
-          th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
-          td { text-align: left; }
-          td:nth-child(5) { text-align: center; }
-          td:nth-child(6) { text-align: right; }
-          .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-          .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">Отчёт по итогам дня</div>
-        <div class="subheader">Период: ${from || 'все'} — ${to || 'все'} | Этап: ${filterStage.options[filterStage.selectedIndex]?.text || 'все'} | Сотрудник: ${employee || 'все'}</div>
-        <table>
-          <thead>
-            <tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr>
-          </thead>
-          <tbody>
-    `;
-    for (const row of data) {
-      const ordersCount = getOrdersCount(row.orders);
-      html += `
-        <tr>
-          <td>${escapeHtml(row.date)}</td>
-          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.employee)}</td>
-          <td>${escapeHtml(row.orders)}</td>
-          <td style="text-align:center;">${ordersCount}</td>
-          <td style="text-align:right;">${escapeHtml(row.total)}</td>
-        </tr>
-      `;
-    }
-    html += `</tbody></table></body></html>`;
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `totals_${new Date().toISOString().slice(0,10)}.xls`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, (err) => {
-    setLoading(false);
-    alert('Ошибка связи');
-  });
-}
-
+// ========== Переключение вкладок ==========
 function switchTab(tab) {
   if (tab === 'input') {
     inputPanel.style.display = 'block';
@@ -623,26 +611,7 @@ function switchTab(tab) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadEmployees();
-  addOrderRow();
-
-  addOrderBtn.addEventListener('click', () => addOrderRow());
-  loadFromScanBtn.addEventListener('click', loadFromScan);
-  saveBtn.addEventListener('click', saveTotals);
-  applyFiltersBtn.addEventListener('click', loadReports);
-  exportExcelBtn.addEventListener('click', exportToExcel);
-  tabInput.addEventListener('click', () => switchTab('input'));
-  tabReports.addEventListener('click', () => switchTab('reports'));
-  employeeSelect.addEventListener('change', onEmployeeChange);
-
-  settingsBtn.addEventListener('click', openSettingsModal);
-  closeModal.addEventListener('click', closeSettingsModal);
-  window.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
-  saveSettingsBtn.addEventListener('click', applySettingsFromModal);
-  resetSettingsBtn.addEventListener('click', resetSettings);
-});
-
+// ========== JSONP helper ==========
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).slice(2);
   let done = false;
@@ -677,11 +646,23 @@ function callApiJsonp(params, cb, onError) {
   document.body.appendChild(script);
 }
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
-}
+// ========== Инициализация ==========
+document.addEventListener('DOMContentLoaded', () => {
+  loadEmployees();
+  addOrderRow();
+
+  addOrderBtn.addEventListener('click', () => addOrderRow());
+  loadFromScanBtn.addEventListener('click', loadFromScan);
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+  employeeSelect.addEventListener('change', onEmployeeChange);
+
+  settingsBtn.addEventListener('click', openSettingsModal);
+  closeModal.addEventListener('click', closeSettingsModal);
+  window.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
+  saveSettingsBtn.addEventListener('click', applySettingsFromModal);
+  resetSettingsBtn.addEventListener('click', resetSettings);
+});
