@@ -47,7 +47,6 @@ async function saveTotals() {
   if (!employee) { alert('Введите имя сотрудника'); return; }
   if (!stage) { alert('Выберите этап'); return; }
 
-  // Формат даты для хранения: DD.MM.YY
   const [year, month, day] = date.split('-');
   const formattedDate = `${day}.${month}.${year.slice(-2)}`;
 
@@ -87,9 +86,7 @@ async function loadReportsData() {
     const allData = [];
     snapshot.forEach(doc => allData.push({ id: doc.id, ...doc.data() }));
 
-    // Фильтрация на клиенте (по дате, этапу, сотруднику)
     const filtered = allData.filter(item => {
-      // Проверка даты
       const itemDateParts = item.date.split('.');
       if (itemDateParts.length !== 3) return false;
       const itemDay = parseInt(itemDateParts[0], 10);
@@ -143,24 +140,39 @@ async function loadReports() {
 
   const [year, monthNum] = reportMonth.value.split('-');
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const monthName = monthNames[parseInt(monthNum)-1];
+  const monthName = monthNames[parseInt(monthNum)-1].toUpperCase();
 
+  // Формируем HTML-таблицу по образцу
   let html = '<table class="matrix-table">';
-  html += `<thead><tr><th rowspan="2" style="vertical-align:middle;">Этап / Сотрудник</th><th colspan="${daysInMonth}">${monthName} ${year}</th>`;
-  html += `</thead><tbody>`;
-  html += `一期<th>Кол-во</th>`;
-  for (let d = 1; d <= daysInMonth; d++) html += `<th>${d}</th>`;
-  html += `</tr>`;
-  html += `<tr><th>Метраж</th>`;
-  for (let d = 1; d <= daysInMonth; d++) html += `<th></th>`;
-  html += `</tr>`;
 
+  // Первая строка: месяц и год (объединённые ячейки)
+  html += `<thead>`;
+  html += `<tr><th rowspan="2" style="vertical-align:middle;">Этап / Сотрудник</th><th rowspan="2" style="vertical-align:middle;"> </th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>`;
+  // Вторая строка: числа месяца
+  html += `<tr>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    html += `<th>${d}</th>`;
+  }
+  html += `</tr>`;
+  html += `</thead><tbody>`;
+
+  // Для каждого сотрудника выводим две строки
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
-    html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
-    for (let d = 0; d < daysInMonth; d++) html += `<td class="count-cell">${row.days[d].count}</td>`;
-    html += `</tr><tr><td class="row-label"></td>`;
-    for (let d = 0; d < daysInMonth; d++) html += `<td class="amount-cell">${row.days[d].amount}</td>`;
+    // Строка "кол-во"
+    html += `<tr>`;
+    html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+    html += `<td class="row-sub-label">кол-во</td>`;
+    for (let d = 0; d < daysInMonth; d++) {
+      html += `<td class="count-cell">${row.days[d].count}</td>`;
+    }
+    html += `</tr>`;
+    // Строка "метраж"
+    html += `<tr>`;
+    html += `<td class="row-sub-label">метраж</td>`;
+    for (let d = 0; d < daysInMonth; d++) {
+      html += `<td class="amount-cell">${row.days[d].amount}</td>`;
+    }
     html += `</tr>`;
   }
   html += `</tbody></table>`;
@@ -193,8 +205,9 @@ async function exportToExcel() {
 
   const [year, monthNum] = reportMonth.value.split('-');
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const monthName = monthNames[parseInt(monthNum)-1];
+  const monthName = monthNames[parseInt(monthNum)-1].toUpperCase();
 
+  // Генерируем HTML для Excel
   let html = `<html><head><meta charset="UTF-8"><title>Итоги за ${reportMonth.value}</title>
   <style>
     body { font-family: Calibri, Arial; margin: 20px; }
@@ -202,21 +215,38 @@ async function exportToExcel() {
     th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
     th { background-color: #f2c94c; font-weight: bold; }
     .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
+    .row-sub-label { background-color: #e9ecef; font-weight: normal; text-align: left; }
+    .count-cell, .amount-cell { text-align: center; }
   </style></head><body>
   <h2>Итоги за ${reportMonth.value}</h2>
-  <table>
-    <thead>
-      <tr><th rowspan="2">Этап / Сотрудник</th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>
-      <tr>`;
-  for (let d = 1; d <= daysInMonth; d++) html += `<th>${d}</th>`;
-  html += `</tr></thead><tbody>`;
+  <table>`;
+
+  // Заголовок: объединённая ячейка для месяца, отдельная колонка "Этап/Сотрудник" и пустая подпись, затем дни
+  html += `<thead>`;
+  html += `<tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>`;
+  html += `<tr>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    html += `<th>${d}</th>`;
+  }
+  html += `</tr>`;
+  html += `</thead><tbody>`;
 
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
-    html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
-    for (let d = 0; d < daysInMonth; d++) html += `<td>${row.days[d].count}</td>`;
-    html += `</tr><tr><td class="row-label"></td>`;
-    for (let d = 0; d < daysInMonth; d++) html += `<td>${row.days[d].amount}</td>`;
+    // Строка "кол-во"
+    html += `<tr>`;
+    html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+    html += `<td class="row-sub-label">кол-во</td>`;
+    for (let d = 0; d < daysInMonth; d++) {
+      html += `<td class="count-cell">${row.days[d].count}</td>`;
+    }
+    html += `</tr>`;
+    // Строка "метраж"
+    html += `<tr>`;
+    html += `<td class="row-sub-label">метраж</td>`;
+    for (let d = 0; d < daysInMonth; d++) {
+      html += `<td class="amount-cell">${row.days[d].amount}</td>`;
+    }
     html += `</tr>`;
   }
   html += `</tbody></table></body></html>`;
