@@ -1,11 +1,10 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой URL
 
-let orders = []; // массив { order, metric }
-let employeesData = []; // массив объектов { name, stages }
-let currentEmployeeStage = null; // этап для текущего выбранного сотрудника (если один)
-let currentStages = []; // список этапов текущего сотрудника
+let orders = [];
+let employeesData = [];
+let currentEmployeeStage = null;
+let currentStages = [];
 
-// Элементы
 const loadingIndicator = document.getElementById('loadingIndicator');
 const reportDateInput = document.getElementById('reportDate');
 const employeeSelect = document.getElementById('employeeSelect');
@@ -17,13 +16,11 @@ const loadFromScanBtn = document.getElementById('loadFromScanBtn');
 const saveBtn = document.getElementById('saveBtn');
 const totalMetricInput = document.getElementById('totalMetric');
 
-// Табы
 const tabInput = document.getElementById('tabInput');
 const tabReports = document.getElementById('tabReports');
 const inputPanel = document.getElementById('inputPanel');
 const reportsPanel = document.getElementById('reportsPanel');
 
-// Фильтры отчётов
 const filterDateFrom = document.getElementById('filterDateFrom');
 const filterDateTo = document.getElementById('filterDateTo');
 const filterStage = document.getElementById('filterStage');
@@ -32,10 +29,8 @@ const applyFiltersBtn = document.getElementById('applyFilters');
 const exportExcelBtn = document.getElementById('exportExcel');
 const reportsTableBody = document.querySelector('#reportsTable tbody');
 
-// Установка даты по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
 
-// Функция показа/скрытия загрузки
 function setLoading(show, text = 'Загрузка...') {
   if (show) {
     loadingIndicator.textContent = '⏳ ' + text;
@@ -45,13 +40,11 @@ function setLoading(show, text = 'Загрузка...') {
   }
 }
 
-// Обновление суммы
 function updateTotal() {
   const sum = orders.reduce((s, o) => s + (o.metric || 0), 0);
   totalMetricInput.value = sum;
 }
 
-// Добавление строки заказа
 function addOrderRow(orderVal = '', metricVal = '') {
   const index = orders.length;
   const rowDiv = document.createElement('div');
@@ -104,7 +97,13 @@ function renderOrders() {
   updateTotal();
 }
 
-// Загрузка заказов из Kairo-Scan через reports_paged с фильтром по дате
+function getOrdersCount(ordersStr) {
+  if (!ordersStr) return 0;
+  // Разделяем по запятой, обрезаем пробелы, убираем пустые
+  const items = ordersStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  return items.length;
+}
+
 function loadFromScan() {
   const employee = employeeSelect.value;
   if (!employee) {
@@ -112,7 +111,6 @@ function loadFromScan() {
     return;
   }
 
-  // Определяем этап (если у сотрудника один этап, берём его, иначе из выпадающего списка)
   let stage = null;
   if (currentEmployeeStage) {
     stage = currentEmployeeStage;
@@ -131,49 +129,30 @@ function loadFromScan() {
     return;
   }
 
-  // Преобразуем дату в формат DD.MM.YY для сравнения (как в отчётах)
   const [year, month, day] = date.split('-');
   const shortYear = year.slice(-2);
-  const formattedDate = `${day}.${month}.${shortYear}`; // DD.MM.YY
+  const formattedDate = `${day}.${month}.${shortYear}`;
 
-  console.log('📤 Запрос отчётов за дату:', formattedDate);
+  console.log('📤 Отправка запроса:', {
+    action: 'get_today_orders',
+    name: employee,
+    stage: stage,
+    date: formattedDate
+  });
 
   setLoading(true, 'Загрузка заказов...');
-
-  // Получаем все отчёты за выбранную дату (используем reports_paged с фильтром по дате)
-  // Для фильтрации по дате используем параметры from и to как timestamp
-  // Проще: получить все отчёты и отфильтровать по дате на клиенте.
-  // Но для экономии трафика запросим reports_paged с большим per_page.
-  const startOfDay = new Date(year, month-1, day, 0, 0, 0).getTime();
-  const endOfDay = new Date(year, month-1, day, 23, 59, 59).getTime();
-
-  callApiJsonp({
-    action: 'reports_paged',
-    from: startOfDay,
-    to: endOfDay,
-    page: 1,
-    per_page: 500
-  }, (res) => {
+  callApiJsonp({ action: 'get_today_orders', name: employee, stage, date: formattedDate }, (res) => {
     setLoading(false);
+    console.log('📥 Ответ от сервера:', res);
     if (!res.ok) {
-      alert('Ошибка загрузки отчётов: ' + (res.msg || 'неизвестная ошибка'));
+      alert('Ошибка загрузки: ' + (res.msg || 'неизвестная ошибка'));
       return;
     }
-    const reports = res.data || [];
-    console.log(`📥 Получено отчётов за ${formattedDate}:`, reports.length);
-    console.log('Все отчёты за дату:', reports);
-
-    // Фильтруем по сотруднику и этапу
-    const filtered = reports.filter(r => r.name === employee && r.stage === stage);
-    console.log(`Отфильтровано по сотруднику "${employee}" и этапу "${stage}":`, filtered.length, filtered);
-
-    const ordersList = filtered.map(r => r.order).filter(o => o);
+    const ordersList = res.orders || [];
     if (ordersList.length === 0) {
-      alert(`За выбранную дату заказов для ${employee} (${stage}) не найдено.`);
+      alert('За выбранную дату заказов не найдено');
       return;
     }
-
-    // Добавляем заказы, которых нет в текущем списке
     for (const order of ordersList) {
       if (!orders.some(o => o.order === order)) {
         orders.push({ order, metric: 0 });
@@ -182,12 +161,11 @@ function loadFromScan() {
     renderOrders();
   }, (err) => {
     setLoading(false);
-    console.error('Ошибка связи:', err);
+    console.error('❌ Ошибка связи:', err);
     alert('Ошибка связи: ' + err);
   });
 }
 
-// Сохранение итогов
 function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeSelect.value;
@@ -241,7 +219,6 @@ function saveTotals() {
   });
 }
 
-// Загрузка списка сотрудников (с этапами)
 function loadEmployees() {
   const cached = localStorage.getItem('employeesData');
   const cacheTime = localStorage.getItem('employeesDataTime');
@@ -283,14 +260,12 @@ function populateEmployeeSelect() {
     }
     employeeSelect.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(displayName)}</option>`;
   });
-  // Фильтр сотрудников
   filterEmployee.innerHTML = '<option value="">Все</option>';
   employeesData.forEach(emp => {
     filterEmployee.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`;
   });
 }
 
-// Обновление при выборе сотрудника
 function onEmployeeChange() {
   const name = employeeSelect.value;
   if (!name) {
@@ -321,7 +296,6 @@ function onEmployeeChange() {
   }
 }
 
-// Загрузка отчётов для вкладки "Просмотр отчётов"
 function loadReports() {
   const from = filterDateFrom.value;
   const to = filterDateTo.value;
@@ -335,7 +309,7 @@ function loadReports() {
   }, (res) => {
     setLoading(false);
     if (!res.ok) {
-      reportsTableBody.innerHTML = '叭<td colspan="6">Ошибка загрузки</td></tr>';
+      reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
       return;
     }
     const data = res.data || [];
@@ -346,23 +320,25 @@ function loadReports() {
       upakovka: 'Упаковка',
       hdf: 'Пила ХДФ'
     };
-    reportsTableBody.innerHTML = data.map(row => `
-      <tr>
-        <td>${escapeHtml(row.date)}</td>
-        <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-        <td>${escapeHtml(row.employee)}</td>
-        <td>${escapeHtml(row.orders)}</td>
-        <td>${escapeHtml(row.metrics)}</td>
-        <td>${escapeHtml(row.total)}</td>
-      </tr>
-    `).join('');
+    reportsTableBody.innerHTML = data.map(row => {
+      const ordersCount = getOrdersCount(row.orders);
+      return `
+        <tr>
+          <td>${escapeHtml(row.date)}</td>
+          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
+          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.orders)}</td>
+          <td style="text-align:center;">${ordersCount}</td>
+          <td style="text-align:right;">${escapeHtml(row.total)}</td>
+        </tr>
+      `;
+    }).join('');
   }, (err) => {
     setLoading(false);
     reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка связи</td></tr>';
   });
 }
 
-// Экспорт в Excel (CSV)
 function exportToExcel() {
   const from = filterDateFrom.value;
   const to = filterDateTo.value;
@@ -387,21 +363,61 @@ function exportToExcel() {
       upakovka: 'Упаковка',
       hdf: 'Пила ХДФ'
     };
-    const headers = ['Дата', 'Этап', 'Сотрудник', 'Заказы', 'Показатели', 'Итого'];
-    const rows = data.map(row => [
-      row.date,
-      stageNames[row.stage] || row.stage,
-      row.employee,
-      row.orders,
-      row.metrics,
-      row.total
-    ]);
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    // Формируем HTML для Excel
+    let html = `
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Итоги дня</title>
+        <style>
+          body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+          th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
+          th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
+          td { text-align: left; }
+          td:nth-child(5) { text-align: center; }
+          td:nth-child(6) { text-align: right; }
+          .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+          .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">Отчёт по итогам дня</div>
+        <div class="subheader">Период: ${from || 'все'} — ${to || 'все'} | Этап: ${filterStage.options[filterStage.selectedIndex]?.text || 'все'} | Сотрудник: ${employee || 'все'}</div>
+        <table>
+          <thead>
+            <tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr>
+          </thead>
+          <tbody>
+    `;
+
+    for (const row of data) {
+      const ordersCount = getOrdersCount(row.orders);
+      html += `
+        <tr>
+          <td>${escapeHtml(row.date)}</td>
+          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
+          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.orders)}</td>
+          <td style="text-align:center;">${ordersCount}</td>
+          <td style="text-align:right;">${escapeHtml(row.total)}</td>
+        </tr>
+      `;
+    }
+
+    html += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.href = url;
-    link.download = `totals_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `totals_${new Date().toISOString().slice(0,10)}.xls`;
     link.click();
     URL.revokeObjectURL(url);
   }, (err) => {
@@ -410,7 +426,6 @@ function exportToExcel() {
   });
 }
 
-// Переключение вкладок
 function switchTab(tab) {
   if (tab === 'input') {
     inputPanel.style.display = 'block';
@@ -426,7 +441,6 @@ function switchTab(tab) {
   }
 }
 
-// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   loadEmployees();
   addOrderRow();
@@ -441,7 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
   employeeSelect.addEventListener('change', onEmployeeChange);
 });
 
-// JSONP helper
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).slice(2);
   let done = false;
