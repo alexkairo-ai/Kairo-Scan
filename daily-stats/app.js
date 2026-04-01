@@ -1,6 +1,7 @@
+// Получаем доступ к базе данных
 const db = window.db;
 
-// Элементы
+// Элементы DOM
 const loadingIndicator = document.getElementById('loadingIndicator');
 const reportDateInput = document.getElementById('reportDate');
 const employeeNameInput = document.getElementById('employeeName');
@@ -14,8 +15,9 @@ const tabReports = document.getElementById('tabReports');
 const inputPanel = document.getElementById('inputPanel');
 const reportsPanel = document.getElementById('reportsPanel');
 
-const dateFrom = document.getElementById('dateFrom');
-const dateTo = document.getElementById('dateTo');
+// Элементы фильтров отчётов
+const filterDateFrom = document.getElementById('filterDateFrom');
+const filterDateTo = document.getElementById('filterDateTo');
 const filterStage = document.getElementById('filterStage');
 const filterEmployeeName = document.getElementById('filterEmployeeName');
 const applyFiltersBtn = document.getElementById('applyFilters');
@@ -24,12 +26,12 @@ const matrixContainer = document.getElementById('matrixContainer');
 
 // Установка дат по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
-// По умолчанию показываем текущую неделю (или можно месяц, но удобнее неделя/диапазон)
+// Установим фильтр по умолчанию на текущую неделю? Или на весь месяц? Можно оставить пустым, но для удобства установим последние 7 дней
 const today = new Date();
-const weekAgo = new Date();
-weekAgo.setDate(today.getDate() - 6);
-dateFrom.value = weekAgo.toISOString().slice(0, 10);
-dateTo.value = today.toISOString().slice(0, 10);
+const weekAgo = new Date(today);
+weekAgo.setDate(today.getDate() - 7);
+filterDateFrom.value = weekAgo.toISOString().slice(0, 10);
+filterDateTo.value = today.toISOString().slice(0, 10);
 
 function setLoading(show, text = 'Загрузка...') {
   if (show) {
@@ -40,7 +42,7 @@ function setLoading(show, text = 'Загрузка...') {
   }
 }
 
-// ========== СОХРАНЕНИЕ ==========
+// ========== СОХРАНЕНИЕ В FIRESTORE ==========
 async function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeNameInput.value.trim();
@@ -75,27 +77,18 @@ async function saveTotals() {
   }
 }
 
-// ========== ЗАГРУЗКА ДАННЫХ С ФИЛЬТРАЦИЕЙ ==========
+// ========== ЗАГРУЗКА ДАННЫХ ИЗ FIRESTORE ==========
 async function loadReportsData() {
-  let from = dateFrom.value;
-  let to = dateTo.value;
-  if (!from || !to) return { data: [], daysInRange: 0, datesList: [] };
-
-  // Преобразуем в объекты Date для сравнения
-  const fromDateObj = new Date(from);
-  const toDateObj = new Date(to);
-  // Создаём массив всех дат в диапазоне
-  const datesList = [];
-  let currentDate = new Date(fromDateObj);
-  while (currentDate <= toDateObj) {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1;
-    const day = currentDate.getDate();
-    const formatted = `${day}.${month}.${year.toString().slice(-2)}`;
-    datesList.push({ date: formatted, day: day, month: month, year: year });
-    currentDate.setDate(currentDate.getDate() + 1);
+  const fromDateStr = filterDateFrom.value;
+  const toDateStr = filterDateTo.value;
+  if (!fromDateStr || !toDateStr) {
+    alert('Выберите период');
+    return { data: [], days: [] };
   }
-  const daysInRange = datesList.length;
+
+  const fromDate = new Date(fromDateStr);
+  const toDate = new Date(toDateStr);
+  toDate.setHours(23, 59, 59, 999); // включительно
 
   const stageFilter = filterStage.value;
   const employeeFilter = filterEmployeeName.value.trim();
@@ -106,141 +99,146 @@ async function loadReportsData() {
     const allData = [];
     snapshot.forEach(doc => allData.push({ id: doc.id, ...doc.data() }));
 
-    // Фильтруем по диапазону дат, этапу, сотруднику
+    // Фильтрация по дате, этапу, сотруднику
     const filtered = allData.filter(item => {
-      // Проверка даты
-      const itemDateStr = item.date;
-      const itemDateParts = itemDateStr.split('.');
+      const itemDateParts = item.date.split('.');
       if (itemDateParts.length !== 3) return false;
       const itemDay = parseInt(itemDateParts[0], 10);
       const itemMonth = parseInt(itemDateParts[1], 10);
       let itemYear = parseInt(itemDateParts[2], 10);
       if (itemYear < 100) itemYear += 2000;
       const itemDateObj = new Date(itemYear, itemMonth-1, itemDay);
-      if (itemDateObj < fromDateObj || itemDateObj > toDateObj) return false;
+      if (itemDateObj < fromDate || itemDateObj > toDate) return false;
 
       if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
       if (employeeFilter && item.employee !== employeeFilter) return false;
       return true;
     });
 
+    // Сформируем список дней в периоде (каждая дата в формате YYYY-MM-DD)
+    const days = [];
+    let currentDate = new Date(fromDate);
+    while (currentDate <= toDate) {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const day = currentDate.getDate();
+      const dateStr = `${year}-${month.toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
+      days.push(dateStr);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
     setLoading(false);
-    return { data: filtered, daysInRange, datesList };
+    return { data: filtered, days };
   } catch (err) {
     setLoading(false);
     console.error(err);
     alert('Ошибка загрузки: ' + err.message);
-    return { data: [], daysInRange: 0, datesList: [] };
+    return { data: [], days: [] };
   }
 }
 
-// ========== ПОСТРОЕНИЕ МАТРИЦЫ ==========
+// ========== ОТОБРАЖЕНИЕ МАТРИЦЫ ==========
 async function loadReports() {
-  const { data, daysInRange, datesList } = await loadReportsData();
-  if (!data || daysInRange === 0) {
-    matrixContainer.innerHTML = '<p>Выберите диапазон дат</p>';
-    return;
-  }
+  const { data, days } = await loadReportsData();
+  if (!data || !days) return;
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-  const stagesOrder = ['pila', 'kromka', 'prisadka', 'upakovka', 'hdf'];
   
-  // Группировка по этапу и сотруднику
-  const map = new Map(); // key: "этап|сотрудник"
+  // Группируем по (этап, сотрудник)
+  const map = new Map();
   for (const row of data) {
     const key = `${row.stage}|${row.employee}`;
     if (!map.has(key)) {
-      map.set(key, { stage: row.stage, employee: row.employee, days: new Array(daysInRange).fill({ count: 0, amount: 0 }) });
+      map.set(key, { stage: row.stage, employee: row.employee, dayValues: {} });
     }
     const entry = map.get(key);
-    // Находим индекс даты в datesList
-    const idx = datesList.findIndex(d => d.date === row.date);
-    if (idx !== -1) {
-      entry.days[idx] = { count: row.count, amount: row.amount };
-    }
+    const dateObj = parseDateString(row.date); // возвращает YYYY-MM-DD
+    const dateKey = dateObj.toISOString().slice(0,10);
+    entry.dayValues[dateKey] = { count: row.count, amount: row.amount };
   }
 
-  // Сортируем сотрудников по этапам в заданном порядке, затем по имени
+  // Преобразуем в массив для отображения
   const rows = Array.from(map.values()).sort((a,b) => {
-    const stageOrderA = stagesOrder.indexOf(a.stage);
-    const stageOrderB = stagesOrder.indexOf(b.stage);
-    if (stageOrderA !== stageOrderB) return stageOrderA - stageOrderB;
-    return a.employee.localeCompare(b.employee);
+    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+    return a.stage.localeCompare(b.stage);
   });
 
-  // Формируем HTML-таблицу
-  let html = '<table class="matrix-table">';
-  // Заголовок: первый столбец "Этап/Сотрудник", второй " ", затем даты
-  html += `<thead>`;
-  html += `%row<th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
-  for (const d of datesList) {
-    html += `<th>${d.day}</th>`;
+  // Заголовки: даты (день и месяц)
+  const headerDates = days.map(d => {
+    const [year, month, day] = d.split('-');
+    return `${day}.${month}`;
+  });
+
+  // Подсчёт итогов по этапам
+  const stageTotals = new Map(); // key: stage -> { totalCount, totalAmount }
+  for (const row of rows) {
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const total = stageTotals.get(row.stage) || { totalCount: 0, totalAmount: 0 };
+      total.totalCount += val.count;
+      total.totalAmount += val.amount;
+      stageTotals.set(row.stage, total);
+    }
   }
+
+  // Построение HTML таблицы
+  let html = '<table class="matrix-table">';
+  // Первая строка: заголовок колонок
+  html += `<thead>`;
+  html += `<tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
+  for (let i = 0; i < days.length; i++) {
+    html += `<th colspan="1">${headerDates[i]}</th>`;
+  }
+  html += `<th colspan="2">Итого по сотруднику</th>`;
+  html += `</thead><tbody>`;
+  html += `一期`;
+  for (let i = 0; i < days.length; i++) {
+    html += `<th>${days[i].split('-')[2]}</th>`;
+  }
+  html += `<th>кол-во</th><th>метраж</th>`;
   html += `</thead><tbody>`;
 
-  // Выводим строки для каждого сотрудника
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
+    let employeeTotalCount = 0;
+    let employeeTotalAmount = 0;
     // Строка "кол-во"
-    html += `一期`;
+    html += `<tr>`;
     html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
     html += `<td class="row-sub-label">кол-во</td>`;
-    for (let i = 0; i < daysInRange; i++) {
-      const val = row.days[i].count;
-      html += `<td class="count-cell">${val === 0 ? '' : val}</td>`;
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const countDisplay = val.count === 0 ? '' : val.count;
+      html += `<td class="count-cell">${countDisplay}</td>`;
+      employeeTotalCount += val.count;
     }
+    html += `<td class="count-cell">${employeeTotalCount === 0 ? '' : employeeTotalCount}</td>`;
+    html += `<td class="count-cell"></td>`;
     html += `</tr>`;
     // Строка "метраж"
-    html += `<tr>`;
+    html += `一期`;
     html += `<td class="row-sub-label">метраж</td>`;
-    for (let i = 0; i < daysInRange; i++) {
-      const val = row.days[i].amount;
-      html += `<td class="amount-cell">${val === 0 ? '' : val}</td>`;
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const amountDisplay = val.amount === 0 ? '' : val.amount;
+      html += `<td class="amount-cell">${amountDisplay}</td>`;
+      employeeTotalAmount += val.amount;
     }
+    html += `<td class="amount-cell"></td>`;
+    html += `<td class="amount-cell">${employeeTotalAmount === 0 ? '' : employeeTotalAmount}</td>`;
     html += `</tr>`;
   }
 
-  // === ИТОГОВАЯ СТРОКА ПО ЭТАПАМ ===
-  // Собираем суммы по этапам независимо от сотрудников
-  const stageTotals = new Map(); // stage -> { totalCount, totalAmount }
-  for (const row of data) {
-    const stage = row.stage;
-    if (!stageTotals.has(stage)) {
-      stageTotals.set(stage, { totalCount: 0, totalAmount: 0 });
-    }
-    const totals = stageTotals.get(stage);
-    totals.totalCount += row.count;
-    totals.totalAmount += row.amount;
-  }
-  // Итоговая строка: сначала для каждого этапа в порядке stagesOrder, затем общая сумма
-  html += `<tr class="total-row"><td colspan="2" class="total-label">Итого по этапам</td>`;
-  for (let i = 0; i < daysInRange; i++) {
-    html += `<td></td>`;
-  }
-  html += `</tr>`;
-  for (const stageKey of stagesOrder) {
-    const totals = stageTotals.get(stageKey);
-    if (totals) {
-      const stageName = stageNames[stageKey] || stageKey;
-      html += `<tr class="stage-total-row">`;
-      html += `<td colspan="2" class="stage-total-label">${stageName}</td>`;
-      for (let i = 0; i < daysInRange; i++) {
-        html += `<td></td>`;
-      }
-      html += `</tr>`;
-      // строка "кол-во"
-      html += `<tr class="stage-total-values">`;
-      html += `<td class="row-sub-label">кол-во</td>`;
+  // Итоги по этапам (общие строки)
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageName = stageNames[stageKey] || stageKey;
+    html += `一期<td colspan="2" class="row-label" style="background: #3a3a46;">${stageName} (всего)</td>`;
+    for (let i = 0; i < days.length; i++) {
       html += `<td></td>`;
-      for (let i = 0; i < daysInRange; i++) {
-        // Здесь можно было бы вывести по дням, но в задании – общие итоги по всему диапазону.
-        // Поскольку в примере была общая итоговая строка внизу, а не по дням, сделаем общие суммы.
-        // Но проще вывести общую сумму в последней колонке? В примере Excel общая сумма была в отдельной колонке.
-        // Сделаем так: после всех столбцов добавим колонку "Всего".
-        // Переделаем таблицу: добавим колонку "Всего".
-      }
-      html += `</tr>`;
     }
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
   html += `</tbody></table>`;
@@ -249,48 +247,44 @@ async function loadReports() {
 
 // ========== ЭКСПОРТ В EXCEL ==========
 async function exportToExcel() {
-  const { data, daysInRange, datesList } = await loadReportsData();
-  if (!data || daysInRange === 0) {
-    alert('Нет данных для экспорта');
-    return;
-  }
+  const { data, days } = await loadReportsData();
+  if (!data || !days) return;
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-  const stagesOrder = ['pila', 'kromka', 'prisadka', 'upakovka', 'hdf'];
-  
   const map = new Map();
   for (const row of data) {
     const key = `${row.stage}|${row.employee}`;
     if (!map.has(key)) {
-      map.set(key, { stage: row.stage, employee: row.employee, days: new Array(daysInRange).fill({ count: 0, amount: 0 }) });
+      map.set(key, { stage: row.stage, employee: row.employee, dayValues: {} });
     }
     const entry = map.get(key);
-    const idx = datesList.findIndex(d => d.date === row.date);
-    if (idx !== -1) {
-      entry.days[idx] = { count: row.count, amount: row.amount };
-    }
+    const dateObj = parseDateString(row.date);
+    const dateKey = dateObj.toISOString().slice(0,10);
+    entry.dayValues[dateKey] = { count: row.count, amount: row.amount };
   }
 
   const rows = Array.from(map.values()).sort((a,b) => {
-    const stageOrderA = stagesOrder.indexOf(a.stage);
-    const stageOrderB = stagesOrder.indexOf(b.stage);
-    if (stageOrderA !== stageOrderB) return stageOrderA - stageOrderB;
-    return a.employee.localeCompare(b.employee);
+    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+    return a.stage.localeCompare(b.stage);
   });
 
-  // Вычисляем итоги по этапам
+  const headerDates = days.map(d => {
+    const [year, month, day] = d.split('-');
+    return `${day}.${month}`;
+  });
+
   const stageTotals = new Map();
-  for (const row of data) {
-    const stage = row.stage;
-    if (!stageTotals.has(stage)) {
-      stageTotals.set(stage, { totalCount: 0, totalAmount: 0 });
+  for (const row of rows) {
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const total = stageTotals.get(row.stage) || { totalCount: 0, totalAmount: 0 };
+      total.totalCount += val.count;
+      total.totalAmount += val.amount;
+      stageTotals.set(row.stage, total);
     }
-    const totals = stageTotals.get(stage);
-    totals.totalCount += row.count;
-    totals.totalAmount += row.amount;
   }
 
-  // Формируем HTML для Excel
+  // Генерируем HTML для Excel
   let html = `<html><head><meta charset="UTF-8"><title>Итоги</title>
   <style>
     body { font-family: Calibri, Arial; margin: 20px; }
@@ -300,71 +294,53 @@ async function exportToExcel() {
     .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
     .row-sub-label { background-color: #e9ecef; font-weight: normal; text-align: left; }
     .count-cell, .amount-cell { text-align: center; }
-    .total-row, .stage-total-row { background-color: #d9ead3; }
-    .total-label, .stage-total-label { font-weight: bold; text-align: left; }
-    .stage-total-values { background-color: #f9f9f9; }
   </style></head><body>
-  <h2>Итоги за период: ${dateFrom.value} – ${dateTo.value}</h2>
-  能`;
-
-  html += `<thead>`;
-  html += `%row<th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
-  for (const d of datesList) {
-    html += `<th>${d.day}</th>`;
+  <h2>Итоги за период: ${filterDateFrom.value} — ${filterDateTo.value}</h2>
+  <table>
+    <thead>
+      <tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
+  for (let i = 0; i < days.length; i++) {
+    html += `<th colspan="1">${headerDates[i]}</th>`;
   }
-  html += `<th rowspan="2">Всего заказов</th><th rowspan="2">Всего метров/упак.</th>`;
-  html += `</thead><tbody>`;
+  html += `<th colspan="2">Итого по сотруднику</th></tr><tr>`;
+  for (let i = 0; i < days.length; i++) {
+    html += `<th>${days[i].split('-')[2]}</th>`;
+  }
+  html += `<th>кол-во</th><th>метраж</th></tr></thead><tbody>`;
 
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
-    let totalCount = 0;
-    let totalAmount = 0;
-    for (let i = 0; i < daysInRange; i++) {
-      totalCount += row.days[i].count;
-      totalAmount += row.days[i].amount;
-    }
-    // Строка "кол-во"
-    html += `<tr>`;
-    html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+    let employeeTotalCount = 0;
+    let employeeTotalAmount = 0;
+    html += `<tr><td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
     html += `<td class="row-sub-label">кол-во</td>`;
-    for (let i = 0; i < daysInRange; i++) {
-      const val = row.days[i].count;
-      html += `<td class="count-cell">${val === 0 ? '' : val}</td>`;
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const countDisplay = val.count === 0 ? '' : val.count;
+      html += `<td class="count-cell">${countDisplay}</td>`;
+      employeeTotalCount += val.count;
     }
-    html += `<td>${totalCount}</td><td></td>`;
-    html += `</tr>`;
-    // Строка "метраж"
-    html += `<tr>`;
-    html += `<td class="row-sub-label">метраж</td>`;
-    for (let i = 0; i < daysInRange; i++) {
-      const val = row.days[i].amount;
-      html += `<td class="amount-cell">${val === 0 ? '' : val}</td>`;
+    html += `<td class="count-cell">${employeeTotalCount === 0 ? '' : employeeTotalCount}</td><td class="count-cell"></td></tr>`;
+    html += `<tr><td class="row-sub-label">метраж</td>`;
+    for (const dateKey of days) {
+      const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
+      const amountDisplay = val.amount === 0 ? '' : val.amount;
+      html += `<td class="amount-cell">${amountDisplay}</td>`;
+      employeeTotalAmount += val.amount;
     }
-    html += `<td></td><td>${totalAmount}</td>`;
-    html += `</tr>`;
+    html += `<td class="amount-cell"></td><td class="amount-cell">${employeeTotalAmount === 0 ? '' : employeeTotalAmount}</td></tr>`;
   }
 
   // Итоги по этапам
-  for (const stageKey of stagesOrder) {
-    const totals = stageTotals.get(stageKey);
-    if (totals) {
-      const stageName = stageNames[stageKey] || stageKey;
-      html += `<tr class="stage-total-row"><td colspan="2" class="stage-total-label">${stageName}</td>`;
-      for (let i = 0; i < daysInRange; i++) html += `<td></td>`;
-      html += `<td class="total-count">${totals.totalCount}</td><td class="total-amount">${totals.totalAmount}</td></tr>`;
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageName = stageNames[stageKey] || stageKey;
+    html += `<tr><td colspan="2" class="row-label" style="background: #e9ecef;">${stageName} (всего)</td>`;
+    for (let i = 0; i < days.length; i++) {
+      html += `<td></td>`;
     }
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
   }
-
-  // Общий итог
-  let grandTotalCount = 0;
-  let grandTotalAmount = 0;
-  for (const totals of stageTotals.values()) {
-    grandTotalCount += totals.totalCount;
-    grandTotalAmount += totals.totalAmount;
-  }
-  html += `<tr class="total-row"><td colspan="2" class="total-label">ВСЕГО</td>`;
-  for (let i = 0; i < daysInRange; i++) html += `<td></td>`;
-  html += `<td class="total-count">${grandTotalCount}</td><td class="total-amount">${grandTotalAmount}</td></tr>`;
 
   html += `</tbody></table></body></html>`;
 
@@ -372,9 +348,19 @@ async function exportToExcel() {
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.href = url;
-  link.download = `totals_${dateFrom.value}_to_${dateTo.value}.xls`;
+  link.download = `totals_${filterDateFrom.value}_${filterDateTo.value}.xls`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function parseDateString(dateStr) {
+  // вход: DD.MM.YY
+  const parts = dateStr.split('.');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  let year = parseInt(parts[2], 10);
+  if (year < 100) year += 2000;
+  return new Date(year, month, day);
 }
 
 function switchTab(tab) {
@@ -401,6 +387,7 @@ function escapeHtml(str) {
   });
 }
 
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   saveBtn.addEventListener('click', saveTotals);
   applyFiltersBtn.addEventListener('click', loadReports);
