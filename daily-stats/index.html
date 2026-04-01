@@ -16,55 +16,49 @@
       <button id="tabReports">Просмотр отчётов</button>
     </div>
 
-    <!-- Форма ввода -->
+    <!-- Панель ввода данных -->
     <div id="inputPanel" class="panel">
-      <div class="form-group">
-        <label>Этап</label>
-        <select id="stageSelect">
-          <option value="pila">Пила</option>
-          <option value="kromka">Кромка</option>
-          <option value="prisadka">Присадка</option>
-          <option value="upakovka">Упаковка</option>
-          <option value="hdf">Пила ХДФ</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Сотрудник</label>
-        <select id="employeeSelect">
-          <option value="">-- Выберите имя --</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Режим ввода</label>
-        <div class="radio-group">
-          <label><input type="radio" name="mode" value="list" checked> Поштучно</label>
-          <label><input type="radio" name="mode" value="total"> Общий итог</label>
-        </div>
-      </div>
-
-      <!-- Режим поштучного ввода -->
-      <div id="listMode" class="mode-panel">
-        <div id="ordersContainer"></div>
-        <button id="addOrderBtn" class="secondary">+ Добавить заказ</button>
-        <button id="loadFromScanBtn" class="secondary">📥 Загрузить из Kairo-Scan</button>
-        <div class="summary">
-          <div>Общий показатель:</div>
-          <div class="total" id="listTotal">0</div>
-        </div>
-      </div>
-
-      <!-- Режим общего итога -->
-      <div id="totalMode" class="mode-panel" style="display:none;">
+      <div class="form-row">
         <div class="form-group">
-          <label>Общий показатель</label>
-          <input type="number" id="totalMetricInput" step="any" placeholder="Метраж / отверстия / упаковки">
+          <label>Дата отчёта</label>
+          <input type="date" id="reportDate">
         </div>
+        <div class="form-group">
+          <label>Этап</label>
+          <select id="stageSelect">
+            <option value="pila">Пила</option>
+            <option value="kromka">Кромка</option>
+            <option value="prisadka">Присадка</option>
+            <option value="upakovka">Упаковка</option>
+            <option value="hdf">Пила ХДФ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Сотрудник</label>
+          <select id="employeeSelect">
+            <option value="">-- Выберите имя --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="orders-section">
+        <h3>Заказы (можно добавить несколько)</h3>
+        <div id="ordersContainer"></div>
+        <div class="actions">
+          <button id="addOrderBtn" class="secondary">+ Добавить заказ</button>
+          <button id="loadFromScanBtn" class="secondary">📥 Загрузить из Kairo-Scan</button>
+        </div>
+      </div>
+
+      <div class="total-section">
+        <label for="totalMetric">Общий итог (метраж / отверстия / упаковки)</label>
+        <input type="number" id="totalMetric" step="any" placeholder="Автоматически суммируется">
       </div>
 
       <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
     </div>
 
-    <!-- Панель отчётов -->
+    <!-- Панель просмотра отчётов -->
     <div id="reportsPanel" class="panel" style="display:none;">
       <div class="filters">
         <div class="form-group">
@@ -92,10 +86,12 @@
             <option value="">Все</option>
           </select>
         </div>
-        <button id="applyFilters" class="secondary">Применить</button>
-        <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
+        <div class="actions">
+          <button id="applyFilters" class="secondary">Применить</button>
+          <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
+        </div>
       </div>
-      <div id="reportsTableContainer">
+      <div class="table-wrapper">
         <table id="reportsTable">
           <thead>
             <tr>
@@ -105,7 +101,6 @@
               <th>Заказы</th>
               <th>Показатели</th>
               <th>Итого</th>
-              <th>Тип</th>
             </tr>
           </thead>
           <tbody></tbody>
