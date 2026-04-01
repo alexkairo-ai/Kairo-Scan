@@ -134,9 +134,13 @@ button.secondary {
   background: #2a2a36;
   text-align: left;
   font-weight: bold;
+  min-width: 120px;
 }
-.matrix-table .matrix-cell {
-  text-align: center;
+.matrix-table .count-cell {
+  background: #0f1216;
+}
+.matrix-table .amount-cell {
+  background: #0f1216;
 }
 
 .filters {
