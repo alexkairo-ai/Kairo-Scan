@@ -104,7 +104,7 @@ function renderOrders() {
   updateTotal();
 }
 
-// Загрузка заказов из Kairo-Scan
+// Загрузка заказов из Kairo-Scan через reports_paged с фильтром по дате
 function loadFromScan() {
   const employee = employeeSelect.value;
   if (!employee) {
@@ -112,13 +112,11 @@ function loadFromScan() {
     return;
   }
 
-  // Определяем этап
+  // Определяем этап (если у сотрудника один этап, берём его, иначе из выпадающего списка)
   let stage = null;
   if (currentEmployeeStage) {
-    // У сотрудника один этап
     stage = currentEmployeeStage;
   } else if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
-    // У сотрудника несколько этапов, выбираем из списка
     stage = stageSelect.value;
   }
 
@@ -133,31 +131,48 @@ function loadFromScan() {
     return;
   }
 
-  // Преобразуем дату в формат DD.MM.YY (как в Kairo-Scan)
+  // Преобразуем дату в формат DD.MM.YY для сравнения (как в отчётах)
   const [year, month, day] = date.split('-');
   const shortYear = year.slice(-2);
-  const formattedDate = `${day}.${month}.${shortYear}`;
+  const formattedDate = `${day}.${month}.${shortYear}`; // DD.MM.YY
 
-  console.log('📤 Отправка запроса:', {
-    action: 'get_today_orders',
-    name: employee,
-    stage: stage,
-    date: formattedDate
-  });
+  console.log('📤 Запрос отчётов за дату:', formattedDate);
 
   setLoading(true, 'Загрузка заказов...');
-  callApiJsonp({ action: 'get_today_orders', name: employee, stage, date: formattedDate }, (res) => {
+
+  // Получаем все отчёты за выбранную дату (используем reports_paged с фильтром по дате)
+  // Для фильтрации по дате используем параметры from и to как timestamp
+  // Проще: получить все отчёты и отфильтровать по дате на клиенте.
+  // Но для экономии трафика запросим reports_paged с большим per_page.
+  const startOfDay = new Date(year, month-1, day, 0, 0, 0).getTime();
+  const endOfDay = new Date(year, month-1, day, 23, 59, 59).getTime();
+
+  callApiJsonp({
+    action: 'reports_paged',
+    from: startOfDay,
+    to: endOfDay,
+    page: 1,
+    per_page: 500
+  }, (res) => {
     setLoading(false);
-    console.log('📥 Ответ от сервера:', res);
     if (!res.ok) {
-      alert('Ошибка загрузки: ' + (res.msg || 'неизвестная ошибка'));
+      alert('Ошибка загрузки отчётов: ' + (res.msg || 'неизвестная ошибка'));
       return;
     }
-    const ordersList = res.orders || [];
+    const reports = res.data || [];
+    console.log(`📥 Получено отчётов за ${formattedDate}:`, reports.length);
+    console.log('Все отчёты за дату:', reports);
+
+    // Фильтруем по сотруднику и этапу
+    const filtered = reports.filter(r => r.name === employee && r.stage === stage);
+    console.log(`Отфильтровано по сотруднику "${employee}" и этапу "${stage}":`, filtered.length, filtered);
+
+    const ordersList = filtered.map(r => r.order).filter(o => o);
     if (ordersList.length === 0) {
-      alert('За выбранную дату заказов не найдено');
+      alert(`За выбранную дату заказов для ${employee} (${stage}) не найдено.`);
       return;
     }
+
     // Добавляем заказы, которых нет в текущем списке
     for (const order of ordersList) {
       if (!orders.some(o => o.order === order)) {
@@ -167,7 +182,7 @@ function loadFromScan() {
     renderOrders();
   }, (err) => {
     setLoading(false);
-    console.error('❌ Ошибка связи:', err);
+    console.error('Ошибка связи:', err);
     alert('Ошибка связи: ' + err);
   });
 }
@@ -213,11 +228,9 @@ function saveTotals() {
     setLoading(false);
     if (res.ok) {
       alert('Итоги сохранены!');
-      // Очистка формы
       orders = [];
       renderOrders();
       totalMetricInput.value = '';
-      // Если открыт просмотр отчётов, обновляем
       if (reportsPanel.style.display !== 'none') loadReports();
     } else {
       alert('Ошибка: ' + res.msg);
@@ -295,11 +308,9 @@ function onEmployeeChange() {
     return;
   }
   if (currentStages.length === 1) {
-    // Один этап – скрываем выбор, сохраняем этап в переменную
     stageSelectGroup.style.display = 'none';
     currentEmployeeStage = currentStages[0];
   } else {
-    // Несколько этапов – показываем выбор
     stageSelectGroup.style.display = 'block';
     currentEmployeeStage = null;
     stageSelect.innerHTML = '<option value="">-- Выберите этап --</option>';
@@ -310,7 +321,7 @@ function onEmployeeChange() {
   }
 }
 
-// Загрузка отчётов
+// Загрузка отчётов для вкладки "Просмотр отчётов"
 function loadReports() {
   const from = filterDateFrom.value;
   const to = filterDateTo.value;
@@ -324,7 +335,7 @@ function loadReports() {
   }, (res) => {
     setLoading(false);
     if (!res.ok) {
-      reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
+      reportsTableBody.innerHTML = '叭<td colspan="6">Ошибка загрузки</td></tr>';
       return;
     }
     const data = res.data || [];
