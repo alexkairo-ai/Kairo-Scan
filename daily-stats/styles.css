@@ -22,7 +22,6 @@ h1 {
   font-size: 28px;
 }
 
-/* Вкладки */
 .tabs {
   display: flex;
   gap: 10px;
@@ -43,7 +42,6 @@ h1 {
   color: #000;
 }
 
-/* Панели */
 .panel {
   background: #1e1e2a;
   padding: 20px;
@@ -51,7 +49,6 @@ h1 {
   margin-bottom: 20px;
 }
 
-/* Формы */
 .form-row {
   display: flex;
   flex-wrap: wrap;
@@ -104,7 +101,6 @@ button.secondary {
   padding: 8px 16px;
 }
 
-/* Заказы */
 .orders-section {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -145,7 +141,6 @@ button.secondary {
   font-weight: bold;
 }
 
-/* Таблица отчётов */
 .table-wrapper {
   overflow-x: auto;
   margin-top: 20px;
@@ -168,7 +163,6 @@ button.secondary {
   background: #2a2a36;
 }
 
-/* Фильтры */
 .filters {
   display: flex;
   flex-wrap: wrap;
