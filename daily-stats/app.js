@@ -142,21 +142,15 @@ async function loadReports() {
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
   const monthName = monthNames[parseInt(monthNum)-1].toUpperCase();
 
-  // Формируем HTML-таблицу по образцу
   let html = '<table class="matrix-table">';
-
-  // Первая строка: месяц и год (объединённые ячейки)
   html += `<thead>`;
   html += `<tr><th rowspan="2" style="vertical-align:middle;">Этап / Сотрудник</th><th rowspan="2" style="vertical-align:middle;"> </th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>`;
-  // Вторая строка: числа месяца
   html += `<tr>`;
   for (let d = 1; d <= daysInMonth; d++) {
     html += `<th>${d}</th>`;
   }
-  html += `</tr>`;
-  html += `</thead><tbody>`;
+  html += `</tr></thead><tbody>`;
 
-  // Для каждого сотрудника выводим две строки
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
     // Строка "кол-во"
@@ -164,14 +158,16 @@ async function loadReports() {
     html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
     html += `<td class="row-sub-label">кол-во</td>`;
     for (let d = 0; d < daysInMonth; d++) {
-      html += `<td class="count-cell">${row.days[d].count}</td>`;
+      const countValue = row.days[d].count;
+      html += `<td class="count-cell">${countValue === 0 ? '' : countValue}</td>`;
     }
     html += `</tr>`;
     // Строка "метраж"
     html += `<tr>`;
     html += `<td class="row-sub-label">метраж</td>`;
     for (let d = 0; d < daysInMonth; d++) {
-      html += `<td class="amount-cell">${row.days[d].amount}</td>`;
+      const amountValue = row.days[d].amount;
+      html += `<td class="amount-cell">${amountValue === 0 ? '' : amountValue}</td>`;
     }
     html += `</tr>`;
   }
@@ -207,7 +203,6 @@ async function exportToExcel() {
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
   const monthName = monthNames[parseInt(monthNum)-1].toUpperCase();
 
-  // Генерируем HTML для Excel
   let html = `<html><head><meta charset="UTF-8"><title>Итоги за ${reportMonth.value}</title>
   <style>
     body { font-family: Calibri, Arial; margin: 20px; }
@@ -221,15 +216,14 @@ async function exportToExcel() {
   <h2>Итоги за ${reportMonth.value}</h2>
   <table>`;
 
-  // Заголовок: объединённая ячейка для месяца, отдельная колонка "Этап/Сотрудник" и пустая подпись, затем дни
+  // Заголовок
   html += `<thead>`;
   html += `<tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th><th colspan="${daysInMonth}">${monthName} ${year}</th></tr>`;
   html += `<tr>`;
   for (let d = 1; d <= daysInMonth; d++) {
     html += `<th>${d}</th>`;
   }
-  html += `</tr>`;
-  html += `</thead><tbody>`;
+  html += `</tr></thead><tbody>`;
 
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
@@ -238,14 +232,16 @@ async function exportToExcel() {
     html += `<td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
     html += `<td class="row-sub-label">кол-во</td>`;
     for (let d = 0; d < daysInMonth; d++) {
-      html += `<td class="count-cell">${row.days[d].count}</td>`;
+      const countValue = row.days[d].count;
+      html += `<td class="count-cell">${countValue === 0 ? '' : countValue}</td>`;
     }
     html += `</tr>`;
     // Строка "метраж"
     html += `<tr>`;
     html += `<td class="row-sub-label">метраж</td>`;
     for (let d = 0; d < daysInMonth; d++) {
-      html += `<td class="amount-cell">${row.days[d].amount}</td>`;
+      const amountValue = row.days[d].amount;
+      html += `<td class="amount-cell">${amountValue === 0 ? '' : amountValue}</td>`;
     }
     html += `</tr>`;
   }
