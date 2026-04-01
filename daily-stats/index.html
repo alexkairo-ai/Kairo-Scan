@@ -10,10 +10,7 @@
 </head>
 <body>
   <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h1>📊 ИТОГИ ДНЯ</h1>
-      <button id="settingsBtn" class="secondary" style="width: auto; padding: 8px 16px;">⚙️ Настройки</button>
-    </div>
+    <h1>📊 ИТОГИ ДНЯ</h1>
     <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
     <div class="tabs">
       <button id="tabInput" class="active">Ввод данных</button>
@@ -29,9 +26,7 @@
         </div>
         <div class="form-group">
           <label>Сотрудник</label>
-          <select id="employeeSelect">
-            <option value="">-- Выберите имя --</option>
-          </select>
+          <input type="text" id="employeeName" placeholder="Введите имя" autocomplete="off">
         </div>
         <div class="form-group">
           <label>Этап</label>
@@ -80,9 +75,7 @@
         </div>
         <div class="form-group">
           <label>Сотрудник</label>
-          <select id="filterEmployee">
-            <option value="">Все сотрудники</option>
-          </select>
+          <input type="text" id="filterEmployeeName" placeholder="Введите имя для фильтра">
         </div>
         <div class="actions">
           <button id="applyFilters" class="secondary">Показать</button>
@@ -91,24 +84,6 @@
       </div>
       <div class="table-wrapper">
         <div id="matrixContainer"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Модальное окно настроек -->
-  <div id="settingsModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <span class="close">&times;</span>
-        <h2>Управление сотрудниками</h2>
-      </div>
-      <div class="modal-body">
-        <p>Здесь можно скрыть ненужные имена и объединить несколько имён в одно.</p>
-        <div id="employeesSettingsList"></div>
-        <div class="actions" style="margin-top: 20px;">
-          <button id="saveSettingsBtn" class="primary">Сохранить настройки</button>
-          <button id="resetSettingsBtn" class="secondary">Сбросить все настройки</button>
-        </div>
       </div>
     </div>
   </div>
