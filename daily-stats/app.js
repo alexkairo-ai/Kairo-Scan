@@ -1,37 +1,32 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой URL
 
-let orders = []; // массив { order, metric }
-let employeesData = []; // исходные данные из Kairo-Scan: массив { name, stages }
-let employeeStageOptions = []; // массив { id, displayName, originalNames, stage }
-
-// Настройки сотрудников
-let employeeAliases = {};   // { displayName: [originalName1, originalName2, ...] }
-let hiddenNames = [];       // имена, которые не показывать
+let employeesData = [];
+let employeeStageOptions = [];
+let employeeAliases = {};
+let hiddenNames = [];
 
 // Элементы
 const loadingIndicator = document.getElementById('loadingIndicator');
 const reportDateInput = document.getElementById('reportDate');
-const employeeStageSelect = document.getElementById('employeeStageSelect');
-const ordersContainer = document.getElementById('ordersContainer');
-const addOrderBtn = document.getElementById('addOrderBtn');
-const loadFromScanBtn = document.getElementById('loadFromScanBtn');
+const employeeSelect = document.getElementById('employeeSelect');
+const stageSelect = document.getElementById('stageSelect');
+const orderCountInput = document.getElementById('orderCount');
+const totalAmountInput = document.getElementById('totalAmount');
 const saveBtn = document.getElementById('saveBtn');
-const totalMetricInput = document.getElementById('totalMetric');
 
 const tabInput = document.getElementById('tabInput');
 const tabReports = document.getElementById('tabReports');
 const inputPanel = document.getElementById('inputPanel');
 const reportsPanel = document.getElementById('reportsPanel');
 
-const filterDateFrom = document.getElementById('filterDateFrom');
-const filterDateTo = document.getElementById('filterDateTo');
+const reportMonth = document.getElementById('reportMonth');
 const filterStage = document.getElementById('filterStage');
 const filterEmployee = document.getElementById('filterEmployee');
 const applyFiltersBtn = document.getElementById('applyFilters');
 const exportExcelBtn = document.getElementById('exportExcel');
-const reportsTableBody = document.querySelector('#reportsTable tbody');
+const matrixContainer = document.getElementById('matrixContainer');
 
-// Настройки модального окна
+// Настройки
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeModal = document.querySelector('.close');
@@ -39,7 +34,9 @@ const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 const employeesSettingsList = document.getElementById('employeesSettingsList');
 
+// Установка дат по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
+reportMonth.value = new Date().toISOString().slice(0, 7);
 
 // ========== Работа с настройками ==========
 function loadSettings() {
@@ -70,14 +67,13 @@ function resetSettings() {
   employeeAliases = {};
   hiddenNames = [];
   saveSettings();
-  rebuildEmployeeStageOptions();
-  populateEmployeeStageSelect();
+  rebuildEmployeeOptions();
+  populateSelects();
   closeSettingsModal();
   alert('Настройки сброшены');
 }
 
-// Построение списка вариантов (имя + этап) с учётом объединения и скрытия
-function rebuildEmployeeStageOptions() {
+function rebuildEmployeeOptions() {
   const visibleEmployees = employeesData.filter(emp => !hiddenNames.includes(emp.name));
   const aliasMap = new Map();
   for (const emp of visibleEmployees) {
@@ -93,21 +89,16 @@ function rebuildEmployeeStageOptions() {
     }
     const entry = aliasMap.get(displayName);
     entry.originalNames.add(emp.name);
-    for (const stage of emp.stages) {
-      entry.stages.add(stage);
-    }
+    for (const stage of emp.stages) entry.stages.add(stage);
   }
   employeeStageOptions = [];
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   for (const [displayName, data] of aliasMap.entries()) {
-    const originalNames = Array.from(data.originalNames);
-    const stages = Array.from(data.stages);
-    for (const stage of stages) {
-      const stageDisplay = stageNames[stage] || stage;
+    for (const stage of data.stages) {
       employeeStageOptions.push({
         id: `${displayName}|${stage}`,
-        displayName: `${displayName} (${stageDisplay})`,
-        originalNames: originalNames,
+        displayName: `${displayName} (${stageNames[stage] || stage})`,
+        originalNames: Array.from(data.originalNames),
         stage: stage
       });
     }
@@ -115,25 +106,24 @@ function rebuildEmployeeStageOptions() {
   employeeStageOptions.sort((a,b) => a.displayName.localeCompare(b.displayName));
 }
 
-function populateEmployeeStageSelect() {
-  employeeStageSelect.innerHTML = '<option value="">-- Выберите сотрудника и этап --</option>';
-  for (const opt of employeeStageOptions) {
-    employeeStageSelect.innerHTML += `<option value="${opt.id}">${escapeHtml(opt.displayName)}</option>`;
-  }
+function populateSelects() {
+  employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
   const uniqueNames = [...new Set(employeeStageOptions.map(opt => opt.displayName.split(' (')[0]))];
-  filterEmployee.innerHTML = '<option value="">Все</option>';
+  for (const name of uniqueNames) {
+    employeeSelect.innerHTML += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+  }
+  filterEmployee.innerHTML = '<option value="">Все сотрудники</option>';
   for (const name of uniqueNames) {
     filterEmployee.innerHTML += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
   }
 }
 
-function getSelectedOption() {
-  const selectedId = employeeStageSelect.value;
-  if (!selectedId) return null;
-  return employeeStageOptions.find(opt => opt.id === selectedId);
+function getEmployeeOriginalNames(displayName) {
+  const opt = employeeStageOptions.find(o => o.displayName.startsWith(displayName + ' ('));
+  return opt ? opt.originalNames : [displayName];
 }
 
-// ========== Загрузка сотрудников из Kairo-Scan ==========
+// ========== Загрузка сотрудников ==========
 function loadEmployees() {
   const cached = localStorage.getItem('employeesData');
   const cacheTime = localStorage.getItem('employeesDataTime');
@@ -141,8 +131,8 @@ function loadEmployees() {
     try {
       employeesData = JSON.parse(cached);
       loadSettings();
-      rebuildEmployeeStageOptions();
-      populateEmployeeStageSelect();
+      rebuildEmployeeOptions();
+      populateSelects();
       return;
     } catch(e) {}
   }
@@ -154,127 +144,52 @@ function loadEmployees() {
       localStorage.setItem('employeesData', JSON.stringify(employeesData));
       localStorage.setItem('employeesDataTime', Date.now().toString());
       loadSettings();
-      rebuildEmployeeStageOptions();
-      populateEmployeeStageSelect();
+      rebuildEmployeeOptions();
+      populateSelects();
     } else {
       console.error('Ошибка загрузки сотрудников');
-      employeeStageSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+      employeeSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
     }
   }, (err) => {
     setLoading(false);
     console.error(err);
-    employeeStageSelect.innerHTML = '<option value="">Ошибка связи</option>';
+    employeeSelect.innerHTML = '<option value="">Ошибка связи</option>';
   });
 }
 
-// ========== Загрузка заказов для выбранного варианта через reports_paged ==========
-async function loadOrdersForOption(option, formattedDate) {
-  if (!option) return [];
-  const originalNames = option.originalNames;
-  const stage = option.stage;
-  if (!originalNames.length) return [];
-  
-  // Преобразуем дату из DD.MM.YY в timestamp диапазон
-  const [day, month, shortYear] = formattedDate.split('.');
-  const year = 2000 + parseInt(shortYear);
-  const dateStart = new Date(year, month-1, day, 0, 0, 0, 0);
-  const dateEnd = new Date(year, month-1, day, 23, 59, 59, 999);
-  const fromMs = dateStart.getTime();
-  const toMs = dateEnd.getTime();
-  
-  console.log(`📥 Загрузка отчётов за ${formattedDate} (${new Date(fromMs).toLocaleString()})`);
-  
-  return new Promise((resolve) => {
-    callApiJsonp({
-      action: 'reports_paged',
-      from: fromMs,
-      to: toMs,
-      page: 1,
-      per_page: 1000
-    }, (res) => {
-      if (!res.ok || !res.data) {
-        console.warn('Нет данных от reports_paged');
-        resolve([]);
-        return;
-      }
-      console.log(`📊 Получено ${res.data.length} отчётов за день`);
-      // Фильтруем по имени (оригинальные имена) и этапу
-      const filteredOrders = res.data
-        .filter(report => originalNames.includes(report.name) && report.stage === stage)
-        .map(report => report.order);
-      const uniqueOrders = [...new Set(filteredOrders)];
-      console.log(`✅ Найдено заказов для ${originalNames.join(', ')} (этап ${stage}): ${uniqueOrders.length}`, uniqueOrders);
-      resolve(uniqueOrders);
-    }, () => resolve([]));
-  });
-}
-
-function loadFromScan() {
-  const option = getSelectedOption();
-  if (!option) {
-    alert('Выберите сотрудника и этап');
-    return;
-  }
-  const date = reportDateInput.value;
-  if (!date) {
-    alert('Выберите дату');
-    return;
-  }
-  const [year, month, day] = date.split('-');
-  const shortYear = year.slice(-2);
-  const formattedDate = `${day}.${month}.${shortYear}`;
-  
-  setLoading(true, 'Загрузка заказов...');
-  loadOrdersForOption(option, formattedDate).then(ordersList => {
-    setLoading(false);
-    if (ordersList.length === 0) {
-      alert('За выбранную дату заказов не найдено');
-      return;
-    }
-    for (const order of ordersList) {
-      if (!orders.some(o => o.order === order)) {
-        orders.push({ order, metric: 0 });
-      }
-    }
-    renderOrders();
-  }).catch(err => {
-    setLoading(false);
-    alert('Ошибка загрузки: ' + err);
-  });
-}
-
-// Сохранение итогов
+// ========== Сохранение итогов ==========
 function saveTotals() {
-  const option = getSelectedOption();
-  if (!option) {
-    alert('Выберите сотрудника и этап');
-    return;
-  }
   const date = reportDateInput.value;
-  if (!date) {
-    alert('Выберите дату');
-    return;
-  }
+  const employeeDisplay = employeeSelect.value;
+  const stage = stageSelect.value;
+  const count = parseInt(orderCountInput.value) || 0;
+  const amount = parseFloat(totalAmountInput.value) || 0;
+
+  if (!date) { alert('Выберите дату'); return; }
+  if (!employeeDisplay) { alert('Выберите сотрудника'); return; }
+  if (!stage) { alert('Выберите этап'); return; }
+
   const [year, month, day] = date.split('-');
   const formattedDate = `${day}.${month}.${year.slice(-2)}`;
-  const ordersList = orders.map(o => o.order).filter(o => o);
-  const metricsList = orders.map(o => o.metric);
-  const total = parseFloat(totalMetricInput.value) || 0;
-  const displayName = option.displayName.split(' (')[0];
-  
+
   setLoading(true, 'Сохранение...');
   const payload = {
     action: 'save_totals',
-    data: JSON.stringify({ stage: option.stage, name: displayName, date: formattedDate, orders: ordersList, metrics: metricsList, total })
+    data: JSON.stringify({
+      stage,
+      name: employeeDisplay,
+      date: formattedDate,
+      orders: [String(count)],    // массив из одного элемента (количество)
+      metrics: [amount],          // массив из одного элемента (метраж)
+      total: amount
+    })
   };
   callApiJsonp(payload, (res) => {
     setLoading(false);
     if (res.ok) {
       alert('Итоги сохранены!');
-      orders = [];
-      renderOrders();
-      totalMetricInput.value = '';
-      if (reportsPanel.style.display !== 'none') loadReports();
+      orderCountInput.value = '0';
+      totalAmountInput.value = '0';
     } else {
       alert('Ошибка: ' + res.msg);
     }
@@ -284,7 +199,198 @@ function saveTotals() {
   });
 }
 
-// ========== Вспомогательные функции ==========
+// ========== Отчёты: матрица ==========
+async function loadReports() {
+  const month = reportMonth.value;
+  if (!month) return;
+  const [year, monthNum] = month.split('-');
+  const daysInMonth = new Date(year, monthNum, 0).getDate();
+  const firstDay = new Date(year, monthNum-1, 1);
+  const lastDay = new Date(year, monthNum, 0);
+
+  const fromDate = `${firstDay.getDate()}.${firstDay.getMonth()+1}.${String(firstDay.getFullYear()).slice(-2)}`;
+  const toDate = `${lastDay.getDate()}.${lastDay.getMonth()+1}.${String(lastDay.getFullYear()).slice(-2)}`;
+
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+
+  setLoading(true, 'Загрузка данных...');
+  callApiJsonp({
+    action: 'get_totals',
+    fromDate,
+    toDate,
+    stage: stage === 'all' ? 'all' : stage,
+    employee: employee || ''
+  }, (res) => {
+    setLoading(false);
+    if (!res.ok) {
+      matrixContainer.innerHTML = '<p>Ошибка загрузки данных</p>';
+      return;
+    }
+
+    const data = res.data || [];
+    const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+    const map = new Map(); // ключ "этап|сотрудник" -> массив по дням
+
+    for (const row of data) {
+      const key = `${row.stage}|${row.employee}`;
+      if (!map.has(key)) {
+        map.set(key, { stage: row.stage, employee: row.employee, days: new Array(daysInMonth).fill({ count: 0, amount: 0 }) });
+      }
+      const entry = map.get(key);
+      const day = parseInt(row.date.split('.')[0]) - 1;
+      if (day >= 0 && day < daysInMonth) {
+        // Парсим количество и метраж из строк orders и metrics
+        let count = 0;
+        let amount = 0;
+        if (row.orders) {
+          if (row.orders.includes(',')) {
+            count = row.orders.split(',').filter(s => s.trim()).length;
+          } else {
+            count = parseInt(row.orders) || 0;
+          }
+        }
+        if (row.metrics) {
+          if (row.metrics.includes(',')) {
+            amount = row.metrics.split(',').reduce((sum, s) => sum + (parseFloat(s) || 0), 0);
+          } else {
+            amount = parseFloat(row.metrics) || 0;
+          }
+        }
+        entry.days[day] = { count, amount };
+      }
+    }
+
+    const rows = Array.from(map.values()).sort((a,b) => {
+      if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+      return a.stage.localeCompare(b.stage);
+    });
+
+    let html = '<table class="matrix-table"><thead><td><th>Этап / Сотрудник</th>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      html += `<th>${d}</th>`;
+    }
+    html += '</thead><tbody>';
+    for (const row of rows) {
+      const stageName = stageNames[row.stage] || row.stage;
+      html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+      for (let d = 0; d < daysInMonth; d++) {
+        const dayData = row.days[d];
+        html += `<td class="matrix-cell">${dayData.count}/${dayData.amount}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    matrixContainer.innerHTML = html;
+  }, (err) => {
+    setLoading(false);
+    matrixContainer.innerHTML = '<p>Ошибка связи</p>';
+  });
+}
+
+// ========== Экспорт в Excel ==========
+function exportToExcel() {
+  const month = reportMonth.value;
+  if (!month) return;
+  const [year, monthNum] = month.split('-');
+  const daysInMonth = new Date(year, monthNum, 0).getDate();
+  const firstDay = new Date(year, monthNum-1, 1);
+  const lastDay = new Date(year, monthNum, 0);
+
+  const fromDate = `${firstDay.getDate()}.${firstDay.getMonth()+1}.${String(firstDay.getFullYear()).slice(-2)}`;
+  const toDate = `${lastDay.getDate()}.${lastDay.getMonth()+1}.${String(lastDay.getFullYear()).slice(-2)}`;
+
+  const stage = filterStage.value;
+  const employee = filterEmployee.value;
+
+  setLoading(true, 'Подготовка экспорта...');
+  callApiJsonp({
+    action: 'get_totals',
+    fromDate,
+    toDate,
+    stage: stage === 'all' ? 'all' : stage,
+    employee: employee || ''
+  }, (res) => {
+    setLoading(false);
+    if (!res.ok) {
+      alert('Ошибка загрузки данных');
+      return;
+    }
+
+    const data = res.data || [];
+    const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+    const map = new Map();
+    for (const row of data) {
+      const key = `${row.stage}|${row.employee}`;
+      if (!map.has(key)) {
+        map.set(key, { stage: row.stage, employee: row.employee, days: new Array(daysInMonth).fill({ count: 0, amount: 0 }) });
+      }
+      const entry = map.get(key);
+      const day = parseInt(row.date.split('.')[0]) - 1;
+      if (day >= 0 && day < daysInMonth) {
+        let count = 0;
+        let amount = 0;
+        if (row.orders) {
+          if (row.orders.includes(',')) {
+            count = row.orders.split(',').filter(s => s.trim()).length;
+          } else {
+            count = parseInt(row.orders) || 0;
+          }
+        }
+        if (row.metrics) {
+          if (row.metrics.includes(',')) {
+            amount = row.metrics.split(',').reduce((sum, s) => sum + (parseFloat(s) || 0), 0);
+          } else {
+            amount = parseFloat(row.metrics) || 0;
+          }
+        }
+        entry.days[day] = { count, amount };
+      }
+    }
+
+    const rows = Array.from(map.values()).sort((a,b) => {
+      if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+      return a.stage.localeCompare(b.stage);
+    });
+
+    let html = `<html><head><meta charset="UTF-8"><title>Итоги за ${month}</title>
+    <style>
+      body { font-family: Calibri, Arial; margin: 20px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+      th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
+      th { background-color: #f2c94c; font-weight: bold; }
+      .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
+      .matrix-cell { text-align: center; }
+    </style></head><body>
+    <h2>Итоги за ${month}</h2>
+    <table><thead><tr><th>Этап / Сотрудник</th>`;
+    for (let d = 1; d <= daysInMonth; d++) html += `<th>${d}</th>`;
+    html += `</tr></thead><tbody>`;
+    for (const row of rows) {
+      const stageName = stageNames[row.stage] || row.stage;
+      html += `<tr><td class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+      for (let d = 0; d < daysInMonth; d++) {
+        const dayData = row.days[d];
+        html += `<td class="matrix-cell">${dayData.count}/${dayData.amount}</td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = `totals_${month}.xls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, (err) => {
+    setLoading(false);
+    alert('Ошибка связи');
+  });
+}
+
+// ========== Вспомогательные ==========
 function setLoading(show, text = 'Загрузка...') {
   if (show) {
     loadingIndicator.textContent = '⏳ ' + text;
@@ -292,228 +398,6 @@ function setLoading(show, text = 'Загрузка...') {
   } else {
     loadingIndicator.style.display = 'none';
   }
-}
-
-function updateTotal() {
-  const sum = orders.reduce((s, o) => s + (o.metric || 0), 0);
-  totalMetricInput.value = sum;
-}
-
-function addOrderRow(orderVal = '', metricVal = '') {
-  const index = orders.length;
-  const rowDiv = document.createElement('div');
-  rowDiv.className = 'order-row';
-  rowDiv.innerHTML = `
-    <input type="text" placeholder="Номер заказа" class="order-input" value="${escapeHtml(orderVal)}">
-    <input type="number" placeholder="Показатель" class="metric-input" step="any" value="${metricVal}">
-    <button class="remove">✖</button>
-  `;
-  const orderInput = rowDiv.querySelector('.order-input');
-  const metricInput = rowDiv.querySelector('.metric-input');
-  const removeBtn = rowDiv.querySelector('.remove');
-
-  orderInput.addEventListener('input', (e) => {
-    orders[index].order = e.target.value;
-  });
-  metricInput.addEventListener('input', (e) => {
-    orders[index].metric = parseFloat(e.target.value) || 0;
-    updateTotal();
-  });
-  removeBtn.addEventListener('click', () => {
-    orders.splice(index, 1);
-    renderOrders();
-    updateTotal();
-  });
-
-  ordersContainer.appendChild(rowDiv);
-  orders.push({ order: orderVal, metric: parseFloat(metricVal) || 0 });
-  updateTotal();
-}
-
-function renderOrders() {
-  ordersContainer.innerHTML = '';
-  orders.forEach((item, idx) => {
-    const rowDiv = document.createElement('div');
-    rowDiv.className = 'order-row';
-    rowDiv.innerHTML = `
-      <input type="text" placeholder="Номер заказа" class="order-input" value="${escapeHtml(item.order)}">
-      <input type="number" placeholder="Показатель" class="metric-input" step="any" value="${item.metric}">
-      <button class="remove">✖</button>
-    `;
-    const orderInput = rowDiv.querySelector('.order-input');
-    const metricInput = rowDiv.querySelector('.metric-input');
-    const removeBtn = rowDiv.querySelector('.remove');
-    orderInput.addEventListener('input', (e) => { orders[idx].order = e.target.value; });
-    metricInput.addEventListener('input', (e) => { orders[idx].metric = parseFloat(e.target.value) || 0; updateTotal(); });
-    removeBtn.addEventListener('click', () => { orders.splice(idx, 1); renderOrders(); updateTotal(); });
-    ordersContainer.appendChild(rowDiv);
-  });
-  updateTotal();
-}
-
-function getOrdersCount(ordersStr) {
-  if (!ordersStr) return 0;
-  const items = ordersStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  return items.length;
-}
-
-// Загрузка отчётов с фильтрацией по дате (используем reports_paged)
-function loadReports() {
-  let from = filterDateFrom.value;
-  let to = filterDateTo.value;
-  const stage = filterStage.value;
-  const employee = filterEmployee.value;
-
-  setLoading(true, 'Загрузка отчётов...');
-  
-  let fromMs = null, toMs = null;
-  if (from) {
-    const [year, month, day] = from.split('-');
-    fromMs = new Date(year, month-1, day, 0, 0, 0, 0).getTime();
-  }
-  if (to) {
-    const [year, month, day] = to.split('-');
-    toMs = new Date(year, month-1, day, 23, 59, 59, 999).getTime();
-  }
-  
-  callApiJsonp({
-    action: 'reports_paged',
-    from: fromMs || '',
-    to: toMs || '',
-    page: 1,
-    per_page: 1000
-  }, (res) => {
-    setLoading(false);
-    if (!res.ok || !res.data) {
-      reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
-      return;
-    }
-    let data = res.data;
-    // Фильтруем по этапу и сотруднику на клиенте (так как API может не поддерживать фильтры)
-    if (stage !== 'all') {
-      data = data.filter(row => row.stage === stage);
-    }
-    if (employee) {
-      data = data.filter(row => row.name === employee);
-    }
-    const stageNames = {
-      pila: 'Пила',
-      kromka: 'Кромка',
-      prisadka: 'Присадка',
-      upakovka: 'Упаковка',
-      hdf: 'Пила ХДФ'
-    };
-    reportsTableBody.innerHTML = data.map(row => {
-      const ordersCount = getOrdersCount(row.orders);
-      return `
-        <tr>
-          <td>${escapeHtml(row.date)}</td>
-          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.name)}</td>
-          <td>${escapeHtml(row.orders)}</td>
-          <td style="text-align:center;">${ordersCount}</td>
-          <td style="text-align:right;">${escapeHtml(row.total)}</td>
-         </tr>
-      `;
-    }).join('');
-  }, (err) => {
-    setLoading(false);
-    reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка связи</td></tr>';
-  });
-}
-
-function exportToExcel() {
-  let from = filterDateFrom.value;
-  let to = filterDateTo.value;
-  const stage = filterStage.value;
-  const employee = filterEmployee.value;
-
-  setLoading(true, 'Подготовка экспорта...');
-  
-  let fromMs = null, toMs = null;
-  if (from) {
-    const [year, month, day] = from.split('-');
-    fromMs = new Date(year, month-1, day, 0, 0, 0, 0).getTime();
-  }
-  if (to) {
-    const [year, month, day] = to.split('-');
-    toMs = new Date(year, month-1, day, 23, 59, 59, 999).getTime();
-  }
-  
-  callApiJsonp({
-    action: 'reports_paged',
-    from: fromMs || '',
-    to: toMs || '',
-    page: 1,
-    per_page: 1000
-  }, (res) => {
-    setLoading(false);
-    if (!res.ok || !res.data) {
-      alert('Ошибка загрузки');
-      return;
-    }
-    let data = res.data;
-    if (stage !== 'all') {
-      data = data.filter(row => row.stage === stage);
-    }
-    if (employee) {
-      data = data.filter(row => row.name === employee);
-    }
-    const stageNames = {
-      pila: 'Пила',
-      kromka: 'Кромка',
-      prisadka: 'Присадка',
-      upakovka: 'Упаковка',
-      hdf: 'Пила ХДФ'
-    };
-
-    let html = `
-      <html>
-      <head><meta charset="UTF-8"><title>Итоги дня</title>
-      <style>
-        body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
-        th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
-        td { text-align: left; }
-        td:nth-child(5) { text-align: center; }
-        td:nth-child(6) { text-align: right; }
-        .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-        .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
-      </style>
-      </head>
-      <body>
-        <div class="header">Отчёт по итогам дня</div>
-        <div class="subheader">Период: ${from || 'все'} — ${to || 'все'} | Этап: ${filterStage.options[filterStage.selectedIndex]?.text || 'все'} | Сотрудник: ${employee || 'все'}</div>
-        <table>
-          <thead><tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr></thead>
-          <tbody>
-    `;
-    for (const row of data) {
-      const ordersCount = getOrdersCount(row.orders);
-      html += `
-        <tr>
-          <td>${escapeHtml(row.date)}</td>
-          <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.name)}</td>
-          <td>${escapeHtml(row.orders)}</td>
-          <td style="text-align:center;">${ordersCount}</td>
-          <td style="text-align:right;">${escapeHtml(row.total)}</td>
-        </tr>
-      `;
-    }
-    html += `</tbody></table></body></html>`;
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `totals_${new Date().toISOString().slice(0,10)}.xls`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, (err) => {
-    setLoading(false);
-    alert('Ошибка связи');
-  });
 }
 
 function switchTab(tab) {
@@ -531,7 +415,7 @@ function switchTab(tab) {
   }
 }
 
-// Открыть настройки
+// ========== Настройки ==========
 function openSettingsModal() {
   const allNames = [...new Set(employeesData.map(e => e.name))];
   employeesSettingsList.innerHTML = '';
@@ -573,9 +457,7 @@ function applySettingsFromModal() {
   const allNames = [...new Set(employeesData.map(e => e.name))];
   for (const name of allNames) {
     const hideCheck = document.querySelector(`.hide-checkbox[data-name="${escapeHtml(name)}"]`);
-    if (hideCheck && hideCheck.checked) {
-      newHidden.push(name);
-    }
+    if (hideCheck && hideCheck.checked) newHidden.push(name);
     const aliasSelect = document.querySelector(`.alias-select[data-name="${escapeHtml(name)}"]`);
     if (aliasSelect && aliasSelect.value && aliasSelect.value !== name) {
       const targetAlias = aliasSelect.value;
@@ -586,34 +468,14 @@ function applySettingsFromModal() {
   hiddenNames = newHidden;
   employeeAliases = newAliases;
   saveSettings();
-  rebuildEmployeeStageOptions();
-  populateEmployeeStageSelect();
+  rebuildEmployeeOptions();
+  populateSelects();
   closeSettingsModal();
   if (reportsPanel.style.display !== 'none') loadReports();
   alert('Настройки применены');
 }
 
-// ========== Инициализация ==========
-document.addEventListener('DOMContentLoaded', () => {
-  loadEmployees();
-  addOrderRow();
-
-  addOrderBtn.addEventListener('click', () => addOrderRow());
-  loadFromScanBtn.addEventListener('click', loadFromScan);
-  saveBtn.addEventListener('click', saveTotals);
-  applyFiltersBtn.addEventListener('click', loadReports);
-  exportExcelBtn.addEventListener('click', exportToExcel);
-  tabInput.addEventListener('click', () => switchTab('input'));
-  tabReports.addEventListener('click', () => switchTab('reports'));
-
-  settingsBtn.addEventListener('click', openSettingsModal);
-  closeModal.addEventListener('click', closeSettingsModal);
-  window.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
-  saveSettingsBtn.addEventListener('click', applySettingsFromModal);
-  resetSettingsBtn.addEventListener('click', resetSettings);
-});
-
-// ========== JSONP helper ==========
+// ========== JSONP ==========
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).substring(2);
   let done = false;
@@ -655,3 +517,20 @@ function escapeHtml(str) {
     return m;
   });
 }
+
+// ========== Инициализация ==========
+document.addEventListener('DOMContentLoaded', () => {
+  loadEmployees();
+
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+
+  settingsBtn.addEventListener('click', openSettingsModal);
+  closeModal.addEventListener('click', closeSettingsModal);
+  window.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
+  saveSettingsBtn.addEventListener('click', applySettingsFromModal);
+  resetSettingsBtn.addEventListener('click', resetSettings);
+});
