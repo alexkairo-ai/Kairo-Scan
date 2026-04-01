@@ -1,11 +1,17 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой URL
 
 let orders = []; // массив { order, metric }
+let employeesData = []; // массив объектов { name, stages }
+let currentStages = []; // для текущего выбранного сотрудника
 
 // Элементы
+const loadingIndicator = document.getElementById('loadingIndicator');
 const reportDateInput = document.getElementById('reportDate');
-const stageSelect = document.getElementById('stageSelect');
 const employeeSelect = document.getElementById('employeeSelect');
+const stageSelectGroup = document.getElementById('stageSelectGroup');
+const stageSelect = document.getElementById('stageSelect');
+const stageInfo = document.getElementById('stageInfo');
+const stageReadonly = document.getElementById('stageReadonly');
 const ordersContainer = document.getElementById('ordersContainer');
 const addOrderBtn = document.getElementById('addOrderBtn');
 const loadFromScanBtn = document.getElementById('loadFromScanBtn');
@@ -29,6 +35,16 @@ const reportsTableBody = document.querySelector('#reportsTable tbody');
 
 // Установка даты по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
+
+// Функция показа/скрытия загрузки
+function setLoading(show, text = 'Загрузка...') {
+  if (show) {
+    loadingIndicator.textContent = '⏳ ' + text;
+    loadingIndicator.style.display = 'block';
+  } else {
+    loadingIndicator.style.display = 'none';
+  }
+}
 
 // Обновление суммы
 function updateTotal() {
@@ -89,15 +105,25 @@ function renderOrders() {
   updateTotal();
 }
 
-// Загрузка заказов из Kairo-Scan (с учётом выбранной даты)
+// Загрузка заказов из Kairo-Scan
 function loadFromScan() {
   const employee = employeeSelect.value;
-  const stage = stageSelect.value;
-  const date = reportDateInput.value;
   if (!employee) {
     alert('Выберите сотрудника');
     return;
   }
+  // Определяем выбранный этап
+  let stage = null;
+  if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
+    stage = stageSelect.value;
+  } else if (stageInfo.style.display !== 'none' && stageReadonly.value) {
+    stage = stageReadonly.value;
+  }
+  if (!stage) {
+    alert('Не определён этап для сотрудника');
+    return;
+  }
+  const date = reportDateInput.value;
   if (!date) {
     alert('Выберите дату');
     return;
@@ -106,7 +132,9 @@ function loadFromScan() {
   const [year, month, day] = date.split('-');
   const formattedDate = `${day}.${month}.${year}`;
 
+  setLoading(true, 'Загрузка заказов...');
   callApiJsonp({ action: 'get_today_orders', name: employee, stage, date: formattedDate }, (res) => {
+    setLoading(false);
     if (!res.ok) {
       alert('Ошибка загрузки: ' + res.msg);
       return;
@@ -123,13 +151,15 @@ function loadFromScan() {
       }
     }
     renderOrders();
-  }, (err) => alert('Ошибка связи: ' + err));
+  }, (err) => {
+    setLoading(false);
+    alert('Ошибка связи: ' + err);
+  });
 }
 
 // Сохранение итогов
 function saveTotals() {
   const date = reportDateInput.value;
-  const stage = stageSelect.value;
   const employee = employeeSelect.value;
   if (!employee) {
     alert('Выберите сотрудника');
@@ -139,7 +169,17 @@ function saveTotals() {
     alert('Выберите дату');
     return;
   }
-  // Преобразуем дату в формат DD.MM.YYYY
+  // Определяем этап
+  let stage = null;
+  if (stageSelectGroup.style.display !== 'none' && stageSelect.value) {
+    stage = stageSelect.value;
+  } else if (stageInfo.style.display !== 'none' && stageReadonly.value) {
+    stage = stageReadonly.value;
+  }
+  if (!stage) {
+    alert('Не определён этап для сотрудника');
+    return;
+  }
   const [year, month, day] = date.split('-');
   const formattedDate = `${day}.${month}.${year}`;
 
@@ -147,11 +187,13 @@ function saveTotals() {
   const metricsList = orders.map(o => o.metric);
   const total = parseFloat(totalMetricInput.value) || 0;
 
+  setLoading(true, 'Сохранение...');
   const payload = {
     action: 'save_totals',
     data: JSON.stringify({ stage, name: employee, date: formattedDate, orders: ordersList, metrics: metricsList, total })
   };
   callApiJsonp(payload, (res) => {
+    setLoading(false);
     if (res.ok) {
       alert('Итоги сохранены!');
       // Очистка формы
@@ -163,22 +205,87 @@ function saveTotals() {
     } else {
       alert('Ошибка: ' + res.msg);
     }
-  }, (err) => alert('Ошибка связи: ' + err));
+  }, (err) => {
+    setLoading(false);
+    alert('Ошибка связи: ' + err);
+  });
 }
 
-// Загрузка списка сотрудников
+// Загрузка списка сотрудников (с этапами)
 function loadEmployees() {
+  // Проверяем кэш в localStorage
+  const cached = localStorage.getItem('employeesData');
+  const cacheTime = localStorage.getItem('employeesDataTime');
+  if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) { // 1 час
+    try {
+      employeesData = JSON.parse(cached);
+      populateEmployeeSelect();
+      return;
+    } catch(e) {}
+  }
+  setLoading(true, 'Загрузка списка сотрудников...');
   callApiJsonp({ action: 'get_employees' }, (res) => {
+    setLoading(false);
     if (res.ok) {
-      const employees = res.employees || [];
-      employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>' +
-        employees.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-      filterEmployee.innerHTML = '<option value="">Все</option>' +
-        employees.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      employeesData = res.employees || [];
+      localStorage.setItem('employeesData', JSON.stringify(employeesData));
+      localStorage.setItem('employeesDataTime', Date.now().toString());
+      populateEmployeeSelect();
     } else {
       console.error('Ошибка загрузки сотрудников');
+      employeeSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
     }
-  }, (err) => console.error(err));
+  }, (err) => {
+    setLoading(false);
+    console.error(err);
+    employeeSelect.innerHTML = '<option value="">Ошибка связи</option>';
+  });
+}
+
+function populateEmployeeSelect() {
+  employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
+  employeesData.forEach(emp => {
+    employeeSelect.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`;
+  });
+  // Также заполняем фильтр сотрудников
+  filterEmployee.innerHTML = '<option value="">Все</option>';
+  employeesData.forEach(emp => {
+    filterEmployee.innerHTML += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`;
+  });
+}
+
+// Обновление селекта этапов при выборе сотрудника
+function onEmployeeChange() {
+  const name = employeeSelect.value;
+  if (!name) {
+    stageSelectGroup.style.display = 'none';
+    stageInfo.style.display = 'none';
+    return;
+  }
+  const employee = employeesData.find(e => e.name === name);
+  if (!employee) return;
+  currentStages = employee.stages || [];
+  if (currentStages.length === 0) {
+    stageSelectGroup.style.display = 'none';
+    stageInfo.style.display = 'none';
+    return;
+  }
+  if (currentStages.length === 1) {
+    // Показываем read-only поле
+    stageInfo.style.display = 'block';
+    stageSelectGroup.style.display = 'none';
+    const stageDisplay = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+    stageReadonly.value = stageDisplay[currentStages[0]] || currentStages[0];
+  } else {
+    // Показываем выпадающий список
+    stageInfo.style.display = 'none';
+    stageSelectGroup.style.display = 'block';
+    stageSelect.innerHTML = '<option value="">-- Выберите этап --</option>';
+    currentStages.forEach(stage => {
+      const display = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+      stageSelect.innerHTML += `<option value="${stage}">${display[stage] || stage}</option>`;
+    });
+  }
 }
 
 // Загрузка отчётов
@@ -188,10 +295,12 @@ function loadReports() {
   const stage = filterStage.value;
   const employee = filterEmployee.value;
 
+  setLoading(true, 'Загрузка отчётов...');
   callApiJsonp({
     action: 'get_totals',
     from, to, stage, employee
   }, (res) => {
+    setLoading(false);
     if (!res.ok) {
       reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
       return;
@@ -215,6 +324,7 @@ function loadReports() {
       </tr>
     `).join('');
   }, (err) => {
+    setLoading(false);
     reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка связи</td></tr>';
   });
 }
@@ -226,10 +336,12 @@ function exportToExcel() {
   const stage = filterStage.value;
   const employee = filterEmployee.value;
 
+  setLoading(true, 'Подготовка экспорта...');
   callApiJsonp({
     action: 'get_totals',
     from, to, stage, employee
   }, (res) => {
+    setLoading(false);
     if (!res.ok) {
       alert('Ошибка загрузки');
       return;
@@ -259,7 +371,10 @@ function exportToExcel() {
     link.download = `totals_${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-  }, (err) => alert('Ошибка связи'));
+  }, (err) => {
+    setLoading(false);
+    alert('Ошибка связи');
+  });
 }
 
 // Переключение вкладок
@@ -290,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
   exportExcelBtn.addEventListener('click', exportToExcel);
   tabInput.addEventListener('click', () => switchTab('input'));
   tabReports.addEventListener('click', () => switchTab('reports'));
+  employeeSelect.addEventListener('change', onEmployeeChange);
 });
 
 // JSONP helper
