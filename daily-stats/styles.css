@@ -1,4 +1,120 @@
-/* Матрица отчётов */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #0a0c0f;
+  color: #fff;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 28px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+.tabs button {
+  background: #2a2a36;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  color: #caa24f;
+  font-size: 16px;
+}
+.tabs button.active {
+  background: #caa24f;
+  color: #000;
+}
+
+.panel {
+  background: #1e1e2a;
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.form-group {
+  flex: 1;
+  min-width: 150px;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+select, input, button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #caa24f;
+  background: #0f1216;
+  color: #fff;
+  font-size: 16px;
+}
+button {
+  background: #2a2a36;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+button:hover {
+  background: #3a3a46;
+}
+button.primary {
+  background: #caa24f;
+  color: #000;
+  font-weight: bold;
+}
+button.secondary {
+  background: #2a2a36;
+  color: #caa24f;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.actions button {
+  width: auto;
+  padding: 8px 16px;
+}
+
+.stats-section {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.stats-section .form-group {
+  flex: 1;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
 .matrix-table {
   width: 100%;
   border-collapse: collapse;
@@ -22,14 +138,35 @@
 .matrix-table .matrix-cell {
   text-align: center;
 }
-#matrixContainer {
-  overflow-x: auto;
-}
-.stats-section {
+
+.filters {
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
   margin-bottom: 20px;
 }
-.stats-section .form-group {
+.filters .form-group {
+  margin-bottom: 0;
   flex: 1;
+}
+.filters .actions {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .form-row, .filters, .stats-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .filters .actions {
+    justify-content: flex-start;
+  }
+}
+
+#loadingIndicator {
+  background: rgba(0,0,0,0.7);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
 }
