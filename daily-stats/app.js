@@ -78,11 +78,8 @@ function resetSettings() {
 
 // Построение списка вариантов (имя + этап) с учётом объединения и скрытия
 function rebuildEmployeeStageOptions() {
-  // Все исходные сотрудники, которые не скрыты
   const visibleEmployees = employeesData.filter(emp => !hiddenNames.includes(emp.name));
-  
-  // Группируем по алиасам (для каждого имени, которое будет отображаться)
-  const aliasMap = new Map(); // displayName -> { originalNames: Set, stages: Set }
+  const aliasMap = new Map();
   for (const emp of visibleEmployees) {
     let displayName = emp.name;
     for (const [alias, names] of Object.entries(employeeAliases)) {
@@ -100,8 +97,6 @@ function rebuildEmployeeStageOptions() {
       entry.stages.add(stage);
     }
   }
-  
-  // Теперь для каждого отображаемого имени создаём варианты по этапам
   employeeStageOptions = [];
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   for (const [displayName, data] of aliasMap.entries()) {
@@ -120,13 +115,11 @@ function rebuildEmployeeStageOptions() {
   employeeStageOptions.sort((a,b) => a.displayName.localeCompare(b.displayName));
 }
 
-// Заполнение выпадающего списка сотрудников+этапов
 function populateEmployeeStageSelect() {
   employeeStageSelect.innerHTML = '<option value="">-- Выберите сотрудника и этап --</option>';
   for (const opt of employeeStageOptions) {
     employeeStageSelect.innerHTML += `<option value="${opt.id}">${escapeHtml(opt.displayName)}</option>`;
   }
-  // Фильтр сотрудников для отчётов (только имена, без этапов)
   const uniqueNames = [...new Set(employeeStageOptions.map(opt => opt.displayName.split(' (')[0]))];
   filterEmployee.innerHTML = '<option value="">Все</option>';
   for (const name of uniqueNames) {
@@ -134,7 +127,6 @@ function populateEmployeeStageSelect() {
   }
 }
 
-// Получение выбранного варианта
 function getSelectedOption() {
   const selectedId = employeeStageSelect.value;
   if (!selectedId) return null;
@@ -175,34 +167,46 @@ function loadEmployees() {
   });
 }
 
-// ========== Загрузка заказов для выбранного варианта ==========
+// ========== Загрузка заказов для выбранного варианта через reports_paged ==========
 async function loadOrdersForOption(option, formattedDate) {
   if (!option) return [];
   const originalNames = option.originalNames;
   const stage = option.stage;
   if (!originalNames.length) return [];
   
-  const allOrders = [];
-  const promises = originalNames.map(name => {
-    return new Promise((resolve) => {
-      console.log('📤 Отправка запроса:', { action: 'get_today_orders', name, stage, date: formattedDate });
-      callApiJsonp({ action: 'get_today_orders', name, stage, date: formattedDate }, (res) => {
-        if (res.ok && res.orders) {
-          resolve(res.orders);
-        } else {
-          resolve([]);
-        }
-      }, () => resolve([]));
-    });
+  // Преобразуем дату из DD.MM.YY в timestamp диапазон
+  const [day, month, shortYear] = formattedDate.split('.');
+  const year = 2000 + parseInt(shortYear);
+  const dateStart = new Date(year, month-1, day, 0, 0, 0, 0);
+  const dateEnd = new Date(year, month-1, day, 23, 59, 59, 999);
+  const fromMs = dateStart.getTime();
+  const toMs = dateEnd.getTime();
+  
+  console.log(`📥 Загрузка отчётов за ${formattedDate} (${new Date(fromMs).toLocaleString()})`);
+  
+  return new Promise((resolve) => {
+    callApiJsonp({
+      action: 'reports_paged',
+      from: fromMs,
+      to: toMs,
+      page: 1,
+      per_page: 1000
+    }, (res) => {
+      if (!res.ok || !res.data) {
+        console.warn('Нет данных от reports_paged');
+        resolve([]);
+        return;
+      }
+      console.log(`📊 Получено ${res.data.length} отчётов за день`);
+      // Фильтруем по имени (оригинальные имена) и этапу
+      const filteredOrders = res.data
+        .filter(report => originalNames.includes(report.name) && report.stage === stage)
+        .map(report => report.order);
+      const uniqueOrders = [...new Set(filteredOrders)];
+      console.log(`✅ Найдено заказов для ${originalNames.join(', ')} (этап ${stage}): ${uniqueOrders.length}`, uniqueOrders);
+      resolve(uniqueOrders);
+    }, () => resolve([]));
   });
-  const results = await Promise.all(promises);
-  const orderSet = new Set();
-  for (const ordersList of results) {
-    for (const order of ordersList) {
-      orderSet.add(order);
-    }
-  }
-  return Array.from(orderSet);
 }
 
 function loadFromScan() {
@@ -256,7 +260,6 @@ function saveTotals() {
   const ordersList = orders.map(o => o.order).filter(o => o);
   const metricsList = orders.map(o => o.metric);
   const total = parseFloat(totalMetricInput.value) || 0;
-  
   const displayName = option.displayName.split(' (')[0];
   
   setLoading(true, 'Сохранение...');
@@ -354,7 +357,7 @@ function getOrdersCount(ordersStr) {
   return items.length;
 }
 
-// Загрузка отчётов с фильтрацией по дате
+// Загрузка отчётов с фильтрацией по дате (используем reports_paged)
 function loadReports() {
   let from = filterDateFrom.value;
   let to = filterDateTo.value;
@@ -362,19 +365,37 @@ function loadReports() {
   const employee = filterEmployee.value;
 
   setLoading(true, 'Загрузка отчётов...');
+  
+  let fromMs = null, toMs = null;
+  if (from) {
+    const [year, month, day] = from.split('-');
+    fromMs = new Date(year, month-1, day, 0, 0, 0, 0).getTime();
+  }
+  if (to) {
+    const [year, month, day] = to.split('-');
+    toMs = new Date(year, month-1, day, 23, 59, 59, 999).getTime();
+  }
+  
   callApiJsonp({
-    action: 'get_totals',
-    from: from || '',
-    to: to || '',
-    stage,
-    employee
+    action: 'reports_paged',
+    from: fromMs || '',
+    to: toMs || '',
+    page: 1,
+    per_page: 1000
   }, (res) => {
     setLoading(false);
-    if (!res.ok) {
+    if (!res.ok || !res.data) {
       reportsTableBody.innerHTML = '<tr><td colspan="6">Ошибка загрузки</td></tr>';
       return;
     }
-    const data = res.data || [];
+    let data = res.data;
+    // Фильтруем по этапу и сотруднику на клиенте (так как API может не поддерживать фильтры)
+    if (stage !== 'all') {
+      data = data.filter(row => row.stage === stage);
+    }
+    if (employee) {
+      data = data.filter(row => row.name === employee);
+    }
     const stageNames = {
       pila: 'Пила',
       kromka: 'Кромка',
@@ -388,11 +409,11 @@ function loadReports() {
         <tr>
           <td>${escapeHtml(row.date)}</td>
           <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.name)}</td>
           <td>${escapeHtml(row.orders)}</td>
           <td style="text-align:center;">${ordersCount}</td>
           <td style="text-align:right;">${escapeHtml(row.total)}</td>
-        </tr>
+         </tr>
       `;
     }).join('');
   }, (err) => {
@@ -401,24 +422,43 @@ function loadReports() {
   });
 }
 
-// Экспорт в Excel
 function exportToExcel() {
-  const from = filterDateFrom.value;
-  const to = filterDateTo.value;
+  let from = filterDateFrom.value;
+  let to = filterDateTo.value;
   const stage = filterStage.value;
   const employee = filterEmployee.value;
 
   setLoading(true, 'Подготовка экспорта...');
+  
+  let fromMs = null, toMs = null;
+  if (from) {
+    const [year, month, day] = from.split('-');
+    fromMs = new Date(year, month-1, day, 0, 0, 0, 0).getTime();
+  }
+  if (to) {
+    const [year, month, day] = to.split('-');
+    toMs = new Date(year, month-1, day, 23, 59, 59, 999).getTime();
+  }
+  
   callApiJsonp({
-    action: 'get_totals',
-    from, to, stage, employee
+    action: 'reports_paged',
+    from: fromMs || '',
+    to: toMs || '',
+    page: 1,
+    per_page: 1000
   }, (res) => {
     setLoading(false);
-    if (!res.ok) {
+    if (!res.ok || !res.data) {
       alert('Ошибка загрузки');
       return;
     }
-    const data = res.data || [];
+    let data = res.data;
+    if (stage !== 'all') {
+      data = data.filter(row => row.stage === stage);
+    }
+    if (employee) {
+      data = data.filter(row => row.name === employee);
+    }
     const stageNames = {
       pila: 'Пила',
       kromka: 'Кромка',
@@ -429,28 +469,24 @@ function exportToExcel() {
 
     let html = `
       <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Итоги дня</title>
-        <style>
-          body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
-          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-          th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
-          th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
-          td { text-align: left; }
-          td:nth-child(5) { text-align: center; }
-          td:nth-child(6) { text-align: right; }
-          .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-          .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
-        </style>
+      <head><meta charset="UTF-8"><title>Итоги дня</title>
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #7f8c8d; padding: 8px; vertical-align: top; }
+        th { background-color: #f2c94c; color: #000; text-align: center; font-weight: bold; }
+        td { text-align: left; }
+        td:nth-child(5) { text-align: center; }
+        td:nth-child(6) { text-align: right; }
+        .header { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .subheader { font-size: 12px; color: #555; margin-bottom: 20px; }
+      </style>
       </head>
       <body>
         <div class="header">Отчёт по итогам дня</div>
         <div class="subheader">Период: ${from || 'все'} — ${to || 'все'} | Этап: ${filterStage.options[filterStage.selectedIndex]?.text || 'все'} | Сотрудник: ${employee || 'все'}</div>
         <table>
-          <thead>
-            <tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr>
-          </thead>
+          <thead><tr><th>Дата</th><th>Этап</th><th>Сотрудник</th><th>Заказы</th><th>Кол-во заказов</th><th>Итого</th></tr></thead>
           <tbody>
     `;
     for (const row of data) {
@@ -459,7 +495,7 @@ function exportToExcel() {
         <tr>
           <td>${escapeHtml(row.date)}</td>
           <td>${escapeHtml(stageNames[row.stage] || row.stage)}</td>
-          <td>${escapeHtml(row.employee)}</td>
+          <td>${escapeHtml(row.name)}</td>
           <td>${escapeHtml(row.orders)}</td>
           <td style="text-align:center;">${ordersCount}</td>
           <td style="text-align:right;">${escapeHtml(row.total)}</td>
@@ -577,7 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resetSettingsBtn.addEventListener('click', resetSettings);
 });
 
-// ========== JSONP helper (исправленная версия) ==========
+// ========== JSONP helper ==========
 function callApiJsonp(params, cb, onError) {
   const cbName = 'cb_' + Math.random().toString(36).substring(2);
   let done = false;
