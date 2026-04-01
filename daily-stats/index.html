@@ -7,6 +7,24 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0c0f">
+  <!-- Firebase SDK (через CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
+  <!-- Конфигурация Firebase (твои данные) -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOuKHmcqUqfWuwwDR00A1kdFuO6bRHW1g",
+      authDomain: "itogi-dnya.firebaseapp.com",
+      projectId: "itogi-dnya",
+      storageBucket: "itogi-dnya.firebasestorage.app",
+      messagingSenderId: "300424701358",
+      appId: "1:300424701358:web:924b6dc5026fb4085ad43f",
+      measurementId: "G-XEPT2RH3BK"
+    };
+    // Инициализация Firebase
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.firestore();
+  </script>
 </head>
 <body>
   <div class="container">
