@@ -11,6 +11,7 @@
 <body>
   <div class="container">
     <h1>📊 ИТОГИ ДНЯ</h1>
+    <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
     <div class="tabs">
       <button id="tabInput" class="active">Ввод данных</button>
       <button id="tabReports">Просмотр отчётов</button>
@@ -24,20 +25,20 @@
           <input type="date" id="reportDate">
         </div>
         <div class="form-group">
-          <label>Этап</label>
-          <select id="stageSelect">
-            <option value="pila">Пила</option>
-            <option value="kromka">Кромка</option>
-            <option value="prisadka">Присадка</option>
-            <option value="upakovka">Упаковка</option>
-            <option value="hdf">Пила ХДФ</option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>Сотрудник</label>
           <select id="employeeSelect">
             <option value="">-- Выберите имя --</option>
           </select>
+        </div>
+        <div class="form-group" id="stageSelectGroup" style="display: none;">
+          <label>Этап</label>
+          <select id="stageSelect">
+            <option value="">-- Выберите этап --</option>
+          </select>
+        </div>
+        <div class="form-group" id="stageInfo" style="display: none;">
+          <label>Этап</label>
+          <input type="text" id="stageReadonly" readonly>
         </div>
       </div>
 
