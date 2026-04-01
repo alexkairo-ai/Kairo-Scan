@@ -203,3 +203,14 @@ button.secondary {
   border-radius: 8px;
   margin-bottom: 10px;
 }
+
+/* Стиль для отображения этапа (read-only поле, заменённое на span) */
+#stageReadonlyDisplay {
+  display: inline-block;
+  background: #0f1216;
+  border: 1px solid #caa24f;
+  border-radius: 10px;
+  padding: 10px;
+  width: 100%;
+  color: #fff;
+}
