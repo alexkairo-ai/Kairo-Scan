@@ -170,6 +170,75 @@ button.secondary {
   margin-bottom: 10px;
 }
 
+/* Модальное окно */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.6);
+  overflow: auto;
+}
+.modal-content {
+  background-color: #1e1e2a;
+  margin: 50px auto;
+  padding: 20px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 800px;
+  border: 1px solid #caa24f;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #caa24f;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+.modal-header h2 {
+  margin: 0;
+}
+.close {
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #caa24f;
+}
+.close:hover {
+  color: #fff;
+}
+.modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.employee-setting {
+  background: #0f1216;
+  border: 1px solid #2a2a36;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.employee-setting .name {
+  font-weight: bold;
+  width: 120px;
+}
+.employee-setting input {
+  width: 150px;
+  margin: 0;
+}
+.employee-setting button {
+  width: auto;
+  padding: 5px 10px;
+}
+
 @media (max-width: 768px) {
   .form-row, .filters, .stats-section {
     flex-direction: column;
