@@ -23,17 +23,6 @@ const applyFiltersBtn = document.getElementById('applyFilters');
 const exportExcelBtn = document.getElementById('exportExcel');
 const matrixContainer = document.getElementById('matrixContainer');
 
-// Сохранение и загрузка имени сотрудника
-function loadSavedEmployee() {
-  const saved = localStorage.getItem('employeeName');
-  if (saved) employeeNameInput.value = saved;
-}
-function saveEmployeeName() {
-  const name = employeeNameInput.value.trim();
-  if (name) localStorage.setItem('employeeName', name);
-}
-employeeNameInput.addEventListener('blur', saveEmployeeName);
-
 // Установка дат по умолчанию
 reportDateInput.value = new Date().toISOString().slice(0, 10);
 const today = new Date();
@@ -41,6 +30,13 @@ const weekAgo = new Date(today);
 weekAgo.setDate(today.getDate() - 7);
 filterDateFrom.value = weekAgo.toISOString().slice(0, 10);
 filterDateTo.value = today.toISOString().slice(0, 10);
+
+// Загрузка сохранённого имени сотрудника
+const savedEmployee = localStorage.getItem('employeeName');
+if (savedEmployee) employeeNameInput.value = savedEmployee;
+employeeNameInput.addEventListener('change', () => {
+  localStorage.setItem('employeeName', employeeNameInput.value.trim());
+});
 
 function setLoading(show, text = 'Загрузка...') {
   if (show) {
@@ -68,6 +64,7 @@ async function saveTotals() {
 
   setLoading(true, 'Сохранение...');
   try {
+    // Всегда добавляем новую запись, чтобы можно было суммировать за день
     await db.collection('daily_totals').add({
       date: formattedDate,
       employee: employee,
@@ -88,16 +85,17 @@ async function saveTotals() {
 
 // ========== ЗАГРУЗКА ДАННЫХ ИЗ FIRESTORE ==========
 async function loadReportsData() {
-  const fromDateStr = filterDateFrom.value;
-  const toDateStr = filterDateTo.value;
+  let fromDateStr = filterDateFrom.value;
+  let toDateStr = filterDateTo.value;
   if (!fromDateStr || !toDateStr) {
     alert('Выберите период');
     return { data: [], days: [] };
   }
 
-  const fromDate = new Date(fromDateStr);
+  // Устанавливаем время на начало и конец дня для корректного сравнения
+  let fromDate = new Date(fromDateStr);
   fromDate.setHours(0, 0, 0, 0);
-  const toDate = new Date(toDateStr);
+  let toDate = new Date(toDateStr);
   toDate.setHours(23, 59, 59, 999);
 
   const stageFilter = filterStage.value;
@@ -117,7 +115,7 @@ async function loadReportsData() {
       let itemYear = parseInt(itemDateParts[2], 10);
       if (itemYear < 100) itemYear += 2000;
       const itemDateObj = new Date(itemYear, itemMonth-1, itemDay);
-      itemDateObj.setHours(0, 0, 0, 0);
+      itemDateObj.setHours(12, 0, 0, 0); // нейтральное время
       if (itemDateObj < fromDate || itemDateObj > toDate) return false;
 
       if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
@@ -125,7 +123,7 @@ async function loadReportsData() {
       return true;
     });
 
-    // Список всех дней в периоде (включительно)
+    // Список всех дней в периоде
     const days = [];
     let currentDate = new Date(fromDate);
     while (currentDate <= toDate) {
@@ -147,15 +145,6 @@ async function loadReportsData() {
   }
 }
 
-function parseDateString(dateStr) {
-  const parts = dateStr.split('.');
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  let year = parseInt(parts[2], 10);
-  if (year < 100) year += 2000;
-  return new Date(year, month, day);
-}
-
 // ========== ОТОБРАЖЕНИЕ МАТРИЦЫ ==========
 async function loadReports() {
   const { data, days } = await loadReportsData();
@@ -173,15 +162,19 @@ async function loadReports() {
     const entry = map.get(key);
     const dateObj = parseDateString(row.date);
     const dateKey = dateObj.toISOString().slice(0,10);
-    entry.dayValues[dateKey] = { count: row.count, amount: row.amount };
+    const existing = entry.dayValues[dateKey] || { count: 0, amount: 0 };
+    entry.dayValues[dateKey] = {
+      count: existing.count + row.count,
+      amount: existing.amount + row.amount
+    };
   }
 
+  // Преобразуем в массив и сортируем: по этапу (алфавит), затем по сотруднику
   const rows = Array.from(map.values()).sort((a,b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
 
-  // Заголовки: для каждого дня показываем "ДД.ММ"
   const headerDates = days.map(d => {
     const [year, month, day] = d.split('-');
     return `${day}.${month}`;
@@ -199,23 +192,15 @@ async function loadReports() {
     }
   }
 
-  // Строим HTML таблицу
+  // Строим HTML таблицу (одна строка заголовка с числами)
   let html = '<table class="matrix-table">';
   html += `<thead>`;
-  // Первая строка: заголовок с датами
-  html += `<tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
+  html += `<tr><th rowspan="1">Этап / Сотрудник</th><th rowspan="1"></th>`;
   for (let i = 0; i < days.length; i++) {
-    html += `<th colspan="1">${headerDates[i]}</th>`;
+    html += `<th>${headerDates[i]}<br>${days[i].split('-')[2]}</th>`;
   }
   html += `<th colspan="2">Итого по сотруднику</th>`;
   html += `</thead><tbody>`;
-  // Вторая строка: числа месяца
-  html += `<tr>`;
-  for (let i = 0; i < days.length; i++) {
-    html += `<th>${days[i].split('-')[2]}</th>`;
-  }
-  html += `<th>кол-во</th><th>метраж</th>`;
-  html += `</tr></thead><tbody>`;
 
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
@@ -243,7 +228,7 @@ async function loadReports() {
       html += `<td class="amount-cell">${amountDisplay}</td>`;
       employeeTotalAmount += val.amount;
     }
-    html += `<td class="amount-cell"></td>`;
+    html += `<td class="amount-cell"><td>`;
     html += `<td class="amount-cell">${employeeTotalAmount === 0 ? '' : employeeTotalAmount}</td>`;
     html += `</tr>`;
   }
@@ -279,7 +264,11 @@ async function exportToExcel() {
     const entry = map.get(key);
     const dateObj = parseDateString(row.date);
     const dateKey = dateObj.toISOString().slice(0,10);
-    entry.dayValues[dateKey] = { count: row.count, amount: row.amount };
+    const existing = entry.dayValues[dateKey] || { count: 0, amount: 0 };
+    entry.dayValues[dateKey] = {
+      count: existing.count + row.count,
+      amount: existing.amount + row.amount
+    };
   }
 
   const rows = Array.from(map.values()).sort((a,b) => {
@@ -316,31 +305,28 @@ async function exportToExcel() {
   <h2>Итоги за период: ${filterDateFrom.value} — ${filterDateTo.value}</h2>
   <table>
     <thead>
-      <tr><th rowspan="2">Этап / Сотрудник</th><th rowspan="2"></th>`;
+      <tr><th>Этап / Сотрудник</th><th></th>`;
   for (let i = 0; i < days.length; i++) {
-    html += `<th colspan="1">${headerDates[i]}</th>`;
+    html += `<th>${headerDates[i]}<br>${days[i].split('-')[2]}</th>`;
   }
   html += `<th colspan="2">Итого по сотруднику</th>`;
   html += `</thead><tbody>`;
-  html += `<tr>`;
-  for (let i = 0; i < days.length; i++) {
-    html += `<th>${days[i].split('-')[2]}</th>`;
-  }
-  html += `<th>кол-во</th><th>метраж</th>`;
-  html += `<tr></thead><tbody>`;
 
   for (const row of rows) {
     const stageName = stageNames[row.stage] || row.stage;
     let employeeTotalCount = 0;
     let employeeTotalAmount = 0;
-    html += `<tr><td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`;
+    html += `<tr><td rowspan="2" class="row-label">${stageName}<br>${escapeHtml(row.employee)}</td>`;
+    html += `<td class="row-sub-label">кол-во</td>`;
     for (const dateKey of days) {
       const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
       const countDisplay = val.count === 0 ? '' : val.count;
       html += `<td class="count-cell">${countDisplay}</td>`;
       employeeTotalCount += val.count;
     }
-    html += `<td class="count-cell">${employeeTotalCount === 0 ? '' : employeeTotalCount}</td><td class="count-cell"></td></tr>`;
+    html += `<td class="count-cell">${employeeTotalCount === 0 ? '' : employeeTotalCount}</td>`;
+    html += `<td class="count-cell"></td>`;
+    html += `</tr>`;
     html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const dateKey of days) {
       const val = row.dayValues[dateKey] || { count: 0, amount: 0 };
@@ -348,7 +334,9 @@ async function exportToExcel() {
       html += `<td class="amount-cell">${amountDisplay}</td>`;
       employeeTotalAmount += val.amount;
     }
-    html += `<td class="amount-cell"></td><td class="amount-cell">${employeeTotalAmount === 0 ? '' : employeeTotalAmount}</td></tr>`;
+    html += `<td class="amount-cell"><td>`;
+    html += `<td class="amount-cell">${employeeTotalAmount === 0 ? '' : employeeTotalAmount}</td>`;
+    html += `</tr>`;
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
@@ -371,6 +359,15 @@ async function exportToExcel() {
   link.download = `totals_${filterDateFrom.value}_${filterDateTo.value}.xls`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function parseDateString(dateStr) {
+  const parts = dateStr.split('.');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  let year = parseInt(parts[2], 10);
+  if (year < 100) year += 2000;
+  return new Date(year, month, day);
 }
 
 function switchTab(tab) {
@@ -399,7 +396,6 @@ function escapeHtml(str) {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
-  loadSavedEmployee();
   saveBtn.addEventListener('click', saveTotals);
   applyFiltersBtn.addEventListener('click', loadReports);
   exportExcelBtn.addEventListener('click', exportToExcel);
