@@ -1,864 +1,571 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
-const EDIT_PASS = '1990';
-const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
-const photoStages = new Set(['hdf','prisadka','upakovka']);
-
-// Локализация этапов
-const stageNamesRu = {
-  'pila': 'Пила', 'hdf': 'ХДФ', 'kromka': 'Кромка',
-  'prisadka': 'Присадка', 'upakovka': 'Упаковка', 'fasady': 'Фасады'
-};
-
-// IndexedDB
-const DB_NAME = 'KairoScanDB';
-const DB_VERSION = 2;
-const STORE_NAME = 'reports_cache';
-let db = null;
+const db = window.db;
 
 // DOM элементы
-const orderInput = document.getElementById("order");
-const workerInput = document.getElementById("worker");
-const statusEl = document.getElementById("status");
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d", { willReadFrequently: true });
-const startBtn = document.getElementById("startCam");
-const msg = document.getElementById("msg");
-const stageTitle = document.getElementById("stageTitle");
-const scanOverlay = document.getElementById("scanOverlay");
+const loadingIndicator = document.getElementById('loadingIndicator');
+const reportDateInput = document.getElementById('reportDate');
+const employeeSelect = document.getElementById('employeeSelect');
+const stageSelect = document.getElementById('stageSelect');
+const orderCountInput = document.getElementById('orderCount');
+const totalAmountInput = document.getElementById('totalAmount');
+const saveBtn = document.getElementById('saveBtn');
+const tabInput = document.getElementById('tabInput');
+const tabReports = document.getElementById('tabReports');
+const inputPanel = document.getElementById('inputPanel');
+const reportsPanel = document.getElementById('reportsPanel');
+const filterDateFrom = document.getElementById('filterDateFrom');
+const filterDateTo = document.getElementById('filterDateTo');
+const filterStage = document.getElementById('filterStage');
+const filterEmployeeSelect = document.getElementById('filterEmployeeSelect');
+const adminModeCheckbox = document.getElementById('adminModeCheckbox');
+const applyFiltersBtn = document.getElementById('applyFilters');
+const exportExcelBtn = document.getElementById('exportExcel');
+const matrixContainer = document.getElementById('matrixContainer');
+const adminBtn = document.getElementById('adminBtn');
+const adminModal = document.getElementById('adminModal');
+const closeModal = document.querySelector('.close');
+const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+const newEmployeeName = document.getElementById('newEmployeeName');
+const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
+const employeesListDiv = document.getElementById('employeesList');
 
-const mainView = document.getElementById("mainView");
-const reportsView = document.getElementById("reportsView");
-const openReportsBtn = document.getElementById("openReports");
-const closeReportsBtn = document.getElementById("closeReports");
-const reportsStatus = document.getElementById("reportsStatus");
-const reportsTableBody = document.querySelector("#reportsTable tbody");
-const editReportsBtn = document.getElementById("editReports");
-const openPhotoStoreBtn = document.getElementById("openPhotoStore");
+const DEFAULT_EMPLOYEES = [
+  "Олег", "Рауф", "Максим", "Виталий", "Андрей", "Борис", "Алексей",
+  "Азамат", "Никита", "Владимир", "Сергей", "Дмитрий", "Расул",
+  "Михаил", "Илья", "Руслан"
+];
+let currentEmployees = [];
 
-const searchInput = document.getElementById("searchInput");
-const sortSelect = document.getElementById("sortSelect");
-const statsDate = document.getElementById("statsDate");
-const statsStage = document.getElementById("statsStage");
-const statsBtn = document.getElementById("statsBtn");
-const statsResult = document.getElementById("statsResult");
+const today = new Date();
+reportDateInput.value = today.toISOString().slice(0, 10);
+const weekAgo = new Date(today);
+weekAgo.setDate(today.getDate() - 7);
+filterDateFrom.value = weekAgo.toISOString().slice(0, 10);
+filterDateTo.value = today.toISOString().slice(0, 10);
 
-const pdfFrom = document.getElementById("pdfFrom");
-const pdfTo = document.getElementById("pdfTo");
-const exportPdfBtn = document.getElementById("exportPdf");
+const savedEmployee = localStorage.getItem('selectedEmployee');
+if (savedEmployee) employeeSelect.value = savedEmployee;
+employeeSelect.addEventListener('change', () => {
+  localStorage.setItem('selectedEmployee', employeeSelect.value);
+});
 
-const printArea = document.getElementById("printArea");
-const pager = document.getElementById("pager");
+orderCountInput.value = '';
+totalAmountInput.value = '';
 
-let page = 1;
-const perPage = 20;
-
-let stream = null, locked = false, starting = false, stopTimer = null, editMode = false;
-let rawReports = [], currentReports = [], filterTerm = '', sortMode = 'time_desc';
-let reportsTimer = null, reportsLoading = false, currentFilter = 'day';
-let reportsReqId = 0;
-
-const deletedTombstones = new Map();
-function reportKey(r) {
-  return [r.db, r.order, r.stage, r.name, r.ts, r.date, r.time].join('|');
-}
-function reportId(r) { return reportKey(r); }
-
-function showScanOverlay(order) {
-  if (scanOverlay) {
-    scanOverlay.textContent = 'Готово: ' + order;
-    scanOverlay.classList.remove('hidden');
-  }
-}
-function hideScanOverlay() {
-  if (scanOverlay) scanOverlay.classList.add('hidden');
-}
-function isStreamActive() { return stream && stream.getTracks().some(t => t.readyState === "live"); }
-function showScanButton(show) { startBtn.style.display = show ? "block" : "none"; }
-function stopCamera() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; if (stopTimer) clearTimeout(stopTimer); showScanButton(true); }
-function freezeCamera() { if (stream) stream.getTracks().forEach(t => t.stop()); locked = true; if (stopTimer) clearTimeout(stopTimer); showScanButton(true); }
-
-const savedName = localStorage.getItem('workerName') || '';
-if (savedName) workerInput.value = savedName;
-workerInput.addEventListener('input', () => localStorage.setItem('workerName', workerInput.value.trim()));
-
-function parseDbOrderClient(raw) {
-  const s = String(raw || '').trim();
-  if (s.includes('|')) {
-    const parts = s.split('|');
-    return { db: parts[0].trim(), order: parts.slice(1).join('|').trim() };
-  }
-  return { db: '', order: s };
+function setLoading(show, text = 'Загрузка...') {
+  loadingIndicator.style.display = show ? 'block' : 'none';
+  if (show) loadingIndicator.textContent = '⏳ ' + text;
 }
 
-async function startCamera() {
-  if (starting) return;
-  starting = true;
+async function migrateLinks() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
+    const snapshot = await db.collection('daily_totals').get();
+    const pairs = new Set();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.employee && data.stage) pairs.add(`${data.employee}|${data.stage}`);
     });
-  } catch (e1) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    } catch (e2) {
-      msg.innerHTML = "Камера не запустилась. Проверьте HTTPS, доступ и закрытие других приложений.";
-      showScanButton(true);
-      starting = false;
-      return;
+    const batch = db.batch();
+    for (const pair of pairs) {
+      const [employee, stage] = pair.split('|');
+      const linkRef = db.collection('employee_stage_links').doc(`${employee}|${stage}`);
+      batch.set(linkRef, { employee, stage }, { merge: true });
     }
-  }
+    await batch.commit();
+  } catch (err) { console.error(err); }
+}
+
+async function loadEmployeesList() {
   try {
-    video.srcObject = stream;
-    await video.play();
-    locked = false;
-    hideScanOverlay();
-    showScanButton(false);
-    if (stopTimer) clearTimeout(stopTimer);
-    stopTimer = setTimeout(() => { if (!locked) { msg.innerHTML = "Сканирование остановлено. Нажмите «СКАНИРОВАТЬ»."; stopCamera(); } }, 20000);
-    scan();
-  } catch (e3) {
-    msg.innerHTML = "Не удалось запустить видео. Обновите страницу и попробуйте снова.";
-  } finally {
-    starting = false;
+    const snapshot = await db.collection('employees_list').doc('master').get();
+    if (snapshot.exists) {
+      currentEmployees = snapshot.data().names || [];
+    } else {
+      currentEmployees = [...DEFAULT_EMPLOYEES];
+      await db.collection('employees_list').doc('master').set({ names: currentEmployees });
+    }
+    populateEmployeeSelects();
+  } catch (err) {
+    console.error(err);
+    currentEmployees = [...DEFAULT_EMPLOYEES];
+    populateEmployeeSelects();
   }
 }
-startBtn.addEventListener("click", startCamera);
 
-function callApiJsonp(params, cb, onError) {
-  const cbName = 'cb_' + Math.random().toString(36).slice(2);
-  let done = false;
-  window[cbName] = function () { };
-  const timeout = setTimeout(() => { if (!done) { done = true; if (onError) onError("⚠️ Нет ответа от сервера"); } }, 30000);
-  window[cbName] = function (res) {
-    if (done) return;
-    done = true; clearTimeout(timeout); cb(res);
-    setTimeout(() => delete window[cbName], 30000);
-  };
-  const query = new URLSearchParams(params);
-  query.set('api', '1'); query.set('callback', cbName); query.set('_ts', Date.now().toString());
-  const script = document.createElement('script');
-  script.src = API_URL + '?' + query.toString();
-  script.onerror = () => { if (done) return; done = true; clearTimeout(timeout); if (onError) onError("⚠️ Ошибка связи с сервером"); };
-  document.body.appendChild(script);
+async function saveEmployeesList() {
+  await db.collection('employees_list').doc('master').set({ names: currentEmployees });
 }
 
-function flashStage(btn) {
-  btn.classList.add('stage-active');
-  setTimeout(() => btn.classList.remove('stage-active'), 700);
+async function addEmployee(name) {
+  if (!name.trim()) return;
+  if (currentEmployees.includes(name.trim())) { alert('Такое имя уже есть'); return; }
+  currentEmployees.push(name.trim());
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Сотрудник добавлен');
 }
 
-function sendStage(stage, color, btn, photoUrl, facades) {
-  const parsed = parseDbOrderClient(orderInput.value);
-  const raw = parsed.order;
-  const db = parsed.db;
-  const name = workerInput.value.trim();
-  if (!raw) { statusEl.innerHTML = "Введите/сканируйте номер"; return; }
-  if (!name) { statusEl.innerHTML = "Введите имя"; return; }
-  if (btn) flashStage(btn);
-  statusEl.innerHTML = "Отправка...";
-  callApiJsonp({
-    action: 'mark',
-    stage,
-    order: raw,
-    name,
-    color: color || '',
-    db: db,
-    photo_url: photoUrl || '',
-    facades: (facades === true ? '1' : facades === false ? '0' : '')
-  },
-    res => { statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
-    err => { statusEl.innerHTML = err; }
-  );
+async function deleteEmployee(name) {
+  if (!confirm(`Удалить сотрудника "${name}"? Все его данные будут удалены из отчётов.`)) return;
+  const snapshot = await db.collection('daily_totals').where('employee', '==', name).get();
+  const batch = db.batch();
+  snapshot.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+  currentEmployees = currentEmployees.filter(emp => emp !== name);
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Сотрудник удалён');
 }
 
-const hasBarcodeDetector = ('BarcodeDetector' in window);
-const detector = hasBarcodeDetector ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+async function renameEmployee(oldName, newName) {
+  if (!newName.trim()) return;
+  if (currentEmployees.includes(newName.trim())) { alert('Имя уже существует'); return; }
+  const snapshot = await db.collection('daily_totals').where('employee', '==', oldName).get();
+  const batch = db.batch();
+  snapshot.forEach(doc => batch.update(doc.ref, { employee: newName.trim() }));
+  await batch.commit();
+  const index = currentEmployees.indexOf(oldName);
+  if (index !== -1) currentEmployees[index] = newName.trim();
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Имя обновлено');
+}
 
-function scan() {
-  if (locked) return;
-  if (!isStreamActive()) { startCamera(); return; }
+async function resetToDefaultEmployees() {
+  if (!confirm('Сбросить список сотрудников к исходному?')) return;
+  currentEmployees = [...DEFAULT_EMPLOYEES];
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Список сброшен');
+}
 
-  if (hasBarcodeDetector) {
-    detector.detect(video).then(codes => {
-      if (codes && codes.length) {
-        const data = codes[0].rawValue || '';
-        orderInput.value = data;
-        msg.innerHTML = "✅ Готово!";
-        if (navigator.vibrate) navigator.vibrate(80);
-        showScanOverlay(data);
-        const printSpan = document.getElementById('printOrderNumber');
-        if (printSpan) printSpan.textContent = 'Заказ: ' + data;
-        freezeCamera();
-        return;
-      }
-      requestAnimationFrame(scan);
-    }).catch(() => requestAnimationFrame(scan));
+function populateEmployeeSelects() {
+  employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
+  filterEmployeeSelect.innerHTML = '<option value="">Все сотрудники</option>';
+  currentEmployees.forEach(emp => {
+    employeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+    filterEmployeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+  });
+  const saved = localStorage.getItem('selectedEmployee');
+  if (saved && currentEmployees.includes(saved)) employeeSelect.value = saved;
+}
+
+function renderAdminModal() {
+  employeesListDiv.innerHTML = '';
+  currentEmployees.forEach(emp => {
+    const div = document.createElement('div');
+    div.className = 'employee-setting';
+    div.innerHTML = `
+      <span class="name">${escapeHtml(emp)}</span>
+      <input type="text" class="rename-input" placeholder="Новое имя" style="width: 150px;">
+      <button class="rename-btn secondary">Переименовать</button>
+      <button class="delete-btn secondary" style="background:#8b0000;">Удалить</button>
+    `;
+    const renameInput = div.querySelector('.rename-input');
+    const renameBtn = div.querySelector('.rename-btn');
+    const deleteBtn = div.querySelector('.delete-btn');
+    renameBtn.addEventListener('click', () => {
+      const newName = renameInput.value.trim();
+      if (newName) renameEmployee(emp, newName);
+      else alert('Введите новое имя');
+    });
+    deleteBtn.addEventListener('click', () => deleteEmployee(emp));
+    employeesListDiv.appendChild(div);
+  });
+}
+
+async function saveTotals() {
+  const date = reportDateInput.value;
+  const employee = employeeSelect.value;
+  const stage = stageSelect.value;
+  let count = parseInt(orderCountInput.value);
+  if (isNaN(count)) count = 0;
+  let amount = parseFloat(totalAmountInput.value);
+  if (isNaN(amount)) amount = 0;
+
+  if (!date || !employee || !stage) {
+    alert('Заполните дату, имя и этап');
     return;
   }
 
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
-    if (code) {
-      orderInput.value = code.data;
-      msg.innerHTML = "✅ Готово!";
-      if (navigator.vibrate) navigator.vibrate(80);
-      showScanOverlay(code.data);
-      const printSpan = document.getElementById('printOrderNumber');
-      if (printSpan) printSpan.textContent = 'Заказ: ' + code.data;
-      freezeCamera();
-      return;
-    }
-  }
-  requestAnimationFrame(scan);
-}
+  const [year, month, day] = date.split('-');
+  const formattedDate = `${day}.${month}.${year.slice(-2)}`;
 
-const urlParams = new URLSearchParams(location.search);
-const only = (urlParams.get('only') || '').toLowerCase();
-const view = (urlParams.get('view') || '').toLowerCase();
-
-document.querySelectorAll('#stageButtons button').forEach(btn => {
-  const stage = btn.dataset.stage;
-  const key = (btn.dataset.only || stage).toLowerCase();
-  const color = btn.dataset.color || '';
-  btn.onclick = () => {
-    if (photoStages.has(stage)) {
-      openPhotoDialog(stage, color, btn);
-    } else {
-      sendStage(stage, color, btn, '');
-    }
-  };
-  if (only && key !== only) btn.style.display = 'none';
-});
-if (only) stageTitle.textContent = "Этап:";
-
-function openFacadesDialog(onChoose) {
-  const overlay = document.createElement('div');
-  overlay.id = 'facadesOverlay';
-  overlay.innerHTML = `
-    <div class="photo-modal">
-      <div class="photo-title">ФАСАДЫ</div>
-      <div class="small">Есть ли фасады которые изготавливаются на нашем производстве?</div>
-      <div class="photo-actions" style="margin-top:12px;">
-        <button id="facadesYes">ЕСТЬ</button>
-        <button id="facadesNo">НЕТ</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('facadesYes').onclick = () => { overlay.remove(); onChoose(true); };
-  document.getElementById('facadesNo').onclick = () => { overlay.remove(); onChoose(false); };
-}
-
-function openPhotoDialog(stage, color, btn) {
-  const overlay = document.createElement('div');
-  overlay.id = 'photoOverlay';
-  overlay.innerHTML = `
-    <div class="photo-modal">
-      <div class="photo-title">Загрузите фото для этапа</div>
-      <input id="photoInput" type="file" accept="image/*" multiple />
-      <div class="photo-actions">
-        <button id="photoUpload">Загрузить</button>
-        <button id="photoSkip">Продолжить без фото</button>
-        <button id="photoCancel">Отмена</button>
-      </div>
-      <div id="photoMsg" class="small"></div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const input = document.getElementById('photoInput');
-  const msgEl = document.getElementById('photoMsg');
-
-  document.getElementById('photoCancel').onclick = () => overlay.remove();
-  document.getElementById('photoSkip').onclick = () => {
-    overlay.remove();
-    if (stage === 'prisadka') {
-      openFacadesDialog(hasFacades => sendStage(stage, color, btn, '', hasFacades));
-    } else {
-      sendStage(stage, color, btn, '');
-    }
-  };
-  document.getElementById('photoUpload').onclick = async () => {
-    const files = Array.from(input.files || []);
-    if (!files.length) { msgEl.textContent = 'Выберите фото'; return; }
-    msgEl.textContent = 'Загрузка...';
-    const folderUrl = await uploadPhotos(files, stage).catch(err => { msgEl.textContent = err; return null; });
-    if (folderUrl) {
-      overlay.remove();
-      if (stage === 'prisadka') {
-        openFacadesDialog(hasFacades => sendStage(stage, color, btn, folderUrl, hasFacades));
-      } else {
-        sendStage(stage, color, btn, folderUrl);
-      }
-    }
-  };
-}
-
-async function uploadPhotos(files, stage) {
-  const parsed = parseDbOrderClient(orderInput.value);
-  const order = parsed.order;
-  const db = parsed.db;
-  const name = workerInput.value.trim();
-  if (!order || !name) throw 'Введите заказ и имя';
-
-  const now = new Date();
-  const date = now.toLocaleDateString('ru-RU');
-  const time = now.toTimeString().slice(0,5);
-
-  const payload = { action: 'upload_photos', order, stage, name, date, time, db, files: [] };
-  for (const f of files) {
-    const item = await fileToPayload(f);
-    payload.files.push(item);
-  }
-
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  }).then(r => r.json());
-
-  if (!res.ok) throw (res.msg || 'Ошибка загрузки');
-  return res.folderUrl;
-}
-
-async function fileToPayload(file) {
-  const MAX_SIZE = 1600;
-  const QUALITY = 0.8;
+  setLoading(true, 'Сохранение...');
   try {
-    const img = await loadImage(file);
-    let w = img.width, h = img.height;
-    if (Math.max(w, h) > MAX_SIZE) {
-      if (w >= h) { h = Math.round(h * (MAX_SIZE / w)); w = MAX_SIZE; }
-      else { w = Math.round(w * (MAX_SIZE / h)); h = MAX_SIZE; }
+    const snapshot = await db.collection('daily_totals')
+      .where('date', '==', formattedDate)
+      .where('employee', '==', employee)
+      .where('stage', '==', stage)
+      .get();
+
+    if (!snapshot.empty) {
+      const docId = snapshot.docs[0].id;
+      await db.collection('daily_totals').doc(docId).update({ count, amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+      alert('Данные обновлены');
+    } else {
+      await db.collection('daily_totals').add({ date: formattedDate, employee, stage, count, amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+      alert('Данные сохранены');
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    const cctx = canvas.getContext('2d');
-    cctx.drawImage(img, 0, 0, w, h);
-    const blob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
-    const data = await blobToBase64(blob);
-    const baseName = file.name.replace(/\.[^/.]+$/, '');
-    return { name: baseName + '.jpg', type: 'image/jpeg', data };
-  } catch (e) {
-    const data = await fileToBase64(file);
-    return { name: file.name, type: file.type, data };
-  }
-}
-function loadImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject('Ошибка загрузки изображения'); };
-    img.src = url;
-  });
-}
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(b => { if (!b) reject('Ошибка сжатия'); resolve(b); }, type, quality);
-  });
-}
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result.split(',')[1]);
-    r.onerror = () => reject('Ошибка чтения');
-    r.readAsDataURL(blob);
-  });
-}
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result.split(',')[1]);
-    r.onerror = () => reject('Ошибка чтения файла');
-    r.readAsDataURL(file);
-  });
-}
 
-function setActiveFilter(filter) {
-  document.querySelectorAll('.filters button').forEach(b => {
-    b.classList.toggle('active', b.dataset.filter === filter);
-  });
-}
+    const linkId = `${employee}|${stage}`;
+    await db.collection('employee_stage_links').doc(linkId).set({ employee, stage }, { merge: true });
 
-// ========== Работа с отчётами (пагинация + кэш) ==========
-function loadReportsPaged(filter, pageNum = 1, perPageNum = 200) {
-  return new Promise((resolve, reject) => {
-    callApiJsonp({
-      action: 'reports_paged',
-      filter,
-      page: pageNum,
-      per_page: perPageNum
-    }, resolve, reject);
-  });
-}
-
-async function loadAllReports(filter, onProgress = null) {
-  let allData = [];
-  let page = 1;
-  let total = 0;
-  do {
-    const result = await loadReportsPaged(filter, page, 200);
-    if (!result.ok) throw new Error(result.msg);
-    allData = allData.concat(result.data);
-    total = result.total;
-    if (onProgress) onProgress(allData.length, total);
-    page++;
-  } while (allData.length < total);
-  return allData;
-}
-
-async function loadReportsWithCache(filter, forceRefresh = false) {
-  const cacheKey = `reports_${filter}`;
-  if (!forceRefresh) {
-    const cached = await loadReportsFromDB(cacheKey);
-    if (cached && cached.data && cached.data.length) {
-      rawReports = cached.data;
-      applyFilterSort(false);
-      reportsStatus.textContent = `Найдено: ${currentReports.length} (кэш, фильтр: ${filter})`;
-      return;
-    }
-  }
-  reportsStatus.textContent = 'Загрузка данных с сервера...';
-  try {
-    const allData = await loadAllReports(filter, (loaded, total) => {
-      reportsStatus.textContent = `Загрузка: ${loaded}/${total}`;
-    });
-    rawReports = allData;
-    await saveReportsToDB(cacheKey, rawReports);
-    applyFilterSort(false);
-    reportsStatus.textContent = `Найдено: ${currentReports.length} (обновлено, фильтр: ${filter})`;
+    orderCountInput.value = '';
+    totalAmountInput.value = '';
   } catch (err) {
-    reportsStatus.textContent = `⚠️ Ошибка: ${err.message}`;
-    console.error(err);
+    alert('Ошибка: ' + err.message);
+  } finally {
+    setLoading(false);
   }
 }
 
-function openReports() {
-  mainView.classList.add('hidden');
-  reportsView.classList.remove('hidden');
-  const savedFilter = localStorage.getItem('lastReportsFilter');
-  if (savedFilter && ['day', 'week', 'month', 'all'].includes(savedFilter)) {
-    currentFilter = savedFilter;
-  } else {
-    currentFilter = 'day';
-  }
-  setActiveFilter(currentFilter);
-  const cacheKey = `reports_${currentFilter}`;
-  loadReportsFromDB(cacheKey).then(cached => {
-    if (cached && cached.data && cached.data.length) {
-      rawReports = cached.data;
-      applyFilterSort(false);
-      reportsStatus.textContent = `Найдено: ${currentReports.length} (кэш, фильтр: ${currentFilter})`;
-    } else {
-      reportsTableBody.innerHTML = '';
-      reportsStatus.textContent = 'Загрузка данных с сервера...';
-    }
-  }).catch(console.error);
-  loadReportsWithCache(currentFilter, true);
-  if (reportsTimer) clearInterval(reportsTimer);
-  reportsTimer = setInterval(() => loadReportsWithCache(currentFilter, true), 60000);
-}
-
-function closeReports() {
-  reportsView.classList.add('hidden');
-  mainView.classList.remove('hidden');
-  if (reportsTimer) clearInterval(reportsTimer);
-}
-if (view === 'reports') setTimeout(openReports, 0);
-
-function applyFilterSort(resetPage) {
-  currentReports = rawReports.slice().filter(r => !deletedTombstones.has(reportId(r)));
-  const t = filterTerm.trim().toLowerCase();
-  if (t) {
-    const words = t.split(/\s+/);
-    currentReports = currentReports.filter(r => {
-      const line = (r.order + r.date + r.time + r.stage + r.name + r.db).toLowerCase();
-      return words.some(w => line.includes(w));
-    });
-  }
-  currentReports.sort((a, b) => compareReports(a, b, sortMode));
-  const pages = Math.max(1, Math.ceil(currentReports.length / perPage));
-  if (resetPage) page = 1;
-  if (page > pages) page = pages;
-  reportsStatus.textContent = `Найдено: ${currentReports.length}` + (t ? ` | Поиск: ${t}` : '');
-  renderReports();
-  renderPager();
-}
-
-function compareReports(a, b, mode) {
-  const av = mode.includes('order') ? (a.order || '') : mode.includes('db') ? (a.db || '') : (a.ts || 0);
-  const bv = mode.includes('order') ? (b.order || '') : mode.includes('db') ? (b.db || '') : (b.ts || 0);
-  const asc = mode.includes('_asc');
-  if (typeof av === 'number') return asc ? av - bv : bv - av;
-  const s1 = String(av).toLowerCase(), s2 = String(bv).toLowerCase();
-  if (s1 < s2) return asc ? -1 : 1;
-  if (s1 > s2) return asc ? 1 : -1;
-  return 0;
-}
-
-function renderReports() {
-  reportsTableBody.innerHTML = '';
-  const start = (page - 1) * perPage;
-  const slice = currentReports.slice(start, start + perPage);
-  slice.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapeHtml(r.order)}</td>
-      <td>${escapeHtml(r.date)}</td>
-      <td>${escapeHtml(r.time)}</td>
-      <td>${escapeHtml(stageNamesRu[r.stage] || r.stage)}</td>
-      <td>${escapeHtml(r.name)}</td>
-      <td>${escapeHtml(r.db || '')}</td>
-      <td class="row-actions">${editMode ? '<button>Удалить</button>' : ''}</td>
-    `;
-    if (editMode) {
-      const btn = tr.querySelector('button');
-      const key = reportId(r);
-      btn.onclick = () => {
-        if (!confirm('Удалить строку?')) return;
-        callApiJsonp({ action: 'delete_report', db: r.db, row: r.row }, res => {
-          if (!res.ok) { reportsStatus.textContent = '⚠️ ' + res.msg; return; }
-          deletedTombstones.set(key, Date.now());
-          rawReports = rawReports.filter(x => reportId(x) !== key);
-          currentReports = currentReports.filter(x => reportId(x) !== key);
-          applyFilterSort(false);
-          reportsStatus.textContent = '✅ Удалено';
-        });
-      };
-    }
-    reportsTableBody.appendChild(tr);
-  });
-}
-
-function renderPager() {
-  if (!pager) return;
-  pager.innerHTML = '';
-  const total = currentReports.length;
-  const pages = Math.ceil(total / perPage);
-  if (pages <= 1) return;
-  const prev = document.createElement('button');
-  prev.textContent = '←';
-  prev.disabled = page <= 1;
-  prev.onclick = () => { page--; renderReports(); renderPager(); };
-  pager.appendChild(prev);
-  for (let i = 1; i <= pages; i++) {
-    const b = document.createElement('button');
-    b.textContent = i;
-    if (i === page) b.classList.add('active');
-    b.onclick = () => { page = i; renderReports(); renderPager(); };
-    pager.appendChild(b);
-  }
-  const next = document.createElement('button');
-  next.textContent = '→';
-  next.disabled = page >= pages;
-  next.onclick = () => { page++; renderReports(); renderPager(); };
-  pager.appendChild(next);
-}
-
-document.querySelectorAll('.filters button').forEach(btn => {
-  btn.onclick = () => {
-    const f = btn.dataset.filter;
-    if (!f) return;
-    currentFilter = f;
-    setActiveFilter(f);
-    localStorage.setItem('lastReportsFilter', f);
-    loadReportsWithCache(f, true);
-    if (reportsTimer) clearInterval(reportsTimer);
-    reportsTimer = setInterval(() => loadReportsWithCache(currentFilter, true), 60000);
-    page = 1;
-  };
-});
-
-searchInput.addEventListener('input', () => {
-  filterTerm = searchInput.value;
-  applyFilterSort(true);
-});
-sortSelect.onchange = () => {
-  sortMode = sortSelect.value;
-  applyFilterSort(true);
-};
-
-statsBtn.onclick = () => {
-  const d = statsDate.value, stage = statsStage.value;
-  if (!d) { statsResult.textContent = 'Выберите дату'; return; }
-  statsResult.textContent = 'Считаю...';
-  callApiJsonp({ action: 'reports', filter: 'all' }, res => {
-    if (!res.ok) { statsResult.textContent = 'Ошибка'; return; }
-    const [year, month, day] = d.split('-');
-    const datePrefix = `${day}.${month}.${year.slice(-2)}`;
-    const cnt = new Set((res.data || [])
-      .filter(r => r.date.startsWith(datePrefix) && (stage === 'all' || r.stage === stage))
-      .map(r => r.order)).size;
-    statsResult.textContent = 'Уникальных заказов: ' + cnt;
-  }, () => statsResult.textContent = 'Нет ответа');
-};
-
-function parseYmdToMs(ymd) {
-  if (!ymd) return null;
-  const [y, m, d] = ymd.split('-');
-  return new Date(parseInt(y), parseInt(m)-1, parseInt(d), 0, 0, 0).getTime();
-}
-function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){if(m==='&')return'&amp;';if(m==='<')return'&lt;';if(m==='>')return'&gt;';return m;}); }
-async function loadImageAsDataURL(url) {
-  const res = await fetch(url, { mode: 'cors' });
-  const blob = await res.blob();
-  return new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });
-}
-function buildSummary(data) {
-  const map = new Map();
-  data.forEach(r => {
-    const key = `${r.stage}|${r.date}|${r.name}`;
-    if (!map.has(key)) map.set(key, { stage: r.stage, date: r.date, name: r.name, orders: new Set() });
-    map.get(key).orders.add(r.order);
-  });
-  const rows = Array.from(map.values()).map(x => ({
-    stage: stageNamesRu[x.stage] || x.stage,
-    date: x.date,
-    name: x.name,
-    count: x.orders.size,
-    orders: Array.from(x.orders).join(', ')
-  }));
-  rows.sort((a,b) => a.date.localeCompare(b.date) || a.stage.localeCompare(b.stage) || a.name.localeCompare(b.name));
-  return rows;
-}
-
-exportPdfBtn.onclick = async () => {
-  const fromMs = parseYmdToMs(pdfFrom.value);
-  const toMs = parseYmdToMs(pdfTo.value);
-  const toEnd = toMs ? toMs + 24*60*60*1000 - 1 : null;
-  let data = rawReports.slice();
-  if (fromMs) data = data.filter(r => r.ts >= fromMs);
-  if (toEnd) data = data.filter(r => r.ts <= toEnd);
-  if (!data.length) { alert("Нет данных"); return; }
-  const summaryRows = buildSummary(data);
-  const period = (pdfFrom.value||'') + (pdfTo.value ? ' — '+pdfTo.value : '');
-  const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
-  const logoData = await loadImageAsDataURL(logoUrl).catch(()=>'');
-  const rowsHtml = data.map(r => `<tr><td>${escapeHtml(r.order)}</td><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.time)}</td><td>${escapeHtml(stageNamesRu[r.stage]||r.stage)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.db||'')}</td></tr>`).join('');
-  printArea.innerHTML = `
-    <div style="width:794px; padding:28px; font-family:Arial; box-sizing:border-box;">
-      <div style="display:flex; align-items:center; gap:14px;">
-        ${logoData ? `<img src="${logoData}" style="width:320px;height:auto;">` : ''}
-        <div><div style="font-size:20px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div><div style="font-size:12px;">Сформировано: ${new Date().toLocaleString()}</div></div>
-      </div>
-      <div style="margin-top:12px;"><strong>Сводка по сотрудникам:</strong></div>
-      <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;"><thead><tr><th style="border:1px solid #bbb;padding:6px;">Этап</th><th style="border:1px solid #bbb;padding:6px;">Дата</th><th style="border:1px solid #bbb;padding:6px;">Сотрудник</th><th style="border:1px solid #bbb;padding:6px;">Кол-во</th><th style="border:1px solid #bbb;padding:6px;">Заказы</th></tr></thead><tbody>${summaryRows.map(s => `<tr><td>${escapeHtml(s.stage)}</td><td>${escapeHtml(s.date)}</td><td>${escapeHtml(s.name)}</td><td>${s.count}</td><td>${escapeHtml(s.orders)}</td></tr>`).join('')}</tbody></table>
-      <table style="width:100%;border-collapse:collapse;margin-top:14px;"><thead><tr><th>Заказ</th><th>Дата</th><th>Время</th><th>Этап</th><th>Сотрудник</th><th>Таблица</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-    </div>`;
-  const fullCanvas = await html2canvas(printArea, { scale: 2, useCORS: true, backgroundColor: '#fff' });
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageWidth = 210, pageHeight = 297;
-  const pageHeightPx = Math.floor(fullCanvas.width * (pageHeight / pageWidth));
-  let y = 0, pageIndex = 0;
-  while (y < fullCanvas.height) {
-    const pageCanvas = document.createElement('canvas');
-    pageCanvas.width = fullCanvas.width;
-    pageCanvas.height = Math.min(pageHeightPx, fullCanvas.height - y);
-    const ctx = pageCanvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
-    ctx.drawImage(fullCanvas, 0, y, pageCanvas.width, pageCanvas.height, 0, 0, pageCanvas.width, pageCanvas.height);
-    const imgData = pageCanvas.toDataURL('image/png');
-    if (pageIndex > 0) pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, (pageCanvas.height / pageCanvas.width) * pageWidth);
-    y += pageHeightPx;
-    pageIndex++;
-  }
-  pdf.save('reports.pdf');
-};
-
-openReportsBtn.onclick = openReports;
-closeReportsBtn.onclick = closeReports;
-if (openPhotoStoreBtn) openPhotoStoreBtn.onclick = () => window.open(PHOTO_ROOT_URL, '_blank');
-editReportsBtn.onclick = () => {
-  const p = prompt('Пароль:');
-  if (p === EDIT_PASS) { editMode = !editMode; editReportsBtn.textContent = editMode ? 'Выход' : 'Редактировать'; renderReports(); }
-  else alert('Неверный пароль');
-};
-document.getElementById('refreshBtn').onclick = async () => {
+async function loadAllData() {
   try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      regs.forEach(r => r.unregister());
-    }
-    if (window.caches) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-    const database = await initDB();
-    const tx = database.transaction([STORE_NAME], 'readwrite');
-    await tx.objectStore(STORE_NAME).clear();
-  } catch(e) {}
-  location.href = location.href.split('?')[0] + '?hard=' + Date.now();
-};
-
-// PWA автообновление
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('sw.js');
-      reg.update();
-      if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        nw?.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller && !sessionStorage.getItem('sw-reloaded')) {
-            sessionStorage.setItem('sw-reloaded', '1');
-            location.reload();
-          }
-        });
-      });
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!sessionStorage.getItem('sw-reloaded')) {
-          sessionStorage.setItem('sw-reloaded', '1');
-          location.reload();
-        }
-      });
-    } catch(e) {}
-  });
+    const snapshot = await db.collection('daily_totals').get();
+    const allData = [];
+    snapshot.forEach(doc => allData.push({ id: doc.id, ...doc.data() }));
+    return allData;
+  } catch (err) { return []; }
 }
 
-// IndexedDB
-function initDB() {
-  return new Promise((resolve, reject) => {
-    if (db) return resolve(db);
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onerror = reject;
-    req.onsuccess = () => { db = req.result; resolve(db); };
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-    };
-  });
-}
-async function saveReportsToDB(key, reports) {
-  const database = await initDB();
-  const tx = database.transaction([STORE_NAME], 'readwrite');
-  await tx.objectStore(STORE_NAME).put({ id: key, data: reports, timestamp: Date.now() });
-}
-async function loadReportsFromDB(key) {
-  const database = await initDB();
-  const tx = database.transaction([STORE_NAME], 'readonly');
-  return new Promise(resolve => {
-    const req = tx.objectStore(STORE_NAME).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => resolve(null);
-  });
+async function loadAllLinks() {
+  try {
+    const snapshot = await db.collection('employee_stage_links').get();
+    const links = [];
+    snapshot.forEach(doc => links.push(doc.data()));
+    return links;
+  } catch (err) { return []; }
 }
 
-// Сбор ЗП
-function addSalaryButton() {
-  const editBtn = document.getElementById('editReports');
-  if (!editBtn || document.getElementById('salaryBtn')) return;
-  const salaryBtn = document.createElement('button');
-  salaryBtn.id = 'salaryBtn';
-  salaryBtn.textContent = 'СБОР ЗП';
-  salaryBtn.onclick = openSalaryDialog;
-  editBtn.insertAdjacentElement('afterend', salaryBtn);
-}
-function openSalaryDialog() { showSalaryModal(); }
-function showSalaryModal() {
-  let workersList = [];
-  if (rawReports && rawReports.length) {
-    workersList = [...new Set(rawReports.map(r => r.name).filter(Boolean))].sort();
+function generateDateRange(fromDateStr, toDateStr) {
+  const fromParts = fromDateStr.split('-').map(Number);
+  const toParts = toDateStr.split('-').map(Number);
+  const from = new Date(fromParts[0], fromParts[1]-1, fromParts[2]);
+  const to = new Date(toParts[0], toParts[1]-1, toParts[2]);
+  const days = [];
+  let current = new Date(from);
+  while (current <= to) {
+    const day = current.getDate().toString().padStart(2, '0');
+    const month = (current.getMonth() + 1).toString().padStart(2, '0');
+    const year = current.getFullYear().toString().slice(-2);
+    days.push(`${day}.${month}.${year}`);
+    current.setDate(current.getDate() + 1);
   }
-  const overlay = document.createElement('div');
-  overlay.id = 'salaryOverlay';
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-title">Сбор ЗП</div>
-      <div id="workersLoading" class="small" ${workersList.length ? 'style="display:none;"' : ''}>Загрузка списка сотрудников...</div>
-      <div id="workersCheckboxesContainer" style="display:${workersList.length ? 'block' : 'none'};">
-        <label class="select-all"><input type="checkbox" id="selectAllWorkers"> Выбрать всех</label>
-        <div id="workersCheckboxes">${workersList.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}</div>
-      </div>
-      <div class="date-range"><label>Период с: <input type="date" id="salaryDateFrom"></label><label>по: <input type="date" id="salaryDateTo"></label></div>
-      <div class="modal-actions"><button id="salaryExportBtn" ${workersList.length ? '' : 'disabled'}>Экспорт Excel</button><button id="salaryCancelBtn">Отмена</button></div>
-    </div>`;
-  document.body.appendChild(overlay);
-  const loadingDiv = document.getElementById('workersLoading'), container = document.getElementById('workersCheckboxesContainer'), exportBtn = document.getElementById('salaryExportBtn'), cancelBtn = document.getElementById('salaryCancelBtn');
-  cancelBtn.onclick = () => overlay.remove();
-  if (workersList.length) {
-    const selectAll = document.getElementById('selectAllWorkers'), checkboxes = container.querySelectorAll('#workersCheckboxes input');
-    selectAll.onchange = () => checkboxes.forEach(cb => cb.checked = selectAll.checked);
-    exportBtn.disabled = false;
-    exportBtn.onclick = async () => {
-      const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-      if (!selected.length) { alert('Выберите сотрудников'); return; }
-      const fromStr = document.getElementById('salaryDateFrom').value, toStr = document.getElementById('salaryDateTo').value;
-      if (!fromStr || !toStr) { alert('Укажите период'); return; }
-      const fromDate = new Date(fromStr + 'T00:00:00'), toDate = new Date(toStr + 'T23:59:59');
-      if (isNaN(fromDate) || isNaN(toDate)) { alert('Некорректная дата'); return; }
-      exportBtn.disabled = true; exportBtn.textContent = 'Загрузка...';
-      try { await exportSalaryToExcel(selected, fromDate.getTime(), toDate.getTime()); } catch(e) { alert('Ошибка: '+e.message); } finally { exportBtn.disabled = false; exportBtn.textContent = 'Экспорт Excel'; }
-    };
-  } else {
-    callApiJsonp({ action: 'reports', filter: 'all' }, res => {
-      if (!res.ok) { loadingDiv.textContent = 'Ошибка загрузки'; return; }
-      const workers = [...new Set((res.data||[]).map(r => r.name).filter(Boolean))].sort();
-      if (!workers.length) { loadingDiv.textContent = 'Нет данных о сотрудниках'; return; }
-      loadingDiv.style.display = 'none'; container.style.display = 'block';
-      container.innerHTML = `<label class="select-all"><input type="checkbox" id="selectAllWorkers"> Выбрать всех</label><div id="workersCheckboxes">${workers.map(w => `<label><input type="checkbox" value="${escapeHtml(w)}"> ${escapeHtml(w)}</label>`).join('')}</div>`;
-      const selectAll = document.getElementById('selectAllWorkers'), checkboxes = container.querySelectorAll('#workersCheckboxes input');
-      selectAll.onchange = () => checkboxes.forEach(cb => cb.checked = selectAll.checked);
-      exportBtn.disabled = false;
-      exportBtn.onclick = async () => {
-        const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-        if (!selected.length) { alert('Выберите сотрудников'); return; }
-        const fromStr = document.getElementById('salaryDateFrom').value, toStr = document.getElementById('salaryDateTo').value;
-        if (!fromStr || !toStr) { alert('Укажите период'); return; }
-        const fromDate = new Date(fromStr + 'T00:00:00'), toDate = new Date(toStr + 'T23:59:59');
-        if (isNaN(fromDate) || isNaN(toDate)) { alert('Некорректная дата'); return; }
-        exportBtn.disabled = true; exportBtn.textContent = 'Загрузка...';
-        try { await exportSalaryToExcel(selected, fromDate.getTime(), toDate.getTime()); } catch(e) { alert('Ошибка: '+e.message); } finally { exportBtn.disabled = false; exportBtn.textContent = 'Экспорт Excel'; }
-      };
-    });
-  }
+  return days;
 }
-async function exportSalaryToExcel(selectedNames, fromTs, toTs) {
-  return new Promise((resolve, reject) => {
-    callApiJsonp({ action: 'reports', filter: 'date_range', from: fromTs, to: toTs }, res => {
-      if (!res.ok) reject(new Error(res.msg));
-      const data = (res.data||[]).filter(r => selectedNames.includes(r.name));
-      if (!data.length) { alert('Нет данных'); resolve(); return; }
-      const groups = new Map();
-      data.forEach(r => {
-        const key = `${r.name}|${r.stage}`;
-        if (!groups.has(key)) groups.set(key, { orders: [], count: 0 });
-        const g = groups.get(key);
-        if (!g.orders.includes(r.order)) { g.orders.push(r.order); g.count++; }
-      });
-      const sorted = [...groups.keys()].sort((a,b) => a.localeCompare(b));
-      let maxOrders = 0;
-      for (const k of sorted) maxOrders = Math.max(maxOrders, groups.get(k).orders.length);
-      const now = new Date();
-      const periodStr = `${new Date(fromTs).toLocaleDateString()} – ${new Date(toTs).toLocaleDateString()}`;
-      let html = `<html><head><meta charset="UTF-8"><title>Сбор ЗП ${periodStr}</title><style>body{font-family:Arial;margin:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;vertical-align:top;} th{background:#f2f2f2;} td:first-child,th:first-child{text-align:left;}</style></head><body><div><strong>Дата формирования:</strong> ${now.toLocaleString()}<br><strong>Период:</strong> ${periodStr}</div><table><thead><tr><th>Сотрудник</th><th>Этап</th><th>Количество</th>${Array(maxOrders).fill().map((_,i)=>`<th>Заказ ${i+1}</th>`).join('')}</tr></thead><tbody>`;
-      for (const key of sorted) {
-        const [name, stage] = key.split('|');
-        const g = groups.get(key);
-        const orders = [...g.orders];
-        while (orders.length < maxOrders) orders.push('');
-        html += `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(stageNamesRu[stage]||stage)}</td><td>${g.count}</td>${orders.map(o=>`<td>${escapeHtml(o)}</td>`).join('')}</tr>`;
+
+function formatHeader(dateStr) {
+  const parts = dateStr.split('.');
+  return `${parts[0]}.${parts[1]}`;
+}
+
+async function loadReports() {
+  const fromDateStr = filterDateFrom.value;
+  const toDateStr = filterDateTo.value;
+  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
+
+  const stageFilter = filterStage.value;
+  const employeeFilter = filterEmployeeSelect.value;
+
+  setLoading(true, 'Загрузка...');
+  const allData = await loadAllData();
+  let links = await loadAllLinks();
+  if (links.length === 0) await migrateLinks();
+  links = await loadAllLinks();
+
+  const days = generateDateRange(fromDateStr, toDateStr);
+
+  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
+  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
+  links.sort((a,b) => {
+    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+    return a.stage.localeCompare(b.stage);
+  });
+
+  const rows = links.map(link => {
+    const daysMap = {};
+    for (const d of days) daysMap[d] = { count: 0, amount: 0 };
+    return { stage: link.stage, employee: link.employee, daysMap };
+  });
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
+    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
+  }
+  for (const row of rows) {
+    let totalCount = 0, totalAmount = 0;
+    for (const d of days) {
+      totalCount += row.daysMap[d].count;
+      totalAmount += row.daysMap[d].amount;
+    }
+    row.totalCount = totalCount;
+    row.totalAmount = totalAmount;
+  }
+
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount;
+    st.totalAmount += row.totalAmount;
+  }
+
+  const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+
+  let html = '<table class="matrix-table"><thead><tr>';
+  html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
+  for (const d of days) html += `<th>${formatHeader(d)}</th>`;
+  html += '<th>Итого</th><tr></thead><tbody>';
+
+  for (const row of rows) {
+    const stageDisplay = stageNames[row.stage] || row.stage;
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += '<td class="row-sub-label">кол-во<\/td>';
+    for (const d of days) {
+      const val = row.daysMap[d];
+      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}<\/td>`;
+    }
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    for (const d of days) {
+      const val = row.daysMap[d];
+      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
+    }
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    html += `<\/tr>`;
+  }
+
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageDisplay = stageNames[stageKey] || stageKey;
+    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"><\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td>`;
+    html += `<\/tr>`;
+  }
+
+  html += '</tbody></table>';
+  matrixContainer.innerHTML = html;
+  attachEditHandlers();
+  setLoading(false);
+}
+
+function attachEditHandlers() {
+  const cells = document.querySelectorAll('.count-cell, .amount-cell');
+  cells.forEach(cell => {
+    if (!cell.dataset.stage) return;
+    cell.style.cursor = 'pointer';
+    if (cell._listener) cell.removeEventListener('click', cell._listener);
+    const handler = async (e) => {
+      e.stopPropagation();
+      const stage = cell.dataset.stage;
+      const employee = cell.dataset.employee;
+      const dateStr = cell.dataset.date;
+      const field = cell.dataset.field;
+      const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
+      const isAdmin = adminModeCheckbox.checked;
+      const currentUser = employeeSelect.value;
+      if (!isAdmin && currentUser !== employee) {
+        alert('Редактировать можно только свои данные (или включите режим администратора)');
+        return;
       }
-      html += `</tbody></table></body></html>`;
-      const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = `zarplata_${now.toISOString().slice(0,10)}.xls`;
-      link.click();
-      URL.revokeObjectURL(url);
-      resolve();
-    }, reject);
+      const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
+      if (action === null) return;
+      if (action === '2') {
+        if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
+        setLoading(true, 'Удаление...');
+        try {
+          const snapshot = await db.collection('daily_totals')
+            .where('date', '==', dateStr)
+            .where('employee', '==', employee)
+            .where('stage', '==', stage)
+            .get();
+          if (!snapshot.empty) {
+            await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
+            alert('Запись удалена');
+            await loadReports();
+          } else alert('Запись не найдена');
+        } catch (err) { alert('Ошибка удаления: ' + err.message); }
+        finally { setLoading(false); }
+        return;
+      }
+      if (action === '1') {
+        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
+        if (newValue === null) return;
+        const numValue = parseFloat(newValue);
+        if (isNaN(numValue)) { alert('Введите число'); return; }
+        setLoading(true, 'Обновление...');
+        try {
+          const snapshot = await db.collection('daily_totals')
+            .where('date', '==', dateStr)
+            .where('employee', '==', employee)
+            .where('stage', '==', stage)
+            .get();
+          if (snapshot.empty) {
+            await db.collection('daily_totals').add({
+              date: dateStr, employee, stage,
+              count: field === 'count' ? numValue : 0,
+              amount: field === 'amount' ? numValue : 0,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } else {
+            const docId = snapshot.docs[0].id;
+            const update = {};
+            if (field === 'count') update.count = numValue;
+            else update.amount = numValue;
+            await db.collection('daily_totals').doc(docId).update(update);
+          }
+          alert('Обновлено');
+          await loadReports();
+        } catch (err) { alert('Ошибка: ' + err.message); }
+        finally { setLoading(false); }
+      } else alert('Неверный выбор');
+    };
+    cell.addEventListener('click', handler);
+    cell._listener = handler;
   });
 }
 
-document.addEventListener('DOMContentLoaded', addSalaryButton);
-initDB().catch(console.error);
+async function exportToExcel() {
+  const fromDateStr = filterDateFrom.value;
+  const toDateStr = filterDateTo.value;
+  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
+  const stageFilter = filterStage.value;
+  const employeeFilter = filterEmployeeSelect.value;
+
+  setLoading(true, 'Экспорт...');
+  const allData = await loadAllData();
+  let links = await loadAllLinks();
+  if (links.length === 0) await migrateLinks();
+  links = await loadAllLinks();
+  const days = generateDateRange(fromDateStr, toDateStr);
+
+  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
+  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
+  links.sort((a,b) => {
+    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+    return a.stage.localeCompare(b.stage);
+  });
+
+  const rows = links.map(link => {
+    const daysMap = {};
+    for (const d of days) daysMap[d] = { count: 0, amount: 0 };
+    return { stage: link.stage, employee: link.employee, daysMap };
+  });
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
+    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
+  }
+  for (const row of rows) {
+    let tc = 0, ta = 0;
+    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
+    row.totalCount = tc; row.totalAmount = ta;
+  }
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
+  }
+  const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+
+  let lines = [];
+  lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
+  lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
+  lines.push('</head><body>');
+  lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
+  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
+  lines.push('<th>Итого</th></tr></thead><tbody>');
+
+  for (const row of rows) {
+    const stageDisplay = stageNames[row.stage] || row.stage;
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
+    for (const d of days) {
+      const val = row.daysMap[d];
+      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
+    }
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
+    for (const d of days) {
+      const val = row.daysMap[d];
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
+    }
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
+  }
+
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageDisplay = stageNames[stageKey] || stageKey;
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label"><\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td><\/tr>`);
+  }
+
+  lines.push('</tbody></table></body></html>');
+  const html = lines.join('');
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `totals_${fromDateStr}_${toDateStr}.xls`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setLoading(false);
+}
+
+function switchTab(tab) {
+  if (tab === 'input') {
+    inputPanel.style.display = 'block';
+    reportsPanel.style.display = 'none';
+    tabInput.classList.add('active');
+    tabReports.classList.remove('active');
+  } else {
+    inputPanel.style.display = 'none';
+    reportsPanel.style.display = 'block';
+    tabReports.classList.add('active');
+    tabInput.classList.remove('active');
+    loadReports();
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+adminBtn.addEventListener('click', () => { renderAdminModal(); adminModal.style.display = 'block'; });
+closeModal.addEventListener('click', () => adminModal.style.display = 'none');
+window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
+addEmployeeBtn.addEventListener('click', () => {
+  const name = newEmployeeName.value.trim();
+  if (name) addEmployee(name);
+  newEmployeeName.value = '';
+});
+resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadEmployeesList();
+  await migrateLinks();
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+});
+
+// Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(reg => console.log('SW registered:', reg))
+    .catch(err => console.error('SW registration failed:', err));
+}
