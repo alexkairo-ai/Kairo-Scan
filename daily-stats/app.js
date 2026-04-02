@@ -35,7 +35,7 @@ const DEFAULT_EMPLOYEES = [
   "Михаил", "Илья", "Руслан"
 ];
 
-let currentEmployees = []; // загружается из Firestore
+let currentEmployees = [];
 
 // Установка дат
 const today = new Date();
@@ -52,9 +52,38 @@ employeeSelect.addEventListener('change', () => {
   localStorage.setItem('selectedEmployee', employeeSelect.value);
 });
 
+// Очищаем поля ввода от нулей (делаем пустыми)
+orderCountInput.value = '';
+totalAmountInput.value = '';
+
 function setLoading(show, text = 'Загрузка...') {
   loadingIndicator.style.display = show ? 'block' : 'none';
   if (show) loadingIndicator.textContent = '⏳ ' + text;
+}
+
+// ========== МИГРАЦИЯ: создаём связи из существующих записей ==========
+async function migrateLinks() {
+  try {
+    const snapshot = await db.collection('daily_totals').get();
+    const pairs = new Set();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.employee && data.stage) {
+        pairs.add(`${data.employee}|${data.stage}`);
+      }
+    });
+    const batch = db.batch();
+    for (const pair of pairs) {
+      const [employee, stage] = pair.split('|');
+      const linkId = `${employee}|${stage}`;
+      const linkRef = db.collection('employee_stage_links').doc(linkId);
+      batch.set(linkRef, { employee, stage }, { merge: true });
+    }
+    await batch.commit();
+    console.log(`Миграция завершена: добавлено ${pairs.size} связей`);
+  } catch (err) {
+    console.error('Ошибка миграции:', err);
+  }
 }
 
 // ========== УПРАВЛЕНИЕ СПИСКОМ СОТРУДНИКОВ ==========
@@ -172,8 +201,10 @@ async function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeSelect.value;
   const stage = stageSelect.value;
-  const count = parseInt(orderCountInput.value) || 0;
-  const amount = parseFloat(totalAmountInput.value) || 0;
+  let count = parseInt(orderCountInput.value);
+  if (isNaN(count)) count = 0;
+  let amount = parseFloat(totalAmountInput.value);
+  if (isNaN(amount)) amount = 0;
 
   if (!date || !employee || !stage) {
     alert('Заполните дату, имя и этап');
@@ -185,7 +216,6 @@ async function saveTotals() {
 
   setLoading(true, 'Сохранение...');
   try {
-    // Обновляем или создаём запись в daily_totals
     const snapshot = await db.collection('daily_totals')
       .where('date', '==', formattedDate)
       .where('employee', '==', employee)
@@ -201,13 +231,14 @@ async function saveTotals() {
       alert('Данные сохранены');
     }
 
-    // Сохраняем связку (employee, stage) в отдельную коллекцию links
+    // Сохраняем связку
     const linkId = `${employee}|${stage}`;
     const linkRef = db.collection('employee_stage_links').doc(linkId);
     await linkRef.set({ employee, stage }, { merge: true });
 
-    orderCountInput.value = '0';
-    totalAmountInput.value = '0';
+    // Очищаем поля
+    orderCountInput.value = '';
+    totalAmountInput.value = '';
   } catch (err) {
     alert('Ошибка: ' + err.message);
   } finally {
@@ -215,7 +246,7 @@ async function saveTotals() {
   }
 }
 
-// ========== ЗАГРУЗКА ДАННЫХ ДЛЯ ОТЧЁТОВ ==========
+// ========== ЗАГРУЗКА ДАННЫХ ==========
 async function loadAllData() {
   try {
     const snapshot = await db.collection('daily_totals').get();
@@ -275,11 +306,17 @@ async function loadReports() {
 
   setLoading(true, 'Загрузка...');
   const allData = await loadAllData();
-  const allLinks = await loadAllLinks();
+  let links = await loadAllLinks();
+
+  // Если связей нет, пробуем миграцию (один раз)
+  if (links.length === 0) {
+    await migrateLinks();
+    links = await loadAllLinks();
+  }
+
   const days = generateDateRange(fromDateStr, toDateStr);
 
-  // Фильтруем связи по этапу и сотруднику (если выбраны)
-  let links = allLinks;
+  // Фильтруем связи
   if (stageFilter !== 'all') {
     links = links.filter(link => link.stage === stageFilter);
   }
@@ -287,13 +324,11 @@ async function loadReports() {
     links = links.filter(link => link.employee === employeeFilter);
   }
 
-  // Сортируем связи: по этапу, затем по имени
   links.sort((a, b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
 
-  // Создаём карту данных по дням для каждой связи
   const rows = links.map(link => {
     const daysMap = {};
     for (const d of days) {
@@ -302,7 +337,6 @@ async function loadReports() {
     return { stage: link.stage, employee: link.employee, daysMap };
   });
 
-  // Заполняем данными из allData
   for (const item of allData) {
     if (!days.includes(item.date)) continue;
     const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
@@ -311,7 +345,6 @@ async function loadReports() {
     }
   }
 
-  // Подсчёт итогов по сотрудникам
   for (const row of rows) {
     let totalCount = 0, totalAmount = 0;
     for (const d of days) {
@@ -322,7 +355,6 @@ async function loadReports() {
     row.totalAmount = totalAmount;
   }
 
-  // Подсчёт итогов по этапам
   const stageTotals = new Map();
   for (const row of rows) {
     if (!stageTotals.has(row.stage)) {
@@ -335,7 +367,6 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  // Строим HTML таблицу
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
@@ -343,7 +374,6 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // Строка "кол-во"
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
     html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
@@ -351,7 +381,6 @@ async function loadReports() {
       html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`;
-    // Строка "метраж"
     html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d];
@@ -360,18 +389,17 @@ async function loadReports() {
     html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`;
   }
 
-  // Итоги по этапам
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
   }
 
-  html += '</tbody></table>';
+  html += '</tbody></tr>';
   matrixContainer.innerHTML = html;
   attachEditHandlers();
   setLoading(false);
@@ -474,10 +502,13 @@ async function exportToExcel() {
 
   setLoading(true, 'Экспорт...');
   const allData = await loadAllData();
-  const allLinks = await loadAllLinks();
+  let links = await loadAllLinks();
+  if (links.length === 0) {
+    await migrateLinks();
+    links = await loadAllLinks();
+  }
   const days = generateDateRange(fromDateStr, toDateStr);
 
-  let links = allLinks;
   if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
   if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
   links.sort((a,b) => {
@@ -511,7 +542,6 @@ async function exportToExcel() {
   }
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  // Собираем HTML через массив
   let lines = [];
   lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
@@ -593,6 +623,7 @@ resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadEmployeesList();
+  await migrateLinks(); // однократная миграция (не страшно запускать каждый раз, но если связей нет – создаст)
   saveBtn.addEventListener('click', saveTotals);
   applyFiltersBtn.addEventListener('click', loadReports);
   exportExcelBtn.addEventListener('click', exportToExcel);
