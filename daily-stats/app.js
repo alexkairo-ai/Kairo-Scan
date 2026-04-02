@@ -33,7 +33,6 @@ const DEFAULT_EMPLOYEES = [
   "Азамат", "Никита", "Владимир", "Сергей", "Дмитрий", "Расул",
   "Михаил", "Илья", "Руслан"
 ];
-
 let currentEmployees = [];
 
 const today = new Date();
@@ -57,31 +56,24 @@ function setLoading(show, text = 'Загрузка...') {
   if (show) loadingIndicator.textContent = '⏳ ' + text;
 }
 
-// Миграция существующих связей
 async function migrateLinks() {
   try {
     const snapshot = await db.collection('daily_totals').get();
     const pairs = new Set();
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.employee && data.stage) {
-        pairs.add(`${data.employee}|${data.stage}`);
-      }
+      if (data.employee && data.stage) pairs.add(`${data.employee}|${data.stage}`);
     });
     const batch = db.batch();
     for (const pair of pairs) {
       const [employee, stage] = pair.split('|');
-      const linkId = `${employee}|${stage}`;
-      const linkRef = db.collection('employee_stage_links').doc(linkId);
+      const linkRef = db.collection('employee_stage_links').doc(`${employee}|${stage}`);
       batch.set(linkRef, { employee, stage }, { merge: true });
     }
     await batch.commit();
-  } catch (err) {
-    console.error('Migration error:', err);
-  }
+  } catch (err) { console.error(err); }
 }
 
-// Управление списком сотрудников
 async function loadEmployeesList() {
   try {
     const snapshot = await db.collection('employees_list').doc('master').get();
@@ -105,10 +97,7 @@ async function saveEmployeesList() {
 
 async function addEmployee(name) {
   if (!name.trim()) return;
-  if (currentEmployees.includes(name.trim())) {
-    alert('Такое имя уже есть');
-    return;
-  }
+  if (currentEmployees.includes(name.trim())) { alert('Такое имя уже есть'); return; }
   currentEmployees.push(name.trim());
   await saveEmployeesList();
   populateEmployeeSelects();
@@ -131,10 +120,7 @@ async function deleteEmployee(name) {
 
 async function renameEmployee(oldName, newName) {
   if (!newName.trim()) return;
-  if (currentEmployees.includes(newName.trim())) {
-    alert('Имя уже существует');
-    return;
-  }
+  if (currentEmployees.includes(newName.trim())) { alert('Имя уже существует'); return; }
   const snapshot = await db.collection('daily_totals').where('employee', '==', oldName).get();
   const batch = db.batch();
   snapshot.forEach(doc => batch.update(doc.ref, { employee: newName.trim() }));
@@ -191,7 +177,6 @@ function renderAdminModal() {
   });
 }
 
-// Сохранение отчёта
 async function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeSelect.value;
@@ -227,8 +212,7 @@ async function saveTotals() {
     }
 
     const linkId = `${employee}|${stage}`;
-    const linkRef = db.collection('employee_stage_links').doc(linkId);
-    await linkRef.set({ employee, stage }, { merge: true });
+    await db.collection('employee_stage_links').doc(linkId).set({ employee, stage }, { merge: true });
 
     orderCountInput.value = '';
     totalAmountInput.value = '';
@@ -239,17 +223,13 @@ async function saveTotals() {
   }
 }
 
-// Загрузка данных
 async function loadAllData() {
   try {
     const snapshot = await db.collection('daily_totals').get();
     const allData = [];
     snapshot.forEach(doc => allData.push({ id: doc.id, ...doc.data() }));
     return allData;
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
+  } catch (err) { return []; }
 }
 
 async function loadAllLinks() {
@@ -258,10 +238,7 @@ async function loadAllLinks() {
     const links = [];
     snapshot.forEach(doc => links.push(doc.data()));
     return links;
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
+  } catch (err) { return []; }
 }
 
 function generateDateRange(fromDateStr, toDateStr) {
@@ -286,14 +263,10 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// Отображение отчётов
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
-  if (!fromDateStr || !toDateStr) {
-    alert('Выберите период');
-    return;
-  }
+  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
 
   const stageFilter = filterStage.value;
   const employeeFilter = filterEmployeeSelect.value;
@@ -301,22 +274,14 @@ async function loadReports() {
   setLoading(true, 'Загрузка...');
   const allData = await loadAllData();
   let links = await loadAllLinks();
-
-  if (links.length === 0) {
-    await migrateLinks();
-    links = await loadAllLinks();
-  }
+  if (links.length === 0) await migrateLinks();
+  links = await loadAllLinks();
 
   const days = generateDateRange(fromDateStr, toDateStr);
 
-  if (stageFilter !== 'all') {
-    links = links.filter(link => link.stage === stageFilter);
-  }
-  if (employeeFilter) {
-    links = links.filter(link => link.employee === employeeFilter);
-  }
-
-  links.sort((a, b) => {
+  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
+  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
+  links.sort((a,b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
@@ -326,15 +291,11 @@ async function loadReports() {
     for (const d of days) daysMap[d] = { count: 0, amount: 0 };
     return { stage: link.stage, employee: link.employee, daysMap };
   });
-
   for (const item of allData) {
     if (!days.includes(item.date)) continue;
     const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
-    if (row) {
-      row.daysMap[item.date] = { count: item.count, amount: item.amount };
-    }
+    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
   }
-
   for (const row of rows) {
     let totalCount = 0, totalAmount = 0;
     for (const d of days) {
@@ -347,9 +308,7 @@ async function loadReports() {
 
   const stageTotals = new Map();
   for (const row of rows) {
-    if (!stageTotals.has(row.stage)) {
-      stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
-    }
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
     const st = stageTotals.get(row.stage);
     st.totalCount += row.totalCount;
     st.totalAmount += row.totalAmount;
@@ -357,8 +316,7 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  let html = '<table class="matrix-table"><thead><tr>';
-  html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
+  let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
   html += '<th>Итого</th></tr></thead><tbody>';
 
@@ -370,22 +328,24 @@ async function loadReports() {
       const val = row.daysMap[d];
       html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`;
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
+    html += `</tr>`;
     html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}</td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`;
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
   }
 
@@ -395,7 +355,6 @@ async function loadReports() {
   setLoading(false);
 }
 
-// Редактирование
 function attachEditHandlers() {
   const cells = document.querySelectorAll('.count-cell, .amount-cell');
   cells.forEach(cell => {
@@ -430,14 +389,9 @@ function attachEditHandlers() {
             await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
             alert('Запись удалена');
             await loadReports();
-          } else {
-            alert('Запись не найдена');
-          }
-        } catch (err) {
-          alert('Ошибка удаления: ' + err.message);
-        } finally {
-          setLoading(false);
-        }
+          } else alert('Запись не найдена');
+        } catch (err) { alert('Ошибка удаления: ' + err.message); }
+        finally { setLoading(false); }
         return;
       }
       if (action === '1') {
@@ -468,21 +422,15 @@ function attachEditHandlers() {
           }
           alert('Обновлено');
           await loadReports();
-        } catch (err) {
-          alert('Ошибка: ' + err.message);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        alert('Неверный выбор');
-      }
+        } catch (err) { alert('Ошибка: ' + err.message); }
+        finally { setLoading(false); }
+      } else alert('Неверный выбор');
     };
     cell.addEventListener('click', handler);
     cell._listener = handler;
   });
 }
 
-// Экспорт в Excel
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -493,10 +441,8 @@ async function exportToExcel() {
   setLoading(true, 'Экспорт...');
   const allData = await loadAllData();
   let links = await loadAllLinks();
-  if (links.length === 0) {
-    await migrateLinks();
-    links = await loadAllLinks();
-  }
+  if (links.length === 0) await migrateLinks();
+  links = await loadAllLinks();
   const days = generateDateRange(fromDateStr, toDateStr);
 
   if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
@@ -518,10 +464,7 @@ async function exportToExcel() {
   }
   for (const row of rows) {
     let tc = 0, ta = 0;
-    for (const d of days) {
-      tc += row.daysMap[d].count;
-      ta += row.daysMap[d].amount;
-    }
+    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
     row.totalCount = tc; row.totalAmount = ta;
   }
   const stageTotals = new Map();
@@ -532,41 +475,43 @@ async function exportToExcel() {
   }
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  let html = `<html><head><meta charset="UTF-8"><title>Итоги</title>
-  <style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>
-  </head><body>
-  <h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>
-  <table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>`;
-  for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += `<th>Итого</th></tr></thead><tbody>`;
+  let lines = [];
+  lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
+  lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
+  lines.push('</head><body>');
+  lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
+  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
+  lines.push('<th>Итого</th></tr></thead><tbody>');
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`;
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td>${val.count === 0 ? '' : val.count}</td>`;
+      lines.push(`<td>${val.count === 0 ? '' : val.count}</td>`);
     }
-    html += `<td>${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`;
-    html += `<tr><td class="row-sub-label">метраж</td>`;
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж</td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td>${val.amount === 0 ? '' : val.amount}</td>`;
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}</td>`);
     }
-    html += `<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`;
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`);
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += `<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += `<td></td>`;
-    html += `<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`;
-    html += `<tr><td colspan="2" class="row-label"></td>`;
-    for (let i = 0; i < days.length; i++) html += `<td></td>`;
-    html += `<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><td>');
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<td></tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label"></td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><td>');
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`);
   }
 
-  html += `</tbody></table></body></html>`;
+  lines.push('</tbody></table></body></html>');
+  const html = lines.join('');
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -595,10 +540,7 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
 }
 
-adminBtn.addEventListener('click', () => {
-  renderAdminModal();
-  adminModal.style.display = 'block';
-});
+adminBtn.addEventListener('click', () => { renderAdminModal(); adminModal.style.display = 'block'; });
 closeModal.addEventListener('click', () => adminModal.style.display = 'none');
 window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
 addEmployeeBtn.addEventListener('click', () => {
@@ -617,3 +559,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabInput.addEventListener('click', () => switchTab('input'));
   tabReports.addEventListener('click', () => switchTab('reports'));
 });
+
+// Проверка обновлений Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const toast = document.createElement('div');
+    toast.textContent = '🔄 Доступна новая версия. Обновите страницу.';
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.left = '20px';
+    toast.style.right = '20px';
+    toast.style.backgroundColor = '#caa24f';
+    toast.style.color = '#000';
+    toast.style.padding = '12px';
+    toast.style.borderRadius = '12px';
+    toast.style.textAlign = 'center';
+    toast.style.zIndex = '9999';
+    toast.style.fontWeight = 'bold';
+    toast.style.cursor = 'pointer';
+    toast.onclick = () => window.location.reload();
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 10000);
+  });
+}
