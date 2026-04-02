@@ -1,8 +1,24 @@
 {
   "name": "ИТОГИ ДНЯ",
   "short_name": "Итоги",
+  "description": "Учёт заказов и метража для производства",
   "start_url": "./",
   "display": "standalone",
+  "theme_color": "#0a0c0f",
   "background_color": "#0a0c0f",
-  "theme_color": "#caa24f"
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
