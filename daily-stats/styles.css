@@ -26,7 +26,6 @@ h1 {
   font-size: 24px;
 }
 
-/* Вкладки */
 .tabs {
   display: flex;
   gap: 8px;
@@ -47,7 +46,6 @@ h1 {
   color: #000;
 }
 
-/* Панели */
 .panel {
   background: #1e1e2a;
   padding: 16px;
@@ -55,7 +53,6 @@ h1 {
   margin-bottom: 16px;
 }
 
-/* Формы */
 .form-row {
   display: flex;
   flex-direction: column;
@@ -107,7 +104,6 @@ button.secondary {
   padding: 8px;
 }
 
-/* Секция статистики */
 .stats-section {
   display: flex;
   flex-direction: column;
@@ -115,7 +111,6 @@ button.secondary {
   margin-bottom: 16px;
 }
 
-/* Фильтры */
 .filters {
   display: flex;
   flex-direction: column;
@@ -129,7 +124,6 @@ button.secondary {
   margin-top: 0;
 }
 
-/* Таблица матрица – горизонтальная прокрутка, статичный размер */
 .table-wrapper {
   overflow-x: auto;
   overflow-y: visible;
@@ -176,7 +170,6 @@ button.secondary {
   cursor: pointer;
 }
 
-/* Индикатор загрузки */
 #loadingIndicator {
   background: rgba(0,0,0,0.7);
   padding: 10px;
@@ -252,7 +245,42 @@ button.secondary {
   padding: 6px;
 }
 
-/* Адаптация под планшеты (ширина > 768px) */
+/* Форма входа */
+.login-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0a0c0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.login-box {
+  background: #1e1e2a;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  width: 90%;
+  max-width: 350px;
+  border: 1px solid #caa24f;
+}
+.login-box h2 {
+  margin-bottom: 20px;
+  color: #caa24f;
+}
+.login-box input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+.login-box button {
+  width: 100%;
+  padding: 12px;
+}
+
 @media (min-width: 768px) {
   .container {
     max-width: 1200px;
