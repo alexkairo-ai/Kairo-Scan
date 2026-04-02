@@ -343,10 +343,12 @@ async function loadReports() {
     const stageDisplay = stageNames[stageKey] || stageKey;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
     for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`;
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
+    html += `</tr>`;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
     for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
   html += '</tbody></table>';
@@ -395,7 +397,7 @@ function attachEditHandlers() {
         return;
       }
       if (action === '1') {
-        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
+        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количество' : 'метраж'} (текущее: ${currentValue}):`, currentValue);
         if (newValue === null) return;
         const numValue = parseFloat(newValue);
         if (isNaN(numValue)) { alert('Введите число'); return; }
@@ -480,7 +482,7 @@ async function exportToExcel() {
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
   lines.push('</head><body>');
   lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  lines.push('</table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
   for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
   lines.push('<th>Итого</th></tr></thead><tbody>');
 
@@ -504,10 +506,10 @@ async function exportToExcel() {
     const stageDisplay = stageNames[stageKey] || stageKey;
     lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`);
     for (let i = 0; i < days.length; i++) lines.push('<td><td>');
-    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<td></tr>`);
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`);
     lines.push(`<tr><td colspan="2" class="row-label"></td>`);
     for (let i = 0; i < days.length; i++) lines.push('<td><td>');
-    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`);
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}<td></tr>`);
   }
 
   lines.push('</tbody></table></body></html>');
@@ -560,25 +562,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabReports.addEventListener('click', () => switchTab('reports'));
 });
 
-// Проверка обновлений Service Worker
+// Регистрация Service Worker (добавлено)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    const toast = document.createElement('div');
-    toast.textContent = '🔄 Доступна новая версия. Обновите страницу.';
-    toast.style.position = 'fixed';
-    toast.style.bottom = '20px';
-    toast.style.left = '20px';
-    toast.style.right = '20px';
-    toast.style.backgroundColor = '#caa24f';
-    toast.style.color = '#000';
-    toast.style.padding = '12px';
-    toast.style.borderRadius = '12px';
-    toast.style.textAlign = 'center';
-    toast.style.zIndex = '9999';
-    toast.style.fontWeight = 'bold';
-    toast.style.cursor = 'pointer';
-    toast.onclick = () => window.location.reload();
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 10000);
-  });
+  navigator.serviceWorker.register('service-worker.js')
+    .then(reg => console.log('SW registered:', reg))
+    .catch(err => console.error('SW registration failed:', err));
 }
