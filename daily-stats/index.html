@@ -169,7 +169,7 @@
 
 <script src="app.js"></script>
 <script>
-  // Авторизация
+  // Авторизация с запоминанием устройства
   const CORRECT_PASSWORD = 'kairo2026';
   const loginScreen = document.getElementById('loginScreen');
   const appContent = document.getElementById('appContent');
@@ -177,7 +177,8 @@
   const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
 
-  if (sessionStorage.getItem('loggedIn') === 'true') {
+  // Проверяем, был ли уже успешный вход на этом устройстве
+  if (localStorage.getItem('trustedDevice') === 'true') {
     loginScreen.style.display = 'none';
     appContent.style.display = 'block';
   } else {
@@ -187,7 +188,7 @@
 
   loginBtn.addEventListener('click', () => {
     if (passwordInput.value === CORRECT_PASSWORD) {
-      sessionStorage.setItem('loggedIn', 'true');
+      localStorage.setItem('trustedDevice', 'true');
       loginScreen.style.display = 'none';
       appContent.style.display = 'block';
       if (typeof loadEmployeesList === 'function') loadEmployeesList();
