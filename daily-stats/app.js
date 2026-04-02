@@ -316,39 +316,42 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
+  let html = '<table class="matrix-table"><thead><tr>';
+  html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
   html += '<th>Итого</th></tr></thead><tbody>';
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
-    html += '<td class="row-sub-label">кол-во</td>';
+    // строка кол-во
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
+      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}<\/td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<td><td class="row-sub-label">метраж</td>`;
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    // строка метраж
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}</td>`;
+      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
-    html += `</tr>`;
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    html += `<\/tr>`;
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
-    html += `</tr>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"><\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td>`;
+    html += `<\/tr>`;
   }
 
   html += '</tbody></table>';
@@ -397,7 +400,7 @@ function attachEditHandlers() {
         return;
       }
       if (action === '1') {
-        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количество' : 'метраж'} (текущее: ${currentValue}):`, currentValue);
+        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
         if (newValue === null) return;
         const numValue = parseFloat(newValue);
         if (isNaN(numValue)) { alert('Введите число'); return; }
@@ -488,28 +491,28 @@ async function exportToExcel() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`);
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.count === 0 ? '' : val.count}</td>`);
+      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
     }
-    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}</td></td>`);
-    lines.push(`<tr><td class="row-sub-label">метраж</td>`);
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.amount === 0 ? '' : val.amount}</td>`);
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
     }
-    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`);
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><td>');
-    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`);
-    lines.push(`<tr><td colspan="2" class="row-label"></td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><td>');
-    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label"><\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td><\/tr>`);
   }
 
   lines.push('</tbody></table></body></html>');
