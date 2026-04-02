@@ -45,6 +45,9 @@
   <div class="login-box">
     <h2>🔐 Вход в ИТОГИ ДНЯ</h2>
     <input type="password" id="passwordInput" placeholder="Введите пароль" autocomplete="off">
+    <label style="display: flex; align-items: center; gap: 8px; margin: 10px 0;">
+      <input type="checkbox" id="rememberMeCheckbox"> Запомнить меня
+    </label>
     <button id="loginBtn" class="primary">Войти</button>
     <div id="loginError" style="color: red; margin-top: 10px;"></div>
   </div>
@@ -169,16 +172,18 @@
 
 <script src="app.js"></script>
 <script>
-  // Авторизация с запоминанием устройства
+  // Авторизация с запоминанием
   const CORRECT_PASSWORD = 'kairo2026';
   const loginScreen = document.getElementById('loginScreen');
   const appContent = document.getElementById('appContent');
   const passwordInput = document.getElementById('passwordInput');
   const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
+  const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
 
-  // Проверяем, был ли уже успешный вход на этом устройстве
-  if (localStorage.getItem('trustedDevice') === 'true') {
+  // Проверяем, сохранён ли пароль в localStorage
+  const savedPassword = localStorage.getItem('appPassword');
+  if (savedPassword === CORRECT_PASSWORD) {
     loginScreen.style.display = 'none';
     appContent.style.display = 'block';
   } else {
@@ -188,7 +193,11 @@
 
   loginBtn.addEventListener('click', () => {
     if (passwordInput.value === CORRECT_PASSWORD) {
-      localStorage.setItem('trustedDevice', 'true');
+      if (rememberMeCheckbox.checked) {
+        localStorage.setItem('appPassword', CORRECT_PASSWORD);
+      } else {
+        localStorage.removeItem('appPassword');
+      }
       loginScreen.style.display = 'none';
       appContent.style.display = 'block';
       if (typeof loadEmployeesList === 'function') loadEmployeesList();
