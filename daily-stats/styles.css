@@ -157,9 +157,9 @@ button.secondary {
   vertical-align: middle;
   white-space: nowrap;
 }
-/* Фиксированная ширина для колонок с датами (начиная с 3-й) */
-.matrix-table th:nth-child(n+3),
-.matrix-table td:nth-child(n+3) {
+/* Фиксированная ширина для колонок с датами */
+.matrix-table th:not(:first-child):not(:nth-child(2)),
+.matrix-table td:not(:first-child):not(:nth-child(2)) {
   min-width: 40px;
   max-width: 50px;
   overflow: hidden;
@@ -318,8 +318,8 @@ button.secondary {
   .matrix-table th, .matrix-table td {
     padding: 4px 2px;
   }
-  .matrix-table th:nth-child(n+3),
-  .matrix-table td:nth-child(n+3) {
+  .matrix-table th:not(:first-child):not(:nth-child(2)),
+  .matrix-table td:not(:first-child):not(:nth-child(2)) {
     min-width: 30px;
     max-width: 40px;
   }
