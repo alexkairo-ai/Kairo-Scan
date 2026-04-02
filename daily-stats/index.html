@@ -25,13 +25,17 @@
 </head>
 <body>
 <div class="container">
-  <h1>📊 ИТОГИ ДНЯ</h1>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>📊 ИТОГИ ДНЯ</h1>
+    <button id="adminBtn" class="secondary" style="width: auto;">👥 Управление сотрудниками</button>
+  </div>
   <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
   <div class="tabs">
     <button id="tabInput" class="active">Ввод данных</button>
     <button id="tabReports">Просмотр отчётов</button>
   </div>
 
+  <!-- Панель ввода данных -->
   <div id="inputPanel" class="panel">
     <div class="form-row">
       <div class="form-group">
@@ -40,7 +44,9 @@
       </div>
       <div class="form-group">
         <label>Сотрудник</label>
-        <input type="text" id="employeeName" placeholder="Введите имя" autocomplete="off">
+        <select id="employeeSelect">
+          <option value="">-- Выберите имя --</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Этап</label>
@@ -67,6 +73,7 @@
     <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
   </div>
 
+  <!-- Панель просмотра отчётов -->
   <div id="reportsPanel" class="panel" style="display:none;">
     <div class="filters">
       <div class="form-group">
@@ -90,7 +97,9 @@
       </div>
       <div class="form-group">
         <label>Сотрудник</label>
-        <input type="text" id="filterEmployeeName" placeholder="Введите имя для фильтра">
+        <select id="filterEmployeeSelect">
+          <option value="">Все сотрудники</option>
+        </select>
       </div>
       <div class="actions">
         <label style="display: flex; align-items: center; gap: 5px;">
@@ -105,6 +114,30 @@
     </div>
   </div>
 </div>
+
+<!-- Модальное окно управления сотрудниками -->
+<div id="adminModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="close">&times;</span>
+      <h2>Управление сотрудниками</h2>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: 20px;">
+        <label>Добавить нового сотрудника:</label>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="newEmployeeName" placeholder="Имя">
+          <button id="addEmployeeBtn" class="secondary">Добавить</button>
+        </div>
+      </div>
+      <div id="employeesList"></div>
+      <div class="actions" style="margin-top: 20px;">
+        <button id="resetEmployeesBtn" class="secondary">Сбросить к списку по умолчанию</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>
