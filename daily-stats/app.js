@@ -3,7 +3,7 @@ const db = window.db;
 // DOM элементы
 const loadingIndicator = document.getElementById('loadingIndicator');
 const reportDateInput = document.getElementById('reportDate');
-const employeeNameInput = document.getElementById('employeeName');
+const employeeSelect = document.getElementById('employeeSelect');
 const stageSelect = document.getElementById('stageSelect');
 const orderCountInput = document.getElementById('orderCount');
 const totalAmountInput = document.getElementById('totalAmount');
@@ -15,11 +15,27 @@ const reportsPanel = document.getElementById('reportsPanel');
 const filterDateFrom = document.getElementById('filterDateFrom');
 const filterDateTo = document.getElementById('filterDateTo');
 const filterStage = document.getElementById('filterStage');
-const filterEmployeeName = document.getElementById('filterEmployeeName');
+const filterEmployeeSelect = document.getElementById('filterEmployeeSelect');
 const adminModeCheckbox = document.getElementById('adminModeCheckbox');
 const applyFiltersBtn = document.getElementById('applyFilters');
 const exportExcelBtn = document.getElementById('exportExcel');
 const matrixContainer = document.getElementById('matrixContainer');
+const adminBtn = document.getElementById('adminBtn');
+const adminModal = document.getElementById('adminModal');
+const closeModal = document.querySelector('.close');
+const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+const newEmployeeName = document.getElementById('newEmployeeName');
+const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
+const employeesListDiv = document.getElementById('employeesList');
+
+// Список сотрудников по умолчанию
+const DEFAULT_EMPLOYEES = [
+  "Олег", "Рауф", "Максим", "Виталий", "Андрей", "Борис", "Алексей",
+  "Азамат", "Никита", "Владимир", "Сергей", "Дмитрий", "Расул",
+  "Михаил", "Илья", "Руслан"
+];
+
+let currentEmployees = []; // загружается из Firestore
 
 // Установка дат
 const today = new Date();
@@ -29,11 +45,11 @@ weekAgo.setDate(today.getDate() - 7);
 filterDateFrom.value = weekAgo.toISOString().slice(0, 10);
 filterDateTo.value = today.toISOString().slice(0, 10);
 
-// Запоминание имени сотрудника
-const savedName = localStorage.getItem('employeeName');
-if (savedName) employeeNameInput.value = savedName;
-employeeNameInput.addEventListener('change', () => {
-  localStorage.setItem('employeeName', employeeNameInput.value.trim());
+// Запоминание выбранного сотрудника
+const savedEmployee = localStorage.getItem('selectedEmployee');
+if (savedEmployee) employeeSelect.value = savedEmployee;
+employeeSelect.addEventListener('change', () => {
+  localStorage.setItem('selectedEmployee', employeeSelect.value);
 });
 
 function setLoading(show, text = 'Загрузка...') {
@@ -41,10 +57,125 @@ function setLoading(show, text = 'Загрузка...') {
   if (show) loadingIndicator.textContent = '⏳ ' + text;
 }
 
-// Сохранение (обновление или создание)
+// ========== УПРАВЛЕНИЕ СПИСКОМ СОТРУДНИКОВ В FIRESTORE ==========
+async function loadEmployeesList() {
+  try {
+    const snapshot = await db.collection('employees_list').doc('master').get();
+    if (snapshot.exists) {
+      currentEmployees = snapshot.data().names || [];
+    } else {
+      currentEmployees = [...DEFAULT_EMPLOYEES];
+      await db.collection('employees_list').doc('master').set({ names: currentEmployees });
+    }
+    populateEmployeeSelects();
+  } catch (err) {
+    console.error(err);
+    currentEmployees = [...DEFAULT_EMPLOYEES];
+    populateEmployeeSelects();
+  }
+}
+
+async function saveEmployeesList() {
+  await db.collection('employees_list').doc('master').set({ names: currentEmployees });
+}
+
+async function addEmployee(name) {
+  if (!name.trim()) return;
+  if (currentEmployees.includes(name.trim())) {
+    alert('Такое имя уже есть');
+    return;
+  }
+  currentEmployees.push(name.trim());
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Сотрудник добавлен');
+}
+
+async function deleteEmployee(name) {
+  if (!confirm(`Удалить сотрудника "${name}"? Все его данные будут удалены из отчётов.`)) return;
+  // Удаляем все записи из daily_totals, где employee === name
+  const snapshot = await db.collection('daily_totals').where('employee', '==', name).get();
+  const batch = db.batch();
+  snapshot.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+  // Удаляем из списка
+  currentEmployees = currentEmployees.filter(emp => emp !== name);
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Сотрудник удалён');
+}
+
+async function renameEmployee(oldName, newName) {
+  if (!newName.trim()) return;
+  if (currentEmployees.includes(newName.trim())) {
+    alert('Имя уже существует');
+    return;
+  }
+  // Обновляем все записи в daily_totals
+  const snapshot = await db.collection('daily_totals').where('employee', '==', oldName).get();
+  const batch = db.batch();
+  snapshot.forEach(doc => batch.update(doc.ref, { employee: newName.trim() }));
+  await batch.commit();
+  // Обновляем список
+  const index = currentEmployees.indexOf(oldName);
+  if (index !== -1) currentEmployees[index] = newName.trim();
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Имя обновлено');
+}
+
+async function resetToDefaultEmployees() {
+  if (!confirm('Сбросить список сотрудников к исходному? Все добавленные вручную имена будут удалены, а существующие записи в отчётах не пострадают (сотрудники с нестандартными именами останутся в базе, но не будут отображаться в списке).')) return;
+  currentEmployees = [...DEFAULT_EMPLOYEES];
+  await saveEmployeesList();
+  populateEmployeeSelects();
+  renderAdminModal();
+  alert('Список сброшен');
+}
+
+function populateEmployeeSelects() {
+  employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
+  filterEmployeeSelect.innerHTML = '<option value="">Все сотрудники</option>';
+  currentEmployees.forEach(emp => {
+    employeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+    filterEmployeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+  });
+  // Восстанавливаем сохранённое значение
+  const saved = localStorage.getItem('selectedEmployee');
+  if (saved && currentEmployees.includes(saved)) employeeSelect.value = saved;
+}
+
+function renderAdminModal() {
+  employeesListDiv.innerHTML = '';
+  currentEmployees.forEach(emp => {
+    const div = document.createElement('div');
+    div.className = 'employee-setting';
+    div.innerHTML = `
+      <span class="name">${escapeHtml(emp)}</span>
+      <input type="text" class="rename-input" placeholder="Новое имя" style="width: 150px;">
+      <button class="rename-btn secondary">Переименовать</button>
+      <button class="delete-btn secondary" style="background:#8b0000;">Удалить</button>
+    `;
+    const renameInput = div.querySelector('.rename-input');
+    const renameBtn = div.querySelector('.rename-btn');
+    const deleteBtn = div.querySelector('.delete-btn');
+    renameBtn.addEventListener('click', () => {
+      const newName = renameInput.value.trim();
+      if (newName) renameEmployee(emp, newName);
+      else alert('Введите новое имя');
+    });
+    deleteBtn.addEventListener('click', () => deleteEmployee(emp));
+    employeesListDiv.appendChild(div);
+  });
+}
+
+// ========== СОХРАНЕНИЕ ОТЧЁТА ==========
 async function saveTotals() {
   const date = reportDateInput.value;
-  const employee = employeeNameInput.value.trim();
+  const employee = employeeSelect.value;
   const stage = stageSelect.value;
   const count = parseInt(orderCountInput.value) || 0;
   const amount = parseFloat(totalAmountInput.value) || 0;
@@ -82,7 +213,7 @@ async function saveTotals() {
   }
 }
 
-// Загрузка всех данных из Firestore
+// ========== ЗАГРУЗКА ДАННЫХ ДЛЯ ОТЧЁТОВ ==========
 async function loadAllData() {
   try {
     const snapshot = await db.collection('daily_totals').get();
@@ -95,7 +226,6 @@ async function loadAllData() {
   }
 }
 
-// Генерация списка дней в формате DD.MM.YY
 function generateDateRange(fromDateStr, toDateStr) {
   const fromParts = fromDateStr.split('-').map(Number);
   const toParts = toDateStr.split('-').map(Number);
@@ -118,7 +248,6 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// Основная функция отображения отчётов
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -128,52 +257,54 @@ async function loadReports() {
   }
 
   const stageFilter = filterStage.value;
-  const employeeFilter = filterEmployeeName.value.trim();
+  const employeeFilter = filterEmployeeSelect.value;
 
   setLoading(true, 'Загрузка...');
   const allData = await loadAllData();
-  if (!allData.length) {
-    setLoading(false);
-    matrixContainer.innerHTML = '<p>Нет данных</p>';
-    return;
-  }
-
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  // Получаем ВСЕ уникальные комбинации (этап, сотрудник) из всей базы
-  const allCombos = new Map(); // key: "stage|employee"
-  for (const item of allData) {
-    const key = `${item.stage}|${item.employee}`;
-    if (!allCombos.has(key)) {
-      allCombos.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
-    }
-  }
-  
-  // Заполняем daysMap данными за период
+  // Получаем все комбинации (этап, сотрудник) из существующих записей за период
+  const combosMap = new Map(); // key: stage|employee
   for (const item of allData) {
     if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    if (employeeFilter && item.employee !== employeeFilter) continue;
     const key = `${item.stage}|${item.employee}`;
-    if (allCombos.has(key)) {
-      allCombos.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
+    if (!combosMap.has(key)) {
+      combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
+    }
+    combosMap.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
+  }
+  
+  // Определяем множество этапов, которые есть в данных за период (с учётом фильтра)
+  const stagesInData = new Set();
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    stagesInData.add(item.stage);
+  }
+  
+  // Для каждого этапа и каждого сотрудника из списка создаём запись, если её ещё нет
+  for (const stage of stagesInData) {
+    for (const employee of currentEmployees) {
+      const key = `${stage}|${employee}`;
+      if (!combosMap.has(key)) {
+        combosMap.set(key, { stage, employee, daysMap: {} });
+      }
     }
   }
   
-  // Применяем фильтр по этапу и сотруднику
-  let rows = Array.from(allCombos.values());
-  if (stageFilter !== 'all') {
-    rows = rows.filter(row => row.stage === stageFilter);
-  }
+  // Применяем фильтр по сотруднику (если выбран конкретный)
+  let rows = Array.from(combosMap.values());
   if (employeeFilter) {
     rows = rows.filter(row => row.employee === employeeFilter);
   }
   
-  // Сортировка
   rows.sort((a, b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
   
-  // Подсчёт итогов по сотрудникам за период
   for (const row of rows) {
     let totalCount = 0, totalAmount = 0;
     for (const d of days) {
@@ -185,28 +316,14 @@ async function loadReports() {
     row.totalAmount = totalAmount;
   }
   
-  // Подсчёт итогов по этапам
-  const stageTotals = new Map();
-  for (const row of rows) {
-    if (!stageTotals.has(row.stage)) {
-      stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
-    }
-    const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount;
-    st.totalAmount += row.totalAmount;
-  }
-  
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   
-  // Формируем HTML
-  let html = '<table class="matrix-table"><thead><tr>';
-  html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
+  let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += '<th>Итого</th><tr></thead><tbody>';
+  html += '<th>Итого</th></tr></thead><tbody>';
   
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // Строка "кол-во"
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
     html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
@@ -215,7 +332,6 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
     html += `</tr>`;
-    // Строка "метраж"
     html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d] || { count: 0, amount: 0 };
@@ -225,17 +341,22 @@ async function loadReports() {
     html += `</tr>`;
   }
   
-  // Итоговые строки по этапам
+  // Итоги по этапам
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount;
+    st.totalAmount += row.totalAmount;
+  }
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    // Строка "кол-во"
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
     html += `</tr>`;
-    // Строка "метраж"
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>`;
     html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
     html += `</tr>`;
   }
@@ -246,13 +367,12 @@ async function loadReports() {
   setLoading(false);
 }
 
-// Редактирование и удаление
+// Редактирование и удаление (как ранее)
 function attachEditHandlers() {
   const cells = document.querySelectorAll('.count-cell, .amount-cell');
   cells.forEach(cell => {
     if (!cell.dataset.stage) return;
     cell.style.cursor = 'pointer';
-    // Удаляем старый обработчик, чтобы не накапливались
     if (cell._listener) cell.removeEventListener('click', cell._listener);
     const handler = async (e) => {
       e.stopPropagation();
@@ -262,16 +382,13 @@ function attachEditHandlers() {
       const field = cell.dataset.field;
       const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
       const isAdmin = adminModeCheckbox.checked;
-      const currentUser = employeeNameInput.value.trim();
-      
+      const currentUser = employeeSelect.value;
       if (!isAdmin && currentUser !== employee) {
         alert('Редактировать можно только свои данные (или включите режим администратора)');
         return;
       }
-      
       const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
       if (action === null) return;
-      
       if (action === '2') {
         if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
         setLoading(true, 'Удаление...');
@@ -295,7 +412,6 @@ function attachEditHandlers() {
         }
         return;
       }
-      
       if (action === '1') {
         const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
         if (newValue === null) return;
@@ -338,89 +454,89 @@ function attachEditHandlers() {
   });
 }
 
-// Экспорт в Excel (аналогичная логика, но с добавлением всех комбинаций)
+// Экспорт в Excel (аналогично, с учётом всех комбинаций)
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
   if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
   const stageFilter = filterStage.value;
-  const employeeFilter = filterEmployeeName.value.trim();
+  const employeeFilter = filterEmployeeSelect.value;
 
   setLoading(true, 'Экспорт...');
   const allData = await loadAllData();
-  if (!allData.length) { setLoading(false); alert('Нет данных'); return; }
-
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  const allCombos = new Map();
-  for (const item of allData) {
-    const key = `${item.stage}|${item.employee}`;
-    if (!allCombos.has(key)) allCombos.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
-  }
+  const combosMap = new Map();
   for (const item of allData) {
     if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    if (employeeFilter && item.employee !== employeeFilter) continue;
     const key = `${item.stage}|${item.employee}`;
-    if (allCombos.has(key)) {
-      allCombos.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
+    if (!combosMap.has(key)) combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
+    combosMap.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
+  }
+  const stagesInData = new Set();
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    stagesInData.add(item.stage);
+  }
+  for (const stage of stagesInData) {
+    for (const employee of currentEmployees) {
+      const key = `${stage}|${employee}`;
+      if (!combosMap.has(key)) combosMap.set(key, { stage, employee, daysMap: {} });
     }
   }
-  
-  let rows = Array.from(allCombos.values());
-  if (stageFilter !== 'all') rows = rows.filter(r => r.stage === stageFilter);
+  let rows = Array.from(combosMap.values());
   if (employeeFilter) rows = rows.filter(r => r.employee === employeeFilter);
-  rows.sort((a, b) => {
+  rows.sort((a,b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
   for (const row of rows) {
-    let tc = 0, ta = 0;
+    let tc=0, ta=0;
     for (const d of days) {
-      const v = row.daysMap[d] || { count: 0, amount: 0 };
+      const v = row.daysMap[d] || { count:0, amount:0 };
       tc += v.count; ta += v.amount;
     }
     row.totalCount = tc; row.totalAmount = ta;
   }
-  
-  const stageTotals = new Map();
-  for (const row of rows) {
-    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
-    const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
-  }
-  
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   let html = `<html><head><meta charset="UTF-8"><title>Итоги</title>
   <style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style></head><body>
   <h2>Итоги за ${fromDateStr} — ${toDateStr}</h2><table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>`;
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
   html += `<th>Итого</th></tr></thead><tbody>`;
-  
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`;
+    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во<td>`;
     for (const d of days) {
-      const v = row.daysMap[d] || { count: 0, amount: 0 };
-      html += `<td>${v.count === 0 ? '' : v.count}</td>`;
+      const v = row.daysMap[d] || { count:0, amount:0 };
+      html += `<td>${v.count===0?'':v.count}</td>`;
     }
-    html += `<td>${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`;
-    html += `<td><td class="row-sub-label">метраж</td>`;
+    html += `<td>${row.totalCount===0?'':row.totalCount}</td></tr>`;
+    html += `<td><td class="row-sub-label">метраж<tr>`;
     for (const d of days) {
-      const v = row.daysMap[d] || { count: 0, amount: 0 };
-      html += `<td>${v.amount === 0 ? '' : v.amount}</td>`;
+      const v = row.daysMap[d] || { count:0, amount:0 };
+      html += `<td>${v.amount===0?'':v.amount}</td>`;
     }
-    html += `<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`;
+    html += `<td>${row.totalAmount===0?'':row.totalAmount}</td></tr>`;
   }
-  
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount:0, totalAmount:0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
+  }
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     html += `<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += `<td></td>`;
-    html += `<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`;
-    html += `<td><td colspan="2" class="row-label"></td>`;
-    for (let i = 0; i < days.length; i++) html += `<td></td>`;
-    html += `<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`;
+    for (let i=0; i<days.length; i++) html += `<td></td>`;
+    html += `<td>${totals.totalCount===0?'':totals.totalCount}</td></tr>`;
+    html += `<tr><td colspan="2" class="row-label"></td>`;
+    for (let i=0; i<days.length; i++) html += `<td></td>`;
+    html += `<td>${totals.totalAmount===0?'':totals.totalAmount}</td></tr>`;
   }
-  
   html += `</tbody></table></body></html>`;
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
@@ -450,7 +566,22 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Модальное окно
+adminBtn.addEventListener('click', () => {
+  renderAdminModal();
+  adminModal.style.display = 'block';
+});
+closeModal.addEventListener('click', () => adminModal.style.display = 'none');
+window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
+addEmployeeBtn.addEventListener('click', () => {
+  const name = newEmployeeName.value.trim();
+  if (name) addEmployee(name);
+  newEmployeeName.value = '';
+});
+resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadEmployeesList();
   saveBtn.addEventListener('click', saveTotals);
   applyFiltersBtn.addEventListener('click', loadReports);
   exportExcelBtn.addEventListener('click', exportToExcel);
