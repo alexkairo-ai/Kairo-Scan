@@ -2,11 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ИТОГИ ДНЯ</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0c0f">
+  <!-- Firebase SDK v8 -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <script>
@@ -63,11 +64,11 @@
     <div class="stats-section">
       <div class="form-group">
         <label>Количество заказов</label>
-        <input type="number" id="orderCount" step="1" min="0" value="0">
+        <input type="number" id="orderCount" step="1" min="0" value="">
       </div>
       <div class="form-group">
         <label>Метраж / кол-во упаковок</label>
-        <input type="number" id="totalAmount" step="any" value="0">
+        <input type="number" id="totalAmount" step="any" value="">
       </div>
     </div>
     <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
@@ -125,8 +126,8 @@
     <div class="modal-body">
       <div style="margin-bottom: 20px;">
         <label>Добавить нового сотрудника:</label>
-        <div style="display: flex; gap: 10px;">
-          <input type="text" id="newEmployeeName" placeholder="Имя">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input type="text" id="newEmployeeName" placeholder="Имя" style="flex:1;">
           <button id="addEmployeeBtn" class="secondary">Добавить</button>
         </div>
       </div>
