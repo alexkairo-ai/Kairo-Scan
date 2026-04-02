@@ -28,6 +28,7 @@ const newEmployeeName = document.getElementById('newEmployeeName');
 const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
 const employeesListDiv = document.getElementById('employeesList');
 
+// Список сотрудников по умолчанию
 const DEFAULT_EMPLOYEES = [
   "Олег", "Рауф", "Максим", "Виталий", "Андрей", "Борис", "Алексей",
   "Азамат", "Никита", "Владимир", "Сергей", "Дмитрий", "Расул",
@@ -51,17 +52,17 @@ employeeSelect.addEventListener('change', () => {
   localStorage.setItem('selectedEmployee', employeeSelect.value);
 });
 
-function setLoading(show, text = 'Загрузка...') {
+function setLoading(show, text) {
   loadingIndicator.style.display = show ? 'block' : 'none';
-  if (show) loadingIndicator.textContent = '⏳ ' + text;
+  if (show) loadingIndicator.textContent = '⏳ ' + (text || 'Загрузка...');
 }
 
 // ========== УПРАВЛЕНИЕ СПИСКОМ СОТРУДНИКОВ ==========
 async function loadEmployeesList() {
   try {
-    const snapshot = await db.collection('employees_list').doc('master').get();
-    if (snapshot.exists) {
-      currentEmployees = snapshot.data().names || [];
+    const doc = await db.collection('employees_list').doc('master').get();
+    if (doc.exists) {
+      currentEmployees = doc.data().names || [];
     } else {
       currentEmployees = [...DEFAULT_EMPLOYEES];
       await db.collection('employees_list').doc('master').set({ names: currentEmployees });
@@ -79,12 +80,10 @@ async function saveEmployeesList() {
 }
 
 async function addEmployee(name) {
-  if (!name.trim()) return;
-  if (currentEmployees.includes(name.trim())) {
-    alert('Такое имя уже есть');
-    return;
-  }
-  currentEmployees.push(name.trim());
+  name = name.trim();
+  if (!name) return;
+  if (currentEmployees.includes(name)) { alert('Такое имя уже есть'); return; }
+  currentEmployees.push(name);
   await saveEmployeesList();
   populateEmployeeSelects();
   renderAdminModal();
@@ -92,7 +91,7 @@ async function addEmployee(name) {
 }
 
 async function deleteEmployee(name) {
-  if (!confirm(`Удалить сотрудника "${name}"? Все его данные будут удалены из отчётов.`)) return;
+  if (!confirm('Удалить сотрудника ' + name + '? Все его данные будут удалены из отчётов.')) return;
   const snapshot = await db.collection('daily_totals').where('employee', '==', name).get();
   const batch = db.batch();
   snapshot.forEach(doc => batch.delete(doc.ref));
@@ -105,17 +104,15 @@ async function deleteEmployee(name) {
 }
 
 async function renameEmployee(oldName, newName) {
-  if (!newName.trim()) return;
-  if (currentEmployees.includes(newName.trim())) {
-    alert('Имя уже существует');
-    return;
-  }
+  newName = newName.trim();
+  if (!newName) return;
+  if (currentEmployees.includes(newName)) { alert('Имя уже существует'); return; }
   const snapshot = await db.collection('daily_totals').where('employee', '==', oldName).get();
   const batch = db.batch();
-  snapshot.forEach(doc => batch.update(doc.ref, { employee: newName.trim() }));
+  snapshot.forEach(doc => batch.update(doc.ref, { employee: newName }));
   await batch.commit();
   const index = currentEmployees.indexOf(oldName);
-  if (index !== -1) currentEmployees[index] = newName.trim();
+  if (index !== -1) currentEmployees[index] = newName;
   await saveEmployeesList();
   populateEmployeeSelects();
   renderAdminModal();
@@ -135,8 +132,8 @@ function populateEmployeeSelects() {
   employeeSelect.innerHTML = '<option value="">-- Выберите имя --</option>';
   filterEmployeeSelect.innerHTML = '<option value="">Все сотрудники</option>';
   currentEmployees.forEach(emp => {
-    employeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
-    filterEmployeeSelect.innerHTML += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+    employeeSelect.innerHTML += '<option value="' + escapeHtml(emp) + '">' + escapeHtml(emp) + '</option>';
+    filterEmployeeSelect.innerHTML += '<option value="' + escapeHtml(emp) + '">' + escapeHtml(emp) + '</option>';
   });
   const saved = localStorage.getItem('selectedEmployee');
   if (saved && currentEmployees.includes(saved)) employeeSelect.value = saved;
@@ -147,12 +144,10 @@ function renderAdminModal() {
   currentEmployees.forEach(emp => {
     const div = document.createElement('div');
     div.className = 'employee-setting';
-    div.innerHTML = `
-      <span class="name">${escapeHtml(emp)}</span>
-      <input type="text" class="rename-input" placeholder="Новое имя" style="width: 150px;">
-      <button class="rename-btn secondary">Переименовать</button>
-      <button class="delete-btn secondary" style="background:#8b0000;">Удалить</button>
-    `;
+    div.innerHTML = '<span class="name">' + escapeHtml(emp) + '</span>' +
+      '<input type="text" class="rename-input" placeholder="Новое имя" style="width:150px;">' +
+      '<button class="rename-btn secondary">Переименовать</button>' +
+      '<button class="delete-btn secondary" style="background:#8b0000;">Удалить</button>';
     const renameInput = div.querySelector('.rename-input');
     const renameBtn = div.querySelector('.rename-btn');
     const deleteBtn = div.querySelector('.delete-btn');
@@ -173,15 +168,9 @@ async function saveTotals() {
   const stage = stageSelect.value;
   const count = parseInt(orderCountInput.value) || 0;
   const amount = parseFloat(totalAmountInput.value) || 0;
-
-  if (!date || !employee || !stage) {
-    alert('Заполните дату, имя и этап');
-    return;
-  }
-
+  if (!date || !employee || !stage) { alert('Заполните дату, имя и этап'); return; }
   const [year, month, day] = date.split('-');
-  const formattedDate = `${day}.${month}.${year.slice(-2)}`;
-
+  const formattedDate = day + '.' + month + '.' + year.slice(-2);
   setLoading(true, 'Сохранение...');
   try {
     const snapshot = await db.collection('daily_totals')
@@ -189,7 +178,6 @@ async function saveTotals() {
       .where('employee', '==', employee)
       .where('stage', '==', stage)
       .get();
-
     if (!snapshot.empty) {
       const docId = snapshot.docs[0].id;
       await db.collection('daily_totals').doc(docId).update({ count, amount, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
@@ -231,7 +219,7 @@ function generateDateRange(fromDateStr, toDateStr) {
     const day = current.getDate().toString().padStart(2, '0');
     const month = (current.getMonth() + 1).toString().padStart(2, '0');
     const year = current.getFullYear().toString().slice(-2);
-    days.push(`${day}.${month}.${year}`);
+    days.push(day + '.' + month + '.' + year);
     current.setDate(current.getDate() + 1);
   }
   return days;
@@ -239,36 +227,26 @@ function generateDateRange(fromDateStr, toDateStr) {
 
 function formatHeader(dateStr) {
   const parts = dateStr.split('.');
-  return `${parts[0]}.${parts[1]}`;
+  return parts[0] + '.' + parts[1];
 }
 
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
-  if (!fromDateStr || !toDateStr) {
-    alert('Выберите период');
-    return;
-  }
-
+  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
   const stageFilter = filterStage.value;
   const employeeFilter = filterEmployeeSelect.value;
-
   setLoading(true, 'Загрузка...');
   const allData = await loadAllData();
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  // Фильтруем данные по периоду и фильтрам
-  let filtered = allData.filter(item => {
-    if (!days.includes(item.date)) return false;
-    if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
-    if (employeeFilter && item.employee !== employeeFilter) return false;
-    return true;
-  });
-  
-  // Группируем по (этап, сотрудник) – только то, что реально есть в данных
+  // Собираем комбинации (этап, сотрудник) из данных за период
   const combosMap = new Map();
-  for (const item of filtered) {
-    const key = `${item.stage}|${item.employee}`;
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    if (employeeFilter && item.employee !== employeeFilter) continue;
+    const key = item.stage + '|' + item.employee;
     if (!combosMap.has(key)) {
       combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
     }
@@ -295,26 +273,26 @@ async function loadReports() {
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   
   let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
-  for (const d of days) html += `<th>${formatHeader(d)}</th>`;
+  for (const d of days) html += '<th>' + formatHeader(d) + '</th>';
   html += '<th>Итого</th></tr></thead><tbody>';
   
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
+    // Строка "кол-во"
+    html += '<tr><td rowspan="2" class="row-label">' + stageDisplay + '<br>' + escapeHtml(row.employee) + '</td>';
     html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
       const val = row.daysMap[d] || { count: 0, amount: 0 };
-      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
+      html += '<td class="count-cell" data-stage="' + row.stage + '" data-employee="' + escapeHtml(row.employee) + '" data-date="' + d + '" data-field="count">' + (val.count === 0 ? '' : val.count) + '</td>';
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<tr><td class="row-sub-label">метраж</td>`;
+    html += '<td class="count-cell">' + (row.totalCount === 0 ? '' : row.totalCount) + '</td></tr>';
+    // Строка "метраж"
+    html += '<tr><td class="row-sub-label">метраж</td>';
     for (const d of days) {
       const val = row.daysMap[d] || { count: 0, amount: 0 };
-      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}</td>`;
+      html += '<td class="amount-cell" data-stage="' + row.stage + '" data-employee="' + escapeHtml(row.employee) + '" data-date="' + d + '" data-field="amount">' + (val.amount === 0 ? '' : val.amount) + '</td>';
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
-    html += `</tr>`;
+    html += '<td class="amount-cell">' + (row.totalAmount === 0 ? '' : row.totalAmount) + '</td></tr>';
   }
   
   // Итоги по этапам
@@ -327,14 +305,12 @@ async function loadReports() {
   }
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>`;
-    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
-    html += `</tr>`;
+    html += '<tr><td colspan="2" class="row-label" style="background:#3a3a46;">' + stageDisplay + ' (всего)</td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    html += '<td class="count-cell">' + (totals.totalCount === 0 ? '' : totals.totalCount) + '</td></tr>';
+    html += '<tr><td colspan="2" class="row-label" style="background:#3a3a46;"></td>';
+    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    html += '<td class="amount-cell">' + (totals.totalAmount === 0 ? '' : totals.totalAmount) + '</td></tr>';
   }
   
   html += '</tbody></table>';
@@ -343,7 +319,6 @@ async function loadReports() {
   setLoading(false);
 }
 
-// Редактирование и удаление
 function attachEditHandlers() {
   const cells = document.querySelectorAll('.count-cell, .amount-cell');
   cells.forEach(cell => {
@@ -363,10 +338,10 @@ function attachEditHandlers() {
         alert('Редактировать можно только свои данные (или включите режим администратора)');
         return;
       }
-      const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
+      const action = prompt('Что сделать?\n1 - Изменить ' + (field === 'count' ? 'количество' : 'метраж') + '\n2 - Удалить запись за этот день', '1');
       if (action === null) return;
       if (action === '2') {
-        if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
+        if (!confirm('Удалить данные за ' + dateStr + ' для ' + employee + ' (' + stage + ')?')) return;
         setLoading(true, 'Удаление...');
         try {
           const snapshot = await db.collection('daily_totals')
@@ -378,18 +353,13 @@ function attachEditHandlers() {
             await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
             alert('Запись удалена');
             await loadReports();
-          } else {
-            alert('Запись не найдена');
-          }
-        } catch (err) {
-          alert('Ошибка удаления: ' + err.message);
-        } finally {
-          setLoading(false);
-        }
+          } else { alert('Запись не найдена'); }
+        } catch (err) { alert('Ошибка удаления: ' + err.message); }
+        finally { setLoading(false); }
         return;
       }
       if (action === '1') {
-        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
+        const newValue = prompt('Введите новое значение для ' + (field === 'count' ? 'количества заказов' : 'метража') + ' (текущее: ' + currentValue + '):', currentValue);
         if (newValue === null) return;
         const numValue = parseFloat(newValue);
         if (isNaN(numValue)) { alert('Введите число'); return; }
@@ -416,42 +386,32 @@ function attachEditHandlers() {
           }
           alert('Обновлено');
           await loadReports();
-        } catch (err) {
-          alert('Ошибка: ' + err.message);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        alert('Неверный выбор');
-      }
+        } catch (err) { alert('Ошибка: ' + err.message); }
+        finally { setLoading(false); }
+      } else { alert('Неверный выбор'); }
     };
     cell.addEventListener('click', handler);
     cell._listener = handler;
   });
 }
 
-// ========== ЭКСПОРТ В EXCEL (без синтаксических ошибок) ==========
+// ========== ЭКСПОРТ В EXCEL ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
   if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
   const stageFilter = filterStage.value;
   const employeeFilter = filterEmployeeSelect.value;
-
   setLoading(true, 'Экспорт...');
   const allData = await loadAllData();
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  let filtered = allData.filter(item => {
-    if (!days.includes(item.date)) return false;
-    if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
-    if (employeeFilter && item.employee !== employeeFilter) return false;
-    return true;
-  });
-  
   const combosMap = new Map();
-  for (const item of filtered) {
-    const key = `${item.stage}|${item.employee}`;
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) continue;
+    if (employeeFilter && item.employee !== employeeFilter) continue;
+    const key = item.stage + '|' + item.employee;
     if (!combosMap.has(key)) combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
     combosMap.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
   }
@@ -469,64 +429,48 @@ async function exportToExcel() {
     }
     row.totalCount = tc; row.totalAmount = ta;
   }
-  
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-  
-  // Собираем HTML в массив, чтобы избежать проблем с конкатенацией
-  let htmlLines = [];
-  htmlLines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
-  htmlLines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
-  htmlLines.push('</head><body>');
-  htmlLines.push('<h2>Итоги за ' + fromDateStr + ' — ' + toDateStr + '</h2>');
-  htmlLines.push('<table><thead>');
-  htmlLines.push('<tr><th>Этап / Сотрудник</th><th>Показатель</th>');
-  for (const d of days) htmlLines.push('<th>' + formatHeader(d) + '</th>');
-  htmlLines.push('<th>Итого</th></tr>');
-  htmlLines.push('</thead><tbody>');
+  let html = '<html><head><meta charset="UTF-8"><title>Итоги</title>';
+  html += '<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>';
+  html += '</head><body><h2>Итоги за ' + fromDateStr + ' — ' + toDateStr + '</h2>';
+  html += '<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
+  for (const d of days) html += '<th>' + formatHeader(d) + '</th>';
+  html += '<th>Итого</th></tr></thead><tbody>';
   
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // строка кол-во
-    htmlLines.push('<tr>');
-    htmlLines.push('<td rowspan="2" class="row-label">' + stageDisplay + '<br>' + escapeHtml(row.employee) + '</td>');
-    htmlLines.push('<td class="row-sub-label">кол-во</td>');
+    html += '<tr><td rowspan="2" class="row-label">' + stageDisplay + '<br>' + escapeHtml(row.employee) + '</td>';
+    html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
       const v = row.daysMap[d] || { count:0, amount:0 };
-      htmlLines.push('<td class="count-cell">' + (v.count === 0 ? '' : v.count) + '</td>');
+      html += '<td>' + (v.count === 0 ? '' : v.count) + '</td>';
     }
-    htmlLines.push('<td class="count-cell">' + (row.totalCount === 0 ? '' : row.totalCount) + '</td>');
-    htmlLines.push('</tr>');
-    // строка метраж
-    htmlLines.push('<tr>');
-    htmlLines.push('<td class="row-sub-label">метраж</td>');
+    html += '<td>' + (row.totalCount === 0 ? '' : row.totalCount) + '</td></tr>';
+    html += '<tr><td class="row-sub-label">метраж</td>';
     for (const d of days) {
       const v = row.daysMap[d] || { count:0, amount:0 };
-      htmlLines.push('<td class="amount-cell">' + (v.amount === 0 ? '' : v.amount) + '</td>');
+      html += '<td>' + (v.amount === 0 ? '' : v.amount) + '</td>';
     }
-    htmlLines.push('<td class="amount-cell">' + (row.totalAmount === 0 ? '' : row.totalAmount) + '</td>');
-    htmlLines.push('</tr>');
+    html += '<td>' + (row.totalAmount === 0 ? '' : row.totalAmount) + '</td></tr>';
   }
   
-  // Итоги по этапам
   const stageTotals = new Map();
   for (const row of rows) {
     if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount:0, totalAmount:0 });
     const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount;
-    st.totalAmount += row.totalAmount;
+    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
   }
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    htmlLines.push('<tr><td colspan="2" class="row-label">' + stageDisplay + ' (всего)</td>');
-    for (let i=0; i<days.length; i++) htmlLines.push('<td></td>');
-    htmlLines.push('<td class="count-cell">' + (totals.totalCount === 0 ? '' : totals.totalCount) + '</td></tr>');
-    htmlLines.push('<tr><td colspan="2" class="row-label"></td>');
-    for (let i=0; i<days.length; i++) htmlLines.push('<td></td>');
-    htmlLines.push('<td class="amount-cell">' + (totals.totalAmount === 0 ? '' : totals.totalAmount) + '</td></tr>');
+    html += '<tr><td colspan="2" class="row-label">' + stageDisplay + ' (всего)</td>';
+    for (let i=0; i<days.length; i++) html += '<td></td>';
+    html += '<td>' + (totals.totalCount === 0 ? '' : totals.totalCount) + '</td></tr>';
+    html += '<tr><td colspan="2" class="row-label"></td>';
+    for (let i=0; i<days.length; i++) html += '<td></td>';
+    html += '<td>' + (totals.totalAmount === 0 ? '' : totals.totalAmount) + '</td></tr>';
   }
   
-  htmlLines.push('</tbody></table></body></html>');
-  const html = htmlLines.join('');
+  html += '</tbody></table></body></html>';
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -552,7 +496,13 @@ function switchTab(tab) {
 }
 
 function escapeHtml(str) {
-  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 }
 
 // Модальное окно
