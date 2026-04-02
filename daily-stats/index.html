@@ -25,87 +25,90 @@
   </script>
 </head>
 <body>
-  <div class="container">
-    <h1>📊 ИТОГИ ДНЯ</h1>
-    <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
-    <div class="tabs">
-      <button id="tabInput" class="active">Ввод данных</button>
-      <button id="tabReports">Просмотр отчётов</button>
-    </div>
-
-    <div id="inputPanel" class="panel">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Дата</label>
-          <input type="date" id="reportDate">
-        </div>
-        <div class="form-group">
-          <label>Сотрудник</label>
-          <input type="text" id="employeeName" placeholder="Введите имя" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label>Этап</label>
-          <select id="stageSelect">
-            <option value="">-- Выберите этап --</option>
-            <option value="pila">Пила</option>
-            <option value="kromka">Кромка</option>
-            <option value="prisadka">Присадка</option>
-            <option value="upakovka">Упаковка</option>
-            <option value="hdf">Пила ХДФ</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="stats-section">
-        <div class="form-group">
-          <label>Количество заказов</label>
-          <input type="number" id="orderCount" step="1" min="0" value="0">
-        </div>
-        <div class="form-group">
-          <label>Метраж / кол-во упаковок</label>
-          <input type="number" id="totalAmount" step="any" value="0">
-        </div>
-      </div>
-
-      <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
-    </div>
-
-    <div id="reportsPanel" class="panel" style="display:none;">
-      <div class="filters">
-        <div class="form-group">
-          <label>Дата с</label>
-          <input type="date" id="filterDateFrom">
-        </div>
-        <div class="form-group">
-          <label>Дата по</label>
-          <input type="date" id="filterDateTo">
-        </div>
-        <div class="form-group">
-          <label>Этап</label>
-          <select id="filterStage">
-            <option value="all">Все этапы</option>
-            <option value="pila">Пила</option>
-            <option value="kromka">Кромка</option>
-            <option value="prisadka">Присадка</option>
-            <option value="upakovka">Упаковка</option>
-            <option value="hdf">Пила ХДФ</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Сотрудник</label>
-          <input type="text" id="filterEmployeeName" placeholder="Введите имя для фильтра">
-        </div>
-        <div class="actions">
-          <button id="applyFilters" class="secondary">Показать</button>
-          <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
-        </div>
-      </div>
-      <div class="table-wrapper">
-        <div id="matrixContainer"></div>
-      </div>
-    </div>
+<div class="container">
+  <h1>📊 ИТОГИ ДНЯ</h1>
+  <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
+  <div class="tabs">
+    <button id="tabInput" class="active">Ввод данных</button>
+    <button id="tabReports">Просмотр отчётов</button>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Панель ввода данных -->
+  <div id="inputPanel" class="panel">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Дата</label>
+        <input type="date" id="reportDate">
+      </div>
+      <div class="form-group">
+        <label>Сотрудник</label>
+        <input type="text" id="employeeName" placeholder="Введите имя" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Этап</label>
+        <select id="stageSelect">
+          <option value="">-- Выберите этап --</option>
+          <option value="pila">Пила</option>
+          <option value="kromka">Кромка</option>
+          <option value="prisadka">Присадка</option>
+          <option value="upakovka">Упаковка</option>
+          <option value="hdf">Пила ХДФ</option>
+        </select>
+      </div>
+    </div>
+    <div class="stats-section">
+      <div class="form-group">
+        <label>Количество заказов</label>
+        <input type="number" id="orderCount" step="1" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label>Метраж / кол-во упаковок</label>
+        <input type="number" id="totalAmount" step="any" value="0">
+      </div>
+    </div>
+    <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
+  </div>
+
+  <!-- Панель просмотра отчётов -->
+  <div id="reportsPanel" class="panel" style="display:none;">
+    <div class="filters">
+      <div class="form-group">
+        <label>Дата с</label>
+        <input type="date" id="filterDateFrom">
+      </div>
+      <div class="form-group">
+        <label>Дата по</label>
+        <input type="date" id="filterDateTo">
+      </div>
+      <div class="form-group">
+        <label>Этап</label>
+        <select id="filterStage">
+          <option value="all">Все этапы</option>
+          <option value="pila">Пила</option>
+          <option value="kromka">Кромка</option>
+          <option value="prisadka">Присадка</option>
+          <option value="upakovka">Упаковка</option>
+          <option value="hdf">Пила ХДФ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Сотрудник</label>
+        <input type="text" id="filterEmployeeName" placeholder="Введите имя для фильтра">
+      </div>
+      <div class="actions">
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="adminModeCheckbox"> Режим администратора
+        </label>
+        <button id="applyFilters" class="secondary">Показать</button>
+        <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <div id="matrixContainer"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
