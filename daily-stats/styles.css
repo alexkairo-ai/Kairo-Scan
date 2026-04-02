@@ -8,35 +8,39 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: #0a0c0f;
   color: #fff;
-  padding: 20px;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
+  padding: 16px;
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 24px;
-  font-size: 28px;
+  margin-bottom: 20px;
+  font-size: 24px;
 }
 
 /* Вкладки */
 .tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 20px;
   justify-content: center;
 }
 .tabs button {
   background: #2a2a36;
   border: none;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 30px;
   cursor: pointer;
   color: #caa24f;
-  font-size: 16px;
+  font-size: 14px;
 }
 .tabs button.active {
   background: #caa24f;
@@ -46,26 +50,25 @@ h1 {
 /* Панели */
 .panel {
   background: #1e1e2a;
-  padding: 20px;
+  padding: 16px;
   border-radius: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 /* Формы */
 .form-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 24px;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .form-group {
-  flex: 1;
-  min-width: 150px;
+  width: 100%;
 }
 .form-group label {
   display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 14px;
 }
 select, input, button {
   width: 100%;
@@ -74,7 +77,7 @@ select, input, button {
   border: 1px solid #caa24f;
   background: #0f1216;
   color: #fff;
-  font-size: 16px;
+  font-size: 14px;
 }
 button {
   background: #2a2a36;
@@ -95,59 +98,58 @@ button.secondary {
 }
 .actions {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 12px;
-  align-items: center;
 }
 .actions button {
-  width: auto;
-  padding: 8px 16px;
+  width: 100%;
+  padding: 8px;
 }
 
 /* Секция статистики */
 .stats-section {
   display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-.stats-section .form-group {
-  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 /* Фильтры */
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-end;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .filters .form-group {
   margin-bottom: 0;
-  flex: 1;
 }
 .filters .actions {
   margin-top: 0;
 }
 
-/* Таблица матрица */
+/* Таблица матрица – горизонтальная прокрутка, статичный размер */
 .table-wrapper {
   overflow-x: auto;
-  margin-top: 20px;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  margin-top: 16px;
+  width: 100%;
 }
 .matrix-table {
-  width: 100%;
   border-collapse: collapse;
   font-size: 12px;
-  min-width: 600px;
+  min-width: 100%;
+  width: max-content;
+  background: #1e1e2a;
 }
 .matrix-table th, .matrix-table td {
   border: 1px solid #333;
-  padding: 6px;
+  padding: 6px 4px;
   text-align: center;
   vertical-align: middle;
+  white-space: nowrap;
 }
 .matrix-table th {
   background: #2a2a36;
@@ -157,14 +159,16 @@ button.secondary {
   background: #2a2a36;
   text-align: left;
   font-weight: bold;
-  min-width: 120px;
+  min-width: 100px;
+  white-space: normal;
+  word-break: break-word;
 }
 .matrix-table .row-sub-label {
   background: #2a2a36;
   text-align: left;
   font-weight: normal;
   font-style: italic;
-  min-width: 60px;
+  min-width: 50px;
 }
 .matrix-table .count-cell,
 .matrix-table .amount-cell {
@@ -178,6 +182,7 @@ button.secondary {
   padding: 10px;
   border-radius: 8px;
   margin-bottom: 10px;
+  text-align: center;
 }
 
 /* Модальное окно */
@@ -194,11 +199,11 @@ button.secondary {
 }
 .modal-content {
   background-color: #1e1e2a;
-  margin: 50px auto;
-  padding: 20px;
+  margin: 20px auto;
+  padding: 16px;
   border-radius: 16px;
-  width: 90%;
-  max-width: 800px;
+  width: 95%;
+  max-width: 600px;
   border: 1px solid #caa24f;
 }
 .modal-header {
@@ -207,13 +212,14 @@ button.secondary {
   align-items: center;
   border-bottom: 1px solid #caa24f;
   padding-bottom: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .modal-header h2 {
   margin: 0;
+  font-size: 18px;
 }
 .close {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   cursor: pointer;
   color: #caa24f;
@@ -232,89 +238,54 @@ button.secondary {
   padding: 10px;
   margin-bottom: 10px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
 }
 .employee-setting .name {
   font-weight: bold;
-  width: 120px;
 }
 .employee-setting input {
-  width: 150px;
-  margin: 0;
+  width: 100%;
 }
 .employee-setting button {
-  width: auto;
-  padding: 5px 10px;
+  width: 100%;
+  padding: 6px;
 }
 
-/* Адаптация под планшеты и мобильные */
-@media (max-width: 768px) {
-  body {
-    padding: 10px;
-  }
+/* Адаптация под планшеты (ширина > 768px) */
+@media (min-width: 768px) {
   .container {
-    max-width: 100%;
+    max-width: 1200px;
+    padding: 20px;
   }
-  .form-row, .filters, .stats-section {
-    flex-direction: column;
-    gap: 10px;
+  .form-row {
+    flex-direction: row;
   }
-  .form-group {
-    min-width: 100%;
+  .stats-section {
+    flex-direction: row;
+  }
+  .filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .filters .form-group {
+    flex: 1;
   }
   .actions {
-    justify-content: stretch;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: flex-end;
   }
   .actions button {
-    width: 100%;
-    margin-top: 5px;
-  }
-  .matrix-table {
-    font-size: 11px;
-    min-width: 500px;
-  }
-  .matrix-table th, .matrix-table td {
-    padding: 4px 2px;
-  }
-  .row-label, .row-sub-label {
-    min-width: 70px;
-  }
-  .tabs button {
-    padding: 6px 12px;
-    font-size: 14px;
-  }
-  h1 {
-    font-size: 22px;
-  }
-  button, select, input {
-    font-size: 14px;
-    padding: 8px;
-  }
-  .modal-content {
-    width: 95%;
-    margin: 20px auto;
-    padding: 15px;
-  }
-  .employee-setting {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .employee-setting .name {
     width: auto;
   }
+  .employee-setting {
+    flex-direction: row;
+    align-items: center;
+  }
   .employee-setting input, .employee-setting button {
-    width: 100%;
+    width: auto;
   }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .matrix-table {
-    font-size: 12px;
-  }
-  .row-label, .row-sub-label {
-    min-width: 100px;
+  .modal-content {
+    width: 90%;
   }
 }
