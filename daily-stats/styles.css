@@ -22,6 +22,7 @@ h1 {
   font-size: 28px;
 }
 
+/* Вкладки */
 .tabs {
   display: flex;
   gap: 10px;
@@ -42,6 +43,7 @@ h1 {
   color: #000;
 }
 
+/* Панели */
 .panel {
   background: #1e1e2a;
   padding: 20px;
@@ -49,6 +51,7 @@ h1 {
   margin-bottom: 20px;
 }
 
+/* Формы */
 .form-row {
   display: flex;
   flex-wrap: wrap;
@@ -102,6 +105,7 @@ button.secondary {
   padding: 8px 16px;
 }
 
+/* Секция статистики */
 .stats-section {
   display: flex;
   gap: 20px;
@@ -111,6 +115,7 @@ button.secondary {
   flex: 1;
 }
 
+/* Фильтры */
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -126,14 +131,17 @@ button.secondary {
   margin-top: 0;
 }
 
+/* Таблица матрица */
 .table-wrapper {
   overflow-x: auto;
   margin-top: 20px;
+  -webkit-overflow-scrolling: touch;
 }
 .matrix-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  min-width: 600px;
 }
 .matrix-table th, .matrix-table td {
   border: 1px solid #333;
@@ -163,6 +171,8 @@ button.secondary {
   background: #0f1216;
   cursor: pointer;
 }
+
+/* Индикатор загрузки */
 #loadingIndicator {
   background: rgba(0,0,0,0.7);
   padding: 10px;
@@ -239,21 +249,72 @@ button.secondary {
   padding: 5px 10px;
 }
 
+/* Адаптация под планшеты и мобильные */
 @media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+  .container {
+    max-width: 100%;
+  }
   .form-row, .filters, .stats-section {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
-  .filters .actions {
-    justify-content: flex-start;
+  .form-group {
+    min-width: 100%;
+  }
+  .actions {
+    justify-content: stretch;
+    flex-direction: column;
+  }
+  .actions button {
+    width: 100%;
+    margin-top: 5px;
   }
   .matrix-table {
-    font-size: 10px;
+    font-size: 11px;
+    min-width: 500px;
   }
   .matrix-table th, .matrix-table td {
-    padding: 4px;
+    padding: 4px 2px;
   }
   .row-label, .row-sub-label {
-    min-width: 80px;
+    min-width: 70px;
+  }
+  .tabs button {
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  button, select, input {
+    font-size: 14px;
+    padding: 8px;
+  }
+  .modal-content {
+    width: 95%;
+    margin: 20px auto;
+    padding: 15px;
+  }
+  .employee-setting {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .employee-setting .name {
+    width: auto;
+  }
+  .employee-setting input, .employee-setting button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .matrix-table {
+    font-size: 12px;
+  }
+  .row-label, .row-sub-label {
+    min-width: 100px;
   }
 }
