@@ -266,7 +266,10 @@ function formatHeader(dateStr) {
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
-  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
+  if (!fromDateStr || !toDateStr) {
+    alert('Выберите период');
+    return;
+  }
 
   const stageFilter = filterStage.value;
   const employeeFilter = filterEmployeeSelect.value;
@@ -279,23 +282,37 @@ async function loadReports() {
 
   const days = generateDateRange(fromDateStr, toDateStr);
 
-  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
-  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
-  links.sort((a,b) => {
+  if (stageFilter !== 'all') {
+    links = links.filter(link => link.stage === stageFilter);
+  }
+  if (employeeFilter) {
+    links = links.filter(link => link.employee === employeeFilter);
+  }
+
+  links.sort((a, b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
 
+  // Создаём карту данных по дням для каждой связи
   const rows = links.map(link => {
     const daysMap = {};
-    for (const d of days) daysMap[d] = { count: 0, amount: 0 };
+    for (const d of days) {
+      daysMap[d] = { count: 0, amount: 0 };
+    }
     return { stage: link.stage, employee: link.employee, daysMap };
   });
+
+  // Заполняем данными из allData
   for (const item of allData) {
     if (!days.includes(item.date)) continue;
     const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
-    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
+    if (row) {
+      row.daysMap[item.date] = { count: item.count, amount: item.amount };
+    }
   }
+
+  // Подсчёт итогов по сотрудникам
   for (const row of rows) {
     let totalCount = 0, totalAmount = 0;
     for (const d of days) {
@@ -306,9 +323,12 @@ async function loadReports() {
     row.totalAmount = totalAmount;
   }
 
+  // Подсчёт итогов по этапам
   const stageTotals = new Map();
   for (const row of rows) {
-    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    if (!stageTotals.has(row.stage)) {
+      stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    }
     const st = stageTotals.get(row.stage);
     st.totalCount += row.totalCount;
     st.totalAmount += row.totalAmount;
@@ -316,6 +336,7 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
+  // Строим HTML таблицу
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
@@ -323,33 +344,36 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
-    html += '<td class="row-sub-label">кол-во</td>';
+    // Строка "кол-во"
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
+      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}<\/td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<tr><td class="row-sub-label">метраж</td>`;
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    // Строка "метраж"
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}</td>`;
+      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
-    html += `</tr>`;
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    html += `<\/tr>`;
   }
 
+  // Итоговые строки по этапам
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
-    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
-    html += `</tr>`;
-    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
-    for (let i = 0; i < days.length; i++) html += '<td></td>';
-    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
-    html += `</tr>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;"><\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td>`;
+    html += `<\/tr>`;
   }
 
   html += '</tbody></table>';
@@ -392,9 +416,14 @@ function attachEditHandlers() {
             await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
             alert('Запись удалена');
             await loadReports();
-          } else alert('Запись не найдена');
-        } catch (err) { alert('Ошибка удаления: ' + err.message); }
-        finally { setLoading(false); }
+          } else {
+            alert('Запись не найдена');
+          }
+        } catch (err) {
+          alert('Ошибка удаления: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
         return;
       }
       if (action === '1') {
@@ -425,9 +454,14 @@ function attachEditHandlers() {
           }
           alert('Обновлено');
           await loadReports();
-        } catch (err) { alert('Ошибка: ' + err.message); }
-        finally { setLoading(false); }
-      } else alert('Неверный выбор');
+        } catch (err) {
+          alert('Ошибка: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        alert('Неверный выбор');
+      }
     };
     cell.addEventListener('click', handler);
     cell._listener = handler;
@@ -483,34 +517,34 @@ async function exportToExcel() {
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
   lines.push('</head><body>');
   lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
   for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
   lines.push('<th>Итого</th></tr></thead><tbody>');
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`);
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.count === 0 ? '' : val.count}</td>`);
+      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
     }
-    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`);
-    lines.push(`<tr><td class="row-sub-label">метраж</td>`);
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.amount === 0 ? '' : val.amount}</td>`);
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
     }
-    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`);
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td></td>');
-    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`);
-    lines.push(`<tr><td colspan="2" class="row-label"></td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td></td>');
-    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`);
+    lines.push(`<td><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<\/td><\/tr>`);
+    lines.push(`<td><td colspan="2" class="row-label"><\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td><\/tr>`);
   }
 
   lines.push('</tbody></table></body></html>');
@@ -563,7 +597,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabReports.addEventListener('click', () => switchTab('reports'));
 });
 
-// Регистрация Service Worker и обработка обновлений
+// Регистрация Service Worker и уведомление об обновлении
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => console.log('SW registered:', reg))
