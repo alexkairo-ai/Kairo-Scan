@@ -95,13 +95,25 @@ button.secondary {
 }
 .actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
   margin-top: 12px;
 }
 .actions button {
-  width: 100%;
-  padding: 8px;
+  width: auto;
+  padding: 8px 16px;
+}
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.checkbox-label input {
+  width: auto;
+  margin: 0;
 }
 
 .stats-section {
@@ -145,6 +157,22 @@ button.secondary {
   vertical-align: middle;
   white-space: nowrap;
 }
+/* Фиксированная ширина для колонок с датами */
+.matrix-table th:not(:first-child):not(:nth-child(2)),
+.matrix-table td:not(:first-child):not(:nth-child(2)) {
+  min-width: 40px;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.matrix-table th:first-child, .matrix-table td:first-child {
+  min-width: 100px;
+  white-space: normal;
+  word-break: break-word;
+}
+.matrix-table th:nth-child(2), .matrix-table td:nth-child(2) {
+  min-width: 50px;
+}
 .matrix-table th {
   background: #2a2a36;
   font-weight: 600;
@@ -153,16 +181,12 @@ button.secondary {
   background: #2a2a36;
   text-align: left;
   font-weight: bold;
-  min-width: 100px;
-  white-space: normal;
-  word-break: break-word;
 }
 .matrix-table .row-sub-label {
   background: #2a2a36;
   text-align: left;
   font-weight: normal;
   font-style: italic;
-  min-width: 50px;
 }
 .matrix-table .count-cell,
 .matrix-table .amount-cell {
@@ -280,6 +304,46 @@ button.secondary {
   width: 100%;
   padding: 12px;
 }
+.login-box .checkbox-label {
+  display: flex;
+  justify-content: flex-start;
+  margin: 10px 0;
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-width: 480px) {
+  .matrix-table {
+    font-size: 10px;
+  }
+  .matrix-table th, .matrix-table td {
+    padding: 4px 2px;
+  }
+  .matrix-table th:not(:first-child):not(:nth-child(2)),
+  .matrix-table td:not(:first-child):not(:nth-child(2)) {
+    min-width: 30px;
+    max-width: 40px;
+  }
+  .login-box {
+    padding: 20px;
+  }
+  button, select, input {
+    font-size: 14px;
+    padding: 8px;
+  }
+  h1 {
+    font-size: 20px;
+  }
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actions button {
+    width: 100%;
+  }
+  .checkbox-label {
+    justify-content: flex-start;
+  }
+}
 
 @media (min-width: 768px) {
   .container {
@@ -302,9 +366,6 @@ button.secondary {
   .actions {
     flex-direction: row;
     justify-content: flex-end;
-  }
-  .actions button {
-    width: auto;
   }
   .employee-setting {
     flex-direction: row;
