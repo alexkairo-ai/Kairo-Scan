@@ -323,35 +323,33 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // строка кол-во
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
-    html += '<td class="row-sub-label">кол-во<\/td>';
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
+    html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}<\/td>`;
+      html += `<td class="count-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="count">${val.count === 0 ? '' : val.count}</td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
-    html += `<\/tr>`;
-    // строка метраж
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
+    html += `</tr>`;
+    html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
+      html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}</td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
-    html += `<\/tr>`;
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
-    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
-    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
-    html += `<\/tr>`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;"><\/td>`;
-    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
-    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td>`;
-    html += `<\/tr>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
+    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}</td>`;
+    html += `</tr>`;
+    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;"></td>`;
+    for (let i = 0; i < days.length; i++) html += '<td></td>';
+    html += `<td class="amount-cell">${totals.totalAmount === 0 ? '' : totals.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
   html += '</tbody></table>';
@@ -491,28 +489,28 @@ async function exportToExcel() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td><td class="row-sub-label">кол-во</td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
+      lines.push(`<td>${val.count === 0 ? '' : val.count}</td>`);
     }
-    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
-    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}</td></tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж</td>`);
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}</td>`);
     }
-    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}</td></tr>`);
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
-    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}<\/td><\/tr>`);
-    lines.push(`<tr><td colspan="2" class="row-label"><\/td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
-    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}<\/td><\/tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)</td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td></td>');
+    lines.push(`<td>${totals.totalCount === 0 ? '' : totals.totalCount}</td></tr>`);
+    lines.push(`<tr><td colspan="2" class="row-label"></td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td></td>');
+    lines.push(`<td>${totals.totalAmount === 0 ? '' : totals.totalAmount}</td></tr>`);
   }
 
   lines.push('</tbody></table></body></html>');
@@ -565,9 +563,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabReports.addEventListener('click', () => switchTab('reports'));
 });
 
-// Регистрация Service Worker
+// Регистрация Service Worker и обработка обновлений
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => console.log('SW registered:', reg))
     .catch(err => console.error('SW registration failed:', err));
+  
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const toast = document.createElement('div');
+    toast.textContent = '🔄 Доступна новая версия. Нажмите для обновления.';
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.left = '20px';
+    toast.style.right = '20px';
+    toast.style.backgroundColor = '#caa24f';
+    toast.style.color = '#000';
+    toast.style.padding = '12px';
+    toast.style.borderRadius = '12px';
+    toast.style.textAlign = 'center';
+    toast.style.zIndex = '9999';
+    toast.style.fontWeight = 'bold';
+    toast.style.cursor = 'pointer';
+    toast.onclick = () => window.location.reload();
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 10000);
+  });
 }
