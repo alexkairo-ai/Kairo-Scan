@@ -4,9 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ИТОГИ ДНЯ</title>
-  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Иконки для iOS -->
+  <link rel="apple-touch-icon" sizes="180x180" href="180x180.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="167x167.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="152x152.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="120x120.png">
+  
+  <!-- Фавикон -->
+  <link rel="icon" type="image/x-icon" href="favicon_32x32.ico">
+  <link rel="shortcut icon" href="favicon_32x32.ico">
+  
+  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0c0f">
+  
   <!-- Firebase SDK v8 -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -23,95 +35,111 @@
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
   </script>
+  
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="container">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
-    <h1>📊 ИТОГИ ДНЯ</h1>
-    <button id="adminBtn" class="secondary" style="width: auto;">👥 Управление сотрудниками</button>
-  </div>
-  <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
-  <div class="tabs">
-    <button id="tabInput" class="active">Ввод данных</button>
-    <button id="tabReports">Просмотр отчётов</button>
-  </div>
 
-  <!-- Панель ввода данных -->
-  <div id="inputPanel" class="panel">
-    <div class="form-row">
-      <div class="form-group">
-        <label>Дата</label>
-        <input type="date" id="reportDate">
-      </div>
-      <div class="form-group">
-        <label>Сотрудник</label>
-        <select id="employeeSelect">
-          <option value="">-- Выберите имя --</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Этап</label>
-        <select id="stageSelect">
-          <option value="">-- Выберите этап --</option>
-          <option value="pila">Пила</option>
-          <option value="kromka">Кромка</option>
-          <option value="prisadka">Присадка</option>
-          <option value="upakovka">Упаковка</option>
-          <option value="hdf">Пила ХДФ</option>
-        </select>
-      </div>
-    </div>
-    <div class="stats-section">
-      <div class="form-group">
-        <label>Количество заказов</label>
-        <input type="number" id="orderCount" step="1" min="0" value="">
-      </div>
-      <div class="form-group">
-        <label>Метраж / кол-во упаковок</label>
-        <input type="number" id="totalAmount" step="any" value="">
-      </div>
-    </div>
-    <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
+<!-- Форма входа -->
+<div id="loginScreen" class="login-container">
+  <div class="login-box">
+    <h2>🔐 Вход в ИТОГИ ДНЯ</h2>
+    <input type="password" id="passwordInput" placeholder="Введите пароль" autocomplete="off">
+    <button id="loginBtn" class="primary">Войти</button>
+    <div id="loginError" style="color: red; margin-top: 10px;"></div>
   </div>
+</div>
 
-  <!-- Панель просмотра отчётов -->
-  <div id="reportsPanel" class="panel" style="display:none;">
-    <div class="filters">
-      <div class="form-group">
-        <label>Дата с</label>
-        <input type="date" id="filterDateFrom">
-      </div>
-      <div class="form-group">
-        <label>Дата по</label>
-        <input type="date" id="filterDateTo">
-      </div>
-      <div class="form-group">
-        <label>Этап</label>
-        <select id="filterStage">
-          <option value="all">Все этапы</option>
-          <option value="pila">Пила</option>
-          <option value="kromka">Кромка</option>
-          <option value="prisadka">Присадка</option>
-          <option value="upakovka">Упаковка</option>
-          <option value="hdf">Пила ХДФ</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Сотрудник</label>
-        <select id="filterEmployeeSelect">
-          <option value="">Все сотрудники</option>
-        </select>
-      </div>
-      <div class="actions">
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="adminModeCheckbox"> Режим администратора
-        </label>
-        <button id="applyFilters" class="secondary">Показать</button>
-        <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
-      </div>
+<!-- Основной контент (скрыт до входа) -->
+<div id="appContent" style="display: none;">
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>📊 ИТОГИ ДНЯ</h1>
+      <button id="adminBtn" class="secondary" style="width: auto;">👥 Управление сотрудниками</button>
     </div>
-    <div class="table-wrapper">
-      <div id="matrixContainer"></div>
+    <div id="loadingIndicator" style="display: none; text-align: center;">⏳ Загрузка...</div>
+    <div class="tabs">
+      <button id="tabInput" class="active">Ввод данных</button>
+      <button id="tabReports">Просмотр отчётов</button>
+    </div>
+
+    <!-- Панель ввода данных -->
+    <div id="inputPanel" class="panel">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Дата</label>
+          <input type="date" id="reportDate">
+        </div>
+        <div class="form-group">
+          <label>Сотрудник</label>
+          <select id="employeeSelect">
+            <option value="">-- Выберите имя --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Этап</label>
+          <select id="stageSelect">
+            <option value="">-- Выберите этап --</option>
+            <option value="pila">Пила</option>
+            <option value="kromka">Кромка</option>
+            <option value="prisadka">Присадка</option>
+            <option value="upakovka">Упаковка</option>
+            <option value="hdf">Пила ХДФ</option>
+          </select>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="form-group">
+          <label>Количество заказов</label>
+          <input type="number" id="orderCount" step="1" min="0" value="">
+        </div>
+        <div class="form-group">
+          <label>Метраж / кол-во упаковок</label>
+          <input type="number" id="totalAmount" step="any" value="">
+        </div>
+      </div>
+      <button id="saveBtn" class="primary">💾 Сохранить итоги</button>
+    </div>
+
+    <!-- Панель просмотра отчётов -->
+    <div id="reportsPanel" class="panel" style="display:none;">
+      <div class="filters">
+        <div class="form-group">
+          <label>Дата с</label>
+          <input type="date" id="filterDateFrom">
+        </div>
+        <div class="form-group">
+          <label>Дата по</label>
+          <input type="date" id="filterDateTo">
+        </div>
+        <div class="form-group">
+          <label>Этап</label>
+          <select id="filterStage">
+            <option value="all">Все этапы</option>
+            <option value="pila">Пила</option>
+            <option value="kromka">Кромка</option>
+            <option value="prisadka">Присадка</option>
+            <option value="upakovka">Упаковка</option>
+            <option value="hdf">Пила ХДФ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Сотрудник</label>
+          <select id="filterEmployeeSelect">
+            <option value="">Все сотрудники</option>
+          </select>
+        </div>
+        <div class="actions">
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="adminModeCheckbox"> Режим администратора
+          </label>
+          <button id="applyFilters" class="secondary">Показать</button>
+          <button id="exportExcel" class="secondary">📎 Экспорт в Excel</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <div id="matrixContainer"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -140,5 +168,33 @@
 </div>
 
 <script src="app.js"></script>
+<script>
+  // Авторизация
+  const CORRECT_PASSWORD = 'kairo2026'; // смените на свой пароль
+  const loginScreen = document.getElementById('loginScreen');
+  const appContent = document.getElementById('appContent');
+  const passwordInput = document.getElementById('passwordInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+
+  if (sessionStorage.getItem('loggedIn') === 'true') {
+    loginScreen.style.display = 'none';
+    appContent.style.display = 'block';
+  } else {
+    loginScreen.style.display = 'flex';
+    appContent.style.display = 'none';
+  }
+
+  loginBtn.addEventListener('click', () => {
+    if (passwordInput.value === CORRECT_PASSWORD) {
+      sessionStorage.setItem('loggedIn', 'true');
+      loginScreen.style.display = 'none';
+      appContent.style.display = 'block';
+      if (typeof loadEmployeesList === 'function') loadEmployeesList();
+    } else {
+      loginError.textContent = 'Неверный пароль';
+    }
+  });
+</script>
 </body>
-</html>
+</html>ф
