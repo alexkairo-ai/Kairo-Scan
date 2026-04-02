@@ -207,7 +207,7 @@ async function saveTotals() {
   }
 }
 
-// ========== ЗАГРУЗКА ДАННЫХ ДЛЯ ОТЧЁТОВ ==========
+// ========== ЗАГРУЗКА ДАННЫХ ==========
 async function loadAllData() {
   try {
     const snapshot = await db.collection('daily_totals').get();
@@ -257,39 +257,32 @@ async function loadReports() {
   const allData = await loadAllData();
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  // Получаем все комбинации (этап, сотрудник), которые есть в данных ЗА ВСЁ ВРЕМЯ (не только за период)
-  const allCombos = new Map(); // key: stage|employee
-  for (const item of allData) {
+  // Фильтруем данные по периоду, этапу, сотруднику
+  let filtered = allData.filter(item => {
+    if (!days.includes(item.date)) return false;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
+    if (employeeFilter && item.employee !== employeeFilter) return false;
+    return true;
+  });
+  
+  // Строим карту комбинаций (этап, сотрудник) из отфильтрованных данных
+  const combosMap = new Map();
+  for (const item of filtered) {
     const key = `${item.stage}|${item.employee}`;
-    if (!allCombos.has(key)) {
-      allCombos.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
+    if (!combosMap.has(key)) {
+      combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
     }
+    combosMap.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
   }
   
-  // Заполняем daysMap данными за выбранный период
-  for (const item of allData) {
-    if (!days.includes(item.date)) continue;
-    const key = `${item.stage}|${item.employee}`;
-    if (allCombos.has(key)) {
-      allCombos.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
-    }
-  }
-  
-  // Применяем фильтры
-  let rows = Array.from(allCombos.values());
-  if (stageFilter !== 'all') {
-    rows = rows.filter(row => row.stage === stageFilter);
-  }
-  if (employeeFilter) {
-    rows = rows.filter(row => row.employee === employeeFilter);
-  }
-  
+  // Преобразуем в массив и сортируем
+  let rows = Array.from(combosMap.values());
   rows.sort((a, b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
   
-  // Подсчёт итогов за период для каждой строки
+  // Подсчёт итогов по сотрудникам за период
   for (const row of rows) {
     let totalCount = 0, totalAmount = 0;
     for (const d of days) {
@@ -301,6 +294,15 @@ async function loadReports() {
     row.totalAmount = totalAmount;
   }
   
+  // Подсчёт итогов по этапам
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount;
+    st.totalAmount += row.totalAmount;
+  }
+  
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   
   let html = '<table class="matrix-table"><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
@@ -309,7 +311,6 @@ async function loadReports() {
   
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // Строка "кол-во"
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
     html += '<td class="row-sub-label">кол-во</td>';
     for (const d of days) {
@@ -318,7 +319,6 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
     html += `</tr>`;
-    // Строка "метраж"
     html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d] || { count: 0, amount: 0 };
@@ -328,14 +328,7 @@ async function loadReports() {
     html += `</tr>`;
   }
   
-  // Итоги по этапам
-  const stageTotals = new Map();
-  for (const row of rows) {
-    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
-    const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount;
-    st.totalAmount += row.totalAmount;
-  }
+  // Итоговые строки по этапам
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)</td>`;
@@ -354,7 +347,7 @@ async function loadReports() {
   setLoading(false);
 }
 
-// Редактирование и удаление (без изменений, но оставляем)
+// Редактирование и удаление
 function attachEditHandlers() {
   const cells = document.querySelectorAll('.count-cell, .amount-cell');
   cells.forEach(cell => {
@@ -441,7 +434,7 @@ function attachEditHandlers() {
   });
 }
 
-// Экспорт в Excel (аналогично, без добавления лишних комбинаций)
+// ========== ЭКСПОРТ В EXCEL (исправлен) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -453,82 +446,96 @@ async function exportToExcel() {
   const allData = await loadAllData();
   const days = generateDateRange(fromDateStr, toDateStr);
   
-  const allCombos = new Map();
-  for (const item of allData) {
+  let filtered = allData.filter(item => {
+    if (!days.includes(item.date)) return false;
+    if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
+    if (employeeFilter && item.employee !== employeeFilter) return false;
+    return true;
+  });
+  
+  const combosMap = new Map();
+  for (const item of filtered) {
     const key = `${item.stage}|${item.employee}`;
-    if (!allCombos.has(key)) allCombos.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
-  }
-  for (const item of allData) {
-    if (!days.includes(item.date)) continue;
-    const key = `${item.stage}|${item.employee}`;
-    if (allCombos.has(key)) {
-      allCombos.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
-    }
+    if (!combosMap.has(key)) combosMap.set(key, { stage: item.stage, employee: item.employee, daysMap: {} });
+    combosMap.get(key).daysMap[item.date] = { count: item.count, amount: item.amount };
   }
   
-  let rows = Array.from(allCombos.values());
-  if (stageFilter !== 'all') rows = rows.filter(r => r.stage === stageFilter);
-  if (employeeFilter) rows = rows.filter(r => r.employee === employeeFilter);
-  rows.sort((a,b) => {
+  let rows = Array.from(combosMap.values());
+  rows.sort((a, b) => {
     if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
     return a.stage.localeCompare(b.stage);
   });
+  
   for (const row of rows) {
-    let tc=0, ta=0;
+    let tc = 0, ta = 0;
     for (const d of days) {
-      const v = row.daysMap[d] || { count:0, amount:0 };
-      tc += v.count; ta += v.amount;
+      const v = row.daysMap[d] || { count: 0, amount: 0 };
+      tc += v.count;
+      ta += v.amount;
     }
-    row.totalCount = tc; row.totalAmount = ta;
+    row.totalCount = tc;
+    row.totalAmount = ta;
   }
   
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-  let html = '<html><head><meta charset="UTF-8"><title>Итоги</title>';
-  html += '<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>';
-  html += '</head><body>';
-  html += '<h2>Итоги за ' + fromDateStr + ' — ' + toDateStr + '</h2>';
-  html += '<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>';
-  for (const d of days) html += '<th>' + formatHeader(d) + '</th>';
-  html += '<th>Итого</th></tr></thead><tbody>';
+  
+  // Формируем HTML для Excel с использованием массива для сборки, чтобы избежать синтаксических ошибок
+  let html = [];
+  html.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
+  html.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
+  html.push('</head><body>');
+  html.push('<h2>Итоги за ' + fromDateStr + ' — ' + toDateStr + '</h2>');
+  html.push('<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  for (const d of days) {
+    html.push('<th>' + formatHeader(d) + '</th>');
+  }
+  html.push('<th>Итого</th></tr></thead><tbody>');
   
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += '<tr><td rowspan="2" class="row-label">' + stageDisplay + '<br>' + escapeHtml(row.employee) + '</td>';
-    html += '<td class="row-sub-label">кол-во</td>';
+    // Строка "кол-во"
+    html.push('<tr>');
+    html.push('<td rowspan="2" class="row-label">' + stageDisplay + '<br>' + escapeHtml(row.employee) + '</td>');
+    html.push('<td class="row-sub-label">кол-во</td>');
     for (const d of days) {
-      const v = row.daysMap[d] || { count:0, amount:0 };
-      html += '<td>' + (v.count === 0 ? '' : v.count) + '</td>';
+      const v = row.daysMap[d] || { count: 0, amount: 0 };
+      html.push('<td>' + (v.count === 0 ? '' : v.count) + '</td>');
     }
-    html += '<td>' + (row.totalCount === 0 ? '' : row.totalCount) + '</td></tr>';
-    html += '<tr><td class="row-sub-label">метраж</td>';
+    html.push('<td>' + (row.totalCount === 0 ? '' : row.totalCount) + '</td></tr>');
+    // Строка "метраж"
+    html.push('<tr>');
+    html.push('<td class="row-sub-label">метраж</td>');
     for (const d of days) {
-      const v = row.daysMap[d] || { count:0, amount:0 };
-      html += '<td>' + (v.amount === 0 ? '' : v.amount) + '</td>';
+      const v = row.daysMap[d] || { count: 0, amount: 0 };
+      html.push('<td>' + (v.amount === 0 ? '' : v.amount) + '</td>');
     }
-    html += '<td>' + (row.totalAmount === 0 ? '' : row.totalAmount) + '</td></tr>';
+    html.push('<td>' + (row.totalAmount === 0 ? '' : row.totalAmount) + '</td></tr>');
   }
   
+  // Итоги по этапам
   const stageTotals = new Map();
   for (const row of rows) {
-    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount:0, totalAmount:0 });
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
     const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
+    st.totalCount += row.totalCount;
+    st.totalAmount += row.totalAmount;
   }
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    html += '<tr><td colspan="2" class="row-label">' + stageDisplay + ' (всего)</td>';
-    for (let i=0; i<days.length; i++) html += '<td></td>';
-    html += '<td>' + (totals.totalCount === 0 ? '' : totals.totalCount) + '</td></tr>';
-    html += '<tr><td colspan="2" class="row-label"></td>';
-    for (let i=0; i<days.length; i++) html += '<td></td>';
-    html += '<td>' + (totals.totalAmount === 0 ? '' : totals.totalAmount) + '</td></tr>';
+    html.push('<tr><td colspan="2" class="row-label">' + stageDisplay + ' (всего)</td>');
+    for (let i = 0; i < days.length; i++) html.push('<td></td>');
+    html.push('<td>' + (totals.totalCount === 0 ? '' : totals.totalCount) + '</td></tr>');
+    html.push('<tr><td colspan="2" class="row-label"></td>');
+    for (let i = 0; i < days.length; i++) html.push('<td></td>');
+    html.push('<td>' + (totals.totalAmount === 0 ? '' : totals.totalAmount) + '</td></tr>');
   }
   
-  html += '</tbody></table></body></html>';
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  html.push('</tbody></table></body></html>');
+  const htmlString = html.join('');
+  const blob = new Blob([htmlString], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'totals_' + fromDateStr + '_' + toDateStr + '.xls';
+  link.download = `totals_${fromDateStr}_${toDateStr}.xls`;
   link.click();
   URL.revokeObjectURL(link.href);
   setLoading(false);
@@ -550,6 +557,7 @@ function switchTab(tab) {
 }
 
 function escapeHtml(str) {
+  if (!str) return '';
   return String(str).replace(/[&<>]/g, function(m) {
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
