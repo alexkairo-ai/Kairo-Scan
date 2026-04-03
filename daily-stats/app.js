@@ -331,7 +331,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -354,19 +354,24 @@ async function loadReports() {
   setLoading(false);
 }
 
-// ==== ЕДИНСТВЕННЫЙ ОБРАБОТЧИК РЕДАКТИРОВАНИЯ (с отладкой) ====
+// ==== ОБРАБОТЧИК РЕДАКТИРОВАНИЯ С ПОДРОБНЫМИ ЛОГАМИ ====
 matrixContainer.addEventListener('click', async (e) => {
-  console.log('Клик в matrixContainer, цель:', e.target);
+  console.log('=== НАЧАЛО ОБРАБОТКИ ===');
+  console.log('Цель события:', e.target);
   const cell = e.target.closest('.count-cell, .amount-cell');
   if (!cell) {
-    console.log('Не ячейка');
-    return;
-  }
-  if (!cell.dataset.stage) {
-    console.log('Нет data-stage');
+    console.log('Не ячейка, выход');
     return;
   }
   console.log('Ячейка найдена:', cell);
+  if (!cell.dataset.stage) {
+    console.log('Нет data-stage, выход');
+    return;
+  }
+  console.log('data-stage:', cell.dataset.stage);
+  console.log('data-employee:', cell.dataset.employee);
+  console.log('data-date:', cell.dataset.date);
+  console.log('data-field:', cell.dataset.field);
 
   e.stopPropagation();
   const stage = cell.dataset.stage;
@@ -374,15 +379,21 @@ matrixContainer.addEventListener('click', async (e) => {
   const dateStr = cell.dataset.date;
   const field = cell.dataset.field;
   const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
+  console.log('currentValue:', currentValue);
+
   const isAdmin = adminModeCheckbox.checked;
   const currentUser = employeeSelect.value;
+  console.log('isAdmin:', isAdmin, 'currentUser:', currentUser);
 
   if (!isAdmin && currentUser !== employee) {
     alert('Редактировать можно только свои данные (или включите режим администратора)');
+    console.log('Отказ по правам');
     return;
   }
 
+  console.log('Показываем prompt');
   const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
+  console.log('action:', action);
   if (action === null) return;
 
   if (action === '2') {
@@ -411,6 +422,7 @@ matrixContainer.addEventListener('click', async (e) => {
 
   if (action === '1') {
     const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
+    console.log('newValue:', newValue);
     if (newValue === null) return;
     const numValue = parseFloat(newValue);
     if (isNaN(numValue)) {
@@ -499,7 +511,7 @@ async function exportToExcel() {
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
   lines.push('</head><body>');
   lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  lines.push('</table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
   for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
   lines.push('<th>Итого</th></tr></thead><tbody>');
 
@@ -522,7 +534,7 @@ async function exportToExcel() {
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    lines.push(`<td><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
     for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
     lines.push(`<td>${totalText}<\/td><\/tr>`);
   }
