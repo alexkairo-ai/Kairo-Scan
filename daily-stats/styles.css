@@ -76,7 +76,6 @@ select, input, button {
   color: #fff;
   font-size: 14px;
 }
-/* Фиксируем ширину полей даты, чтобы они не растягивались */
 input[type="date"] {
   max-width: 160px;
 }
@@ -265,7 +264,7 @@ button.secondary {
   padding: 6px;
 }
 
-/* Форма входа */
+/* ФОРМА ВХОДА – ИСПРАВЛЕНА */
 .login-container {
   position: fixed;
   top: 0;
@@ -280,16 +279,17 @@ button.secondary {
 }
 .login-box {
   background: #1e1e2a;
-  padding: 30px;
+  padding: 30px 20px;
   border-radius: 20px;
   text-align: center;
   width: 90%;
-  max-width: 350px;
+  max-width: 320px;
   border: 1px solid #caa24f;
 }
 .login-box h2 {
   margin-bottom: 20px;
   color: #caa24f;
+  font-size: 20px;
 }
 .login-box input {
   width: 100%;
@@ -302,8 +302,16 @@ button.secondary {
 }
 .login-box .checkbox-label {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   margin: 10px 0;
+  font-size: 14px;
+}
+.login-box .checkbox-label input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
 }
 
 /* Адаптация для маленьких экранов */
@@ -315,7 +323,11 @@ button.secondary {
     padding: 4px 2px;
   }
   .login-box {
-    padding: 20px;
+    padding: 20px 15px;
+    max-width: 280px;
+  }
+  .login-box h2 {
+    font-size: 18px;
   }
   button, select, input {
     font-size: 14px;
@@ -332,7 +344,7 @@ button.secondary {
     width: 100%;
   }
   .checkbox-label {
-    justify-content: center;
+    justify-content: flex-start;
   }
   input[type="date"] {
     max-width: 100%;
