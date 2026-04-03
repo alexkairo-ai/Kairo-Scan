@@ -340,7 +340,6 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам в одной строке
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
@@ -355,145 +354,11 @@ async function loadReports() {
   setLoading(false);
 }
 
-async function exportToExcel() {
-  const fromDateStr = filterDateFrom.value;
-  const toDateStr = filterDateTo.value;
-  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
-  const stageFilter = filterStage.value;
-  const employeeFilter = filterEmployeeSelect.value;
-
-  setLoading(true, 'Экспорт...');
-  const allData = await loadAllData();
-  let links = await loadAllLinks();
-  if (links.length === 0) await migrateLinks();
-  links = await loadAllLinks();
-  const days = generateDateRange(fromDateStr, toDateStr);
-
-  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
-  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
-  links.sort((a,b) => {
-    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
-    return a.stage.localeCompare(b.stage);
-  });
-
-  const rows = links.map(link => {
-    const daysMap = {};
-    for (const d of days) daysMap[d] = { count: 0, amount: 0 };
-    return { stage: link.stage, employee: link.employee, daysMap };
-  });
-  for (const item of allData) {
-    if (!days.includes(item.date)) continue;
-    const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
-    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
-  }
-  for (const row of rows) {
-    let tc = 0, ta = 0;
-    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
-    row.totalCount = tc; row.totalAmount = ta;
-  }
-  const stageTotals = new Map();
-  for (const row of rows) {
-    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
-    const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
-  }
-  const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
-
-  let lines = [];
-  lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
-  lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
-  lines.push('</head><body>');
-  lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
-  for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
-  lines.push('<th>Итого</th></tr></thead><tbody>');
-
-  for (const row of rows) {
-    const stageDisplay = stageNames[row.stage] || row.stage;
-    lines.push(`<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
-    for (const d of days) {
-      const val = row.daysMap[d];
-      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
-    }
-    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
-    lines.push(`<td><td class="row-sub-label">метраж<\/td>`);
-    for (const d of days) {
-      const val = row.daysMap[d];
-      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
-    }
-    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
-  }
-
-  for (const [stageKey, totals] of stageTotals.entries()) {
-    const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
-    lines.push(`<td>${totalText}<\/td><\/tr>`);
-  }
-
-  lines.push('</tbody></table></body></html>');
-  const html = lines.join('');
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `totals_${fromDateStr}_${toDateStr}.xls`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  setLoading(false);
-}
-
-function switchTab(tab) {
-  if (tab === 'input') {
-    inputPanel.style.display = 'block';
-    reportsPanel.style.display = 'none';
-    tabInput.classList.add('active');
-    tabReports.classList.remove('active');
-  } else {
-    inputPanel.style.display = 'none';
-    reportsPanel.style.display = 'block';
-    tabReports.classList.add('active');
-    tabInput.classList.remove('active');
-    loadReports();
-  }
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-}
-
-adminBtn.addEventListener('click', () => { renderAdminModal(); adminModal.style.display = 'block'; });
-closeModal.addEventListener('click', () => adminModal.style.display = 'none');
-window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
-addEmployeeBtn.addEventListener('click', () => {
-  const name = newEmployeeName.value.trim();
-  if (name) addEmployee(name);
-  newEmployeeName.value = '';
-});
-resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadEmployeesList();
-  await migrateLinks();
-  saveBtn.addEventListener('click', saveTotals);
-  applyFiltersBtn.addEventListener('click', loadReports);
-  exportExcelBtn.addEventListener('click', exportToExcel);
-  tabInput.addEventListener('click', () => switchTab('input'));
-  tabReports.addEventListener('click', () => switchTab('reports'));
-});
-
-// Регистрация Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js')
-    .then(reg => console.log('SW registered:', reg))
-    .catch(err => console.error('SW registration failed:', err));
-}
-
-// Глобальный обработчик кликов для редактирования ячеек (делегирование)
+// Глобальный обработчик кликов на ячейки (работает всегда, даже после перерисовки)
 matrixContainer.addEventListener('click', async (e) => {
   const cell = e.target.closest('.count-cell, .amount-cell');
   if (!cell) return;
-  if (!cell.dataset.stage) return;
+  if (!cell.dataset.stage) return; // не наша ячейка
 
   e.stopPropagation();
   const stage = cell.dataset.stage;
@@ -576,3 +441,137 @@ matrixContainer.addEventListener('click', async (e) => {
     alert('Неверный выбор');
   }
 });
+
+async function exportToExcel() {
+  const fromDateStr = filterDateFrom.value;
+  const toDateStr = filterDateTo.value;
+  if (!fromDateStr || !toDateStr) { alert('Выберите период'); return; }
+  const stageFilter = filterStage.value;
+  const employeeFilter = filterEmployeeSelect.value;
+
+  setLoading(true, 'Экспорт...');
+  const allData = await loadAllData();
+  let links = await loadAllLinks();
+  if (links.length === 0) await migrateLinks();
+  links = await loadAllLinks();
+  const days = generateDateRange(fromDateStr, toDateStr);
+
+  if (stageFilter !== 'all') links = links.filter(l => l.stage === stageFilter);
+  if (employeeFilter) links = links.filter(l => l.employee === employeeFilter);
+  links.sort((a,b) => {
+    if (a.stage === b.stage) return a.employee.localeCompare(b.employee);
+    return a.stage.localeCompare(b.stage);
+  });
+
+  const rows = links.map(link => {
+    const daysMap = {};
+    for (const d of days) daysMap[d] = { count: 0, amount: 0 };
+    return { stage: link.stage, employee: link.employee, daysMap };
+  });
+  for (const item of allData) {
+    if (!days.includes(item.date)) continue;
+    const row = rows.find(r => r.stage === item.stage && r.employee === item.employee);
+    if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
+  }
+  for (const row of rows) {
+    let tc = 0, ta = 0;
+    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
+    row.totalCount = tc; row.totalAmount = ta;
+  }
+  const stageTotals = new Map();
+  for (const row of rows) {
+    if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
+    const st = stageTotals.get(row.stage);
+    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
+  }
+  const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+
+  let lines = [];
+  lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
+  lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
+  lines.push('</head><body>');
+  lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
+  lines.push('<table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
+  lines.push('<th>Итого</th></tr></thead><tbody>');
+
+  for (const row of rows) {
+    const stageDisplay = stageNames[row.stage] || row.stage;
+    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
+    for (const d of days) {
+      const val = row.daysMap[d];
+      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
+    }
+    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
+    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
+    for (const d of days) {
+      const val = row.daysMap[d];
+      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
+    }
+    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
+  }
+
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageDisplay = stageNames[stageKey] || stageKey;
+    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
+    lines.push(`<td>${totalText}<\/td><\/tr>`);
+  }
+
+  lines.push('</tbody></table></body></html>');
+  const html = lines.join('');
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `totals_${fromDateStr}_${toDateStr}.xls`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setLoading(false);
+}
+
+function switchTab(tab) {
+  if (tab === 'input') {
+    inputPanel.style.display = 'block';
+    reportsPanel.style.display = 'none';
+    tabInput.classList.add('active');
+    tabReports.classList.remove('active');
+  } else {
+    inputPanel.style.display = 'none';
+    reportsPanel.style.display = 'block';
+    tabReports.classList.add('active');
+    tabInput.classList.remove('active');
+    loadReports();
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+adminBtn.addEventListener('click', () => { renderAdminModal(); adminModal.style.display = 'block'; });
+closeModal.addEventListener('click', () => adminModal.style.display = 'none');
+window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
+addEmployeeBtn.addEventListener('click', () => {
+  const name = newEmployeeName.value.trim();
+  if (name) addEmployee(name);
+  newEmployeeName.value = '';
+});
+resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadEmployeesList();
+  await migrateLinks();
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+});
+
+// Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(reg => console.log('SW registered:', reg))
+    .catch(err => console.error('SW registration failed:', err));
+}
