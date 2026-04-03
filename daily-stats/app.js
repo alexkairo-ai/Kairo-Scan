@@ -323,7 +323,7 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
@@ -331,7 +331,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -350,98 +350,110 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></tr>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
+  
+  // НАВЕШИВАЕМ ОБРАБОТЧИКИ ПОСЛЕ КАЖДОЙ ПЕРЕРИСОВКИ
+  attachEditHandlers();
+  
   setLoading(false);
 }
 
-// ========== ДЕЛЕГИРОВАНИЕ СОБЫТИЙ ДЛЯ РЕДАКТИРОВАНИЯ (одна привязка) ==========
-matrixContainer.addEventListener('click', async (e) => {
-  const cell = e.target.closest('.count-cell, .amount-cell');
-  if (!cell) return;
-  if (!cell.dataset.stage) return; // только ячейки с данными
-
-  e.stopPropagation();
-  const stage = cell.dataset.stage;
-  const employee = cell.dataset.employee;
-  const dateStr = cell.dataset.date;
-  const field = cell.dataset.field;
-  const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
-  const isAdmin = adminModeCheckbox.checked;
-  const currentUser = employeeSelect.value;
-
-  if (!isAdmin && currentUser !== employee) {
-    alert('Редактировать можно только свои данные (или включите режим администратора)');
-    return;
-  }
-
-  const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
-  if (action === null) return;
-
-  if (action === '2') {
-    if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
-    setLoading(true, 'Удаление...');
-    try {
-      const snapshot = await db.collection('daily_totals')
-        .where('date', '==', dateStr)
-        .where('employee', '==', employee)
-        .where('stage', '==', stage)
-        .get();
-      if (!snapshot.empty) {
-        await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
-        alert('Запись удалена');
-        await loadReports();
-      } else {
-        alert('Запись не найдена');
+function attachEditHandlers() {
+  const cells = document.querySelectorAll('.count-cell, .amount-cell');
+  cells.forEach(cell => {
+    if (!cell.dataset.stage) return;
+    // Удаляем старый обработчик, если есть
+    if (cell._listener) {
+      cell.removeEventListener('click', cell._listener);
+    }
+    const handler = async (e) => {
+      e.stopPropagation();
+      const stage = cell.dataset.stage;
+      const employee = cell.dataset.employee;
+      const dateStr = cell.dataset.date;
+      const field = cell.dataset.field;
+      const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
+      const isAdmin = adminModeCheckbox.checked;
+      const currentUser = employeeSelect.value;
+      
+      if (!isAdmin && currentUser !== employee) {
+        alert('Редактировать можно только свои данные (или включите режим администратора)');
+        return;
       }
-    } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-    return;
-  }
-
-  if (action === '1') {
-    const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
-    if (newValue === null) return;
-    const numValue = parseFloat(newValue);
-    if (isNaN(numValue)) {
-      alert('Введите число');
-      return;
-    }
-    setLoading(true, 'Обновление...');
-    try {
-      const snapshot = await db.collection('daily_totals')
-        .where('date', '==', dateStr)
-        .where('employee', '==', employee)
-        .where('stage', '==', stage)
-        .get();
-      if (snapshot.empty) {
-        await db.collection('daily_totals').add({
-          date: dateStr, employee, stage,
-          count: field === 'count' ? numValue : 0,
-          amount: field === 'amount' ? numValue : 0,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } else {
-        const docId = snapshot.docs[0].id;
-        const update = {};
-        if (field === 'count') update.count = numValue;
-        else update.amount = numValue;
-        await db.collection('daily_totals').doc(docId).update(update);
+      
+      const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
+      if (action === null) return;
+      
+      if (action === '2') {
+        if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
+        setLoading(true, 'Удаление...');
+        try {
+          const snapshot = await db.collection('daily_totals')
+            .where('date', '==', dateStr)
+            .where('employee', '==', employee)
+            .where('stage', '==', stage)
+            .get();
+          if (!snapshot.empty) {
+            await db.collection('daily_totals').doc(snapshot.docs[0].id).delete();
+            alert('Запись удалена');
+            await loadReports();
+          } else {
+            alert('Запись не найдена');
+          }
+        } catch (err) {
+          alert('Ошибка удаления: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+        return;
       }
-      alert('Обновлено');
-      await loadReports();
-    } catch (err) {
-      alert('Ошибка: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  } else {
-    alert('Неверный выбор');
-  }
-});
+      
+      if (action === '1') {
+        const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
+        if (newValue === null) return;
+        const numValue = parseFloat(newValue);
+        if (isNaN(numValue)) {
+          alert('Введите число');
+          return;
+        }
+        setLoading(true, 'Обновление...');
+        try {
+          const snapshot = await db.collection('daily_totals')
+            .where('date', '==', dateStr)
+            .where('employee', '==', employee)
+            .where('stage', '==', stage)
+            .get();
+          if (snapshot.empty) {
+            await db.collection('daily_totals').add({
+              date: dateStr, employee, stage,
+              count: field === 'count' ? numValue : 0,
+              amount: field === 'amount' ? numValue : 0,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } else {
+            const docId = snapshot.docs[0].id;
+            const update = {};
+            if (field === 'count') update.count = numValue;
+            else update.amount = numValue;
+            await db.collection('daily_totals').doc(docId).update(update);
+          }
+          alert('Обновлено');
+          await loadReports();
+        } catch (err) {
+          alert('Ошибка: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        alert('Неверный выбор');
+      }
+    };
+    cell.addEventListener('click', handler);
+    cell._listener = handler;
+    cell.style.cursor = 'pointer';
+  });
+}
 
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
@@ -492,7 +504,7 @@ async function exportToExcel() {
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
   lines.push('</head><body>');
   lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('</table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
   for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
   lines.push('<th>Итого</th></tr></thead><tbody>');
 
