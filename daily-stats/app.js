@@ -331,7 +331,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -354,50 +354,105 @@ async function loadReports() {
   setLoading(false);
 }
 
-// ==== ОБРАБОТЧИК РЕДАКТИРОВАНИЯ С ПОДРОБНЫМИ ЛОГАМИ ====
-matrixContainer.addEventListener('click', async (e) => {
-  console.log('=== НАЧАЛО ОБРАБОТКИ ===');
-  console.log('Цель события:', e.target);
-  const cell = e.target.closest('.count-cell, .amount-cell');
-  if (!cell) {
-    console.log('Не ячейка, выход');
-    return;
-  }
-  console.log('Ячейка найдена:', cell);
-  if (!cell.dataset.stage) {
-    console.log('Нет data-stage, выход');
-    return;
-  }
-  console.log('data-stage:', cell.dataset.stage);
-  console.log('data-employee:', cell.dataset.employee);
-  console.log('data-date:', cell.dataset.date);
-  console.log('data-field:', cell.dataset.field);
+// ==== КАСТОМНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ РЕДАКТИРОВАНИЯ ====
+function showEditModal(cellData) {
+  return new Promise((resolve) => {
+    // Удаляем предыдущее окно, если есть
+    const oldModal = document.getElementById('customEditModal');
+    if (oldModal) oldModal.remove();
 
-  e.stopPropagation();
+    const modalDiv = document.createElement('div');
+    modalDiv.id = 'customEditModal';
+    modalDiv.style.position = 'fixed';
+    modalDiv.style.top = '0';
+    modalDiv.style.left = '0';
+    modalDiv.style.width = '100%';
+    modalDiv.style.height = '100%';
+    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modalDiv.style.display = 'flex';
+    modalDiv.style.alignItems = 'center';
+    modalDiv.style.justifyContent = 'center';
+    modalDiv.style.zIndex = '10000';
+    
+    const dialog = document.createElement('div');
+    dialog.style.backgroundColor = '#1e1e2a';
+    dialog.style.borderRadius = '16px';
+    dialog.style.padding = '20px';
+    dialog.style.width = '90%';
+    dialog.style.maxWidth = '400px';
+    dialog.style.border = '1px solid #caa24f';
+    dialog.style.color = '#fff';
+    
+    const fieldName = cellData.field === 'count' ? 'количество заказов' : 'метраж';
+    dialog.innerHTML = `
+      <h3 style="margin-top:0;">Редактирование</h3>
+      <p>Сотрудник: ${escapeHtml(cellData.employee)}</p>
+      <p>Дата: ${cellData.date}</p>
+      <p>Этап: ${cellData.stage}</p>
+      <label>${fieldName}:</label>
+      <input type="number" id="editValueInput" value="${cellData.currentValue}" style="width:100%; padding:8px; margin:10px 0; border-radius:8px; border:1px solid #caa24f; background:#0f1216; color:#fff;">
+      <div style="display:flex; gap:10px; margin-top:15px;">
+        <button id="editSaveBtn" class="primary" style="flex:1;">Сохранить</button>
+        <button id="editDeleteBtn" class="secondary" style="flex:1; background:#8b0000;">Удалить</button>
+        <button id="editCancelBtn" class="secondary" style="flex:1;">Отмена</button>
+      </div>
+    `;
+    modalDiv.appendChild(dialog);
+    document.body.appendChild(modalDiv);
+    
+    const input = document.getElementById('editValueInput');
+    const saveBtn = document.getElementById('editSaveBtn');
+    const deleteBtn = document.getElementById('editDeleteBtn');
+    const cancelBtn = document.getElementById('editCancelBtn');
+    
+    const closeModal = (result) => {
+      modalDiv.remove();
+      resolve(result);
+    };
+    
+    saveBtn.onclick = () => {
+      const newValue = parseFloat(input.value);
+      if (isNaN(newValue)) {
+        alert('Введите число');
+        return;
+      }
+      closeModal({ action: 'save', value: newValue });
+    };
+    deleteBtn.onclick = () => {
+      if (confirm('Удалить эту запись?')) {
+        closeModal({ action: 'delete' });
+      }
+    };
+    cancelBtn.onclick = () => closeModal(null);
+    input.focus();
+  });
+}
+
+// Глобальный обработчик кликов с кастомным окном
+matrixContainer.addEventListener('click', async (e) => {
+  const cell = e.target.closest('.count-cell, .amount-cell');
+  if (!cell) return;
+  if (!cell.dataset.stage) return;
+  
   const stage = cell.dataset.stage;
   const employee = cell.dataset.employee;
   const dateStr = cell.dataset.date;
   const field = cell.dataset.field;
   const currentValue = cell.innerText === '' ? 0 : parseFloat(cell.innerText);
-  console.log('currentValue:', currentValue);
-
   const isAdmin = adminModeCheckbox.checked;
   const currentUser = employeeSelect.value;
-  console.log('isAdmin:', isAdmin, 'currentUser:', currentUser);
-
+  
   if (!isAdmin && currentUser !== employee) {
     alert('Редактировать можно только свои данные (или включите режим администратора)');
-    console.log('Отказ по правам');
     return;
   }
-
-  console.log('Показываем prompt');
-  const action = prompt(`Что сделать?\n1 - Изменить ${field === 'count' ? 'количество' : 'метраж'}\n2 - Удалить запись за этот день`, '1');
-  console.log('action:', action);
-  if (action === null) return;
-
-  if (action === '2') {
-    if (!confirm(`Удалить данные за ${dateStr} для ${employee} (${stage})?`)) return;
+  
+  const result = await showEditModal({
+    stage, employee, date: dateStr, field, currentValue
+  });
+  if (!result) return;
+  
+  if (result.action === 'delete') {
     setLoading(true, 'Удаление...');
     try {
       const snapshot = await db.collection('daily_totals')
@@ -417,18 +472,8 @@ matrixContainer.addEventListener('click', async (e) => {
     } finally {
       setLoading(false);
     }
-    return;
-  }
-
-  if (action === '1') {
-    const newValue = prompt(`Введите новое значение для ${field === 'count' ? 'количества заказов' : 'метража'} (текущее: ${currentValue}):`, currentValue);
-    console.log('newValue:', newValue);
-    if (newValue === null) return;
-    const numValue = parseFloat(newValue);
-    if (isNaN(numValue)) {
-      alert('Введите число');
-      return;
-    }
+  } else if (result.action === 'save') {
+    const numValue = result.value;
     setLoading(true, 'Обновление...');
     try {
       const snapshot = await db.collection('daily_totals')
@@ -457,8 +502,6 @@ matrixContainer.addEventListener('click', async (e) => {
     } finally {
       setLoading(false);
     }
-  } else {
-    alert('Неверный выбор');
   }
 });
 
@@ -534,7 +577,7 @@ async function exportToExcel() {
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    lines.push(`<td><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
     for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
     lines.push(`<td>${totalText}<\/td><\/tr>`);
   }
