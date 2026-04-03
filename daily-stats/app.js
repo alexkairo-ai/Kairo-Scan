@@ -316,6 +316,7 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
+  // Строим таблицу: две строки на сотрудника (кол-во, метраж), итоги по этапам в одной строке
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
@@ -323,6 +324,7 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
+    // Строка "кол-во"
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
@@ -331,7 +333,8 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    // Строка "метраж"
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -340,6 +343,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
+  // Итоги по этапам (одна строка с дробью)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
@@ -357,7 +361,6 @@ async function loadReports() {
 // ==== КАСТОМНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ РЕДАКТИРОВАНИЯ ====
 function showEditModal(cellData) {
   return new Promise((resolve) => {
-    // Удаляем предыдущее окно, если есть
     const oldModal = document.getElementById('customEditModal');
     if (oldModal) oldModal.remove();
 
@@ -554,7 +557,7 @@ async function exportToExcel() {
   lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
   lines.push('</head><body>');
   lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('</table><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
+  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
   for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
   lines.push('<th>Итого</th></tr></thead><tbody>');
 
@@ -577,12 +580,12 @@ async function exportToExcel() {
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    lines.push(`<tr><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
+    lines.push(`<td><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
     for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
     lines.push(`<td>${totalText}<\/td><\/tr>`);
   }
 
-  lines.push('</tbody></table></body></html>');
+  lines.push('</tbody><tr></body></html>');
   const html = lines.join('');
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
