@@ -331,7 +331,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -354,11 +354,19 @@ async function loadReports() {
   setLoading(false);
 }
 
-// Глобальный обработчик кликов на ячейки (работает всегда, даже после перерисовки)
+// ==== ЕДИНСТВЕННЫЙ ОБРАБОТЧИК РЕДАКТИРОВАНИЯ (с отладкой) ====
 matrixContainer.addEventListener('click', async (e) => {
+  console.log('Клик в matrixContainer, цель:', e.target);
   const cell = e.target.closest('.count-cell, .amount-cell');
-  if (!cell) return;
-  if (!cell.dataset.stage) return; // не наша ячейка
+  if (!cell) {
+    console.log('Не ячейка');
+    return;
+  }
+  if (!cell.dataset.stage) {
+    console.log('Нет data-stage');
+    return;
+  }
+  console.log('Ячейка найдена:', cell);
 
   e.stopPropagation();
   const stage = cell.dataset.stage;
@@ -569,7 +577,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabReports.addEventListener('click', () => switchTab('reports'));
 });
 
-// Регистрация Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => console.log('SW registered:', reg))
