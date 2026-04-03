@@ -316,7 +316,6 @@ async function loadReports() {
 
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
 
-  // Строим таблицу: две строки на сотрудника (кол-во, метраж), итоги по этапам в одной строке
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
@@ -324,7 +323,6 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    // Строка "кол-во"
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
@@ -333,7 +331,6 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    // Строка "метраж"
     html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
@@ -343,7 +340,6 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам (одна строка с дробью)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
@@ -508,6 +504,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
+// ========== ИСПРАВЛЕННЫЙ ЭКСПОРТ В EXCEL ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -540,57 +537,96 @@ async function exportToExcel() {
     if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
   }
   for (const row of rows) {
-    let tc = 0, ta = 0;
-    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
-    row.totalCount = tc; row.totalAmount = ta;
+    let totalCount = 0, totalAmount = 0;
+    for (const d of days) {
+      totalCount += row.daysMap[d].count;
+      totalAmount += row.daysMap[d].amount;
+    }
+    row.totalCount = totalCount;
+    row.totalAmount = totalAmount;
   }
+
   const stageTotals = new Map();
   for (const row of rows) {
     if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
     const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
+    st.totalCount += row.totalCount;
+    st.totalAmount += row.totalAmount;
   }
+
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
+  const monthYear = fromDateStr === toDateStr ? fromDateStr : `${fromDateStr} — ${toDateStr}`;
 
-  let lines = [];
-  lines.push('<html><head><meta charset="UTF-8"><title>Итоги</title>');
-  lines.push('<style>body{font-family:Calibri;margin:20px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #7f8c8d;padding:6px;text-align:center} th{background:#f2c94c} .row-label{background:#e9ecef;text-align:left} .row-sub-label{background:#e9ecef}</style>');
-  lines.push('</head><body>');
-  lines.push(`<h2>Итоги за ${fromDateStr} — ${toDateStr}</h2>`);
-  lines.push('<td><thead><tr><th>Этап / Сотрудник</th><th>Показатель</th>');
-  for (const d of days) lines.push(`<th>${formatHeader(d)}</th>`);
-  lines.push('<th>Итого</th></tr></thead><tbody>');
+  // Формируем HTML для Excel, точно повторяя структуру таблицы
+  let html = `
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Итоги за ${monthYear}</title>
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
+        th { background-color: #f2c94c; font-weight: bold; }
+        .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
+        .row-sub-label { background-color: #e9ecef; font-weight: normal; text-align: left; font-style: italic; }
+        .count-cell, .amount-cell { text-align: center; }
+      </style>
+    </head>
+    <body>
+      <h2>Итоги за ${monthYear}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Этап / Сотрудник</th>
+            <th>Показатель</th>`;
+  for (const d of days) {
+    html += `<th>${formatHeader(d)}</th>`;
+  }
+  html += `<th>Итого</th>`;
+  html += `</tr>`;
+  html += `</thead><tbody>`;
 
+  // Строки для сотрудников (две строки: кол-во и метраж)
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    lines.push(`<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td><td class="row-sub-label">кол-во<\/td>`);
+    // Строка "кол-во"
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
+    html += `<td class="row-sub-label">кол-во</td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.count === 0 ? '' : val.count}<\/td>`);
+      html += `<td class="count-cell">${val.count === 0 ? '' : val.count}</td>`;
     }
-    lines.push(`<td>${row.totalCount === 0 ? '' : row.totalCount}<\/td><\/tr>`);
-    lines.push(`<tr><td class="row-sub-label">метраж<\/td>`);
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
+    html += `</tr>`;
+    // Строка "метраж"
+    html += `<tr><td class="row-sub-label">метраж</td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      lines.push(`<td>${val.amount === 0 ? '' : val.amount}<\/td>`);
+      html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}</td>`;
     }
-    lines.push(`<td>${row.totalAmount === 0 ? '' : row.totalAmount}<\/td><\/tr>`);
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
+    html += `</tr>`;
   }
 
+  // Итоги по этапам (одна строка с дробью)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    lines.push(`<td><td colspan="2" class="row-label">${stageDisplay} (всего)<\/td>`);
-    for (let i = 0; i < days.length; i++) lines.push('<td><\/td>');
-    lines.push(`<td>${totalText}<\/td><\/tr>`);
+    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)</td>`;
+    for (let i = 0; i < days.length; i++) {
+      html += `<td></td>`;
+    }
+    html += `<td class="count-cell">${totalText}</td>`;
+    html += `</tr>`;
   }
 
-  lines.push('</tbody><tr></body></html>');
-  const html = lines.join('');
+  html += `</tbody></table></body></html>`;
+
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `totals_${fromDateStr}_${toDateStr}.xls`;
+  link.download = `totals_${monthYear.replace(/[^0-9а-яё]/gi, '_')}.xls`;
   link.click();
   URL.revokeObjectURL(link.href);
   setLoading(false);
