@@ -95,9 +95,24 @@ function parseDbOrderClient(raw) {
   return { db: '', order: s };
 }
 
+// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ startCamera ==========
 async function startCamera() {
   if (starting) return;
   starting = true;
+  
+  // Предварительная проверка разрешений (если поддерживается)
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const perm = await navigator.permissions.query({ name: 'camera' });
+      if (perm.state === 'denied') {
+        msg.innerHTML = "⚠️ Доступ к камере запрещён. Разрешите в настройках браузера и перезагрузите страницу.";
+        showScanButton(true);
+        starting = false;
+        return;
+      }
+    } catch (e) {}
+  }
+  
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -108,13 +123,18 @@ async function startCamera() {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     } catch (e2) {
       msg.innerHTML = "Камера не запустилась. Проверьте HTTPS, доступ и закрытие других приложений.";
+      console.log(e1, e2);
       showScanButton(true);
       starting = false;
       return;
     }
   }
+
   try {
     video.srcObject = stream;
+    // Принудительно устанавливаем muted и autoplay для обхода политик автоплея
+    video.muted = true;
+    video.autoplay = true;
     await video.play();
     locked = false;
     hideScanOverlay();
@@ -124,6 +144,8 @@ async function startCamera() {
     scan();
   } catch (e3) {
     msg.innerHTML = "Не удалось запустить видео. Обновите страницу и попробуйте снова.";
+    console.log(e3);
+    stopCamera(); // останавливаем, чтобы можно было повторить попытку
   } finally {
     starting = false;
   }
@@ -180,9 +202,13 @@ function sendStage(stage, color, btn, photoUrl, facades) {
 const hasBarcodeDetector = ('BarcodeDetector' in window);
 const detector = hasBarcodeDetector ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
 
+// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ scan ==========
 function scan() {
   if (locked) return;
-  if (!isStreamActive()) { startCamera(); return; }
+  if (!isStreamActive()) {
+    // Камера не активна – не сканируем, пользователь должен нажать кнопку заново
+    return;
+  }
 
   if (hasBarcodeDetector) {
     detector.detect(video).then(codes => {
