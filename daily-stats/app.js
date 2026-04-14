@@ -323,7 +323,7 @@ async function loadReports() {
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += '<th>Итого</th><tr></thead><tbody>';
+  html += '<th>Итого</th></tr></thead><tbody>';
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -335,7 +335,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -344,12 +344,21 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
+  // Итоги по этапам (в двух строках, как и для сотрудников)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
+    const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
+    
+    html += `<tr><td rowspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    html += '<td class="row-sub-label">кол-во<\/td>';
     for (let i = 0; i < days.length; i++) html += '<td><\/td>';
-    html += `<td class="count-cell">${totalText}<\/td>`;
+    html += `<td class="count-cell">${totalCount}<\/td>`;
+    html += `<\/tr>`;
+    
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
+    html += `<td class="amount-cell">${totalAmount}<\/td>`;
     html += `<\/tr>`;
   }
 
@@ -592,7 +601,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -601,17 +610,25 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // ИТОГИ ПО ЭТАПАМ – ИСПРАВЛЕНЫ
+  // ИТОГИ ПО ЭТАПАМ – В ДВУХ СТРОКАХ
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
     const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
-    const totalText = `${totalCount} / ${totalAmount}`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    
+    html += `<tr><td rowspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    html += `<td class="row-sub-label">кол-во<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
     }
-    html += `<td class="count-cell">${totalText}<\/td>`;
+    html += `<td class="count-cell">${totalCount}<\/td>`;
+    html += `<\/tr>`;
+    
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    for (let i = 0; i < days.length; i++) {
+      html += `<td><\/td>`;
+    }
+    html += `<td class="amount-cell">${totalAmount}<\/td>`;
     html += `<\/tr>`;
   }
 
