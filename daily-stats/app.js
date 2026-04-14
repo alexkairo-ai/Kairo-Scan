@@ -28,7 +28,6 @@ const newEmployeeName = document.getElementById('newEmployeeName');
 const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
 const employeesListDiv = document.getElementById('employeesList');
 
-// Административная аутентификация
 let adminAuthenticated = false;
 const ADMIN_PASSWORD = '1990';
 
@@ -267,7 +266,7 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// ВОССТАНОВЛЕННАЯ ФУНКЦИЯ loadReports (рабочая версия)
+// ========== ОСНОВНАЯ ФУНКЦИЯ ОТОБРАЖЕНИЯ (ПРИЛОЖЕНИЕ) ==========
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -336,7 +335,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -345,7 +344,6 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам (одна строка с дробью) – не меняем
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
@@ -355,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody><table>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -433,7 +431,7 @@ function showEditModal(cellData) {
   });
 }
 
-// Глобальный обработчик кликов с кастомным окном
+// Глобальный обработчик кликов
 matrixContainer.addEventListener('click', async (e) => {
   const cell = e.target.closest('.count-cell, .amount-cell');
   if (!cell) return;
@@ -510,7 +508,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ЭКСПОРТ В EXCEL (ТОЛЬКО ИТОГИ ПО ЭТАПАМ В ДВЕ СТРОКИ) ==========
+// ========== ЭКСПОРТ В EXCEL ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -582,9 +580,9 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `<tr></thead><tbody>`;
+  html += `</tr></thead><tbody>`;
 
-  // Строки сотрудников (без изменений)
+  // Строки сотрудников
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
@@ -595,7 +593,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -604,7 +602,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам – ДВЕ СТРОКИ с объединённой ячейкой
+  // Итоги по этапам (две строки, чтобы Excel не преобразовывал в дату)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
@@ -618,7 +616,7 @@ async function exportToExcel() {
     html += `<td class="count-cell">${totalCount}<\/td>`;
     html += `<\/tr>`;
     
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
     }
