@@ -266,7 +266,6 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// ========== РАБОЧАЯ ФУНКЦИЯ ОТОБРАЖЕНИЯ (ПРИЛОЖЕНИЕ) ==========
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -353,7 +352,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody><table>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -508,7 +507,6 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ЭКСПОРТ (ОСТАВЛЯЮ КАК ЕСТЬ, НЕ ТРОГАЮ) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -580,12 +578,12 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `</tr></thead>
+  html += `<tr></thead>
         <tbody>`;
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
@@ -612,7 +610,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td colspan="2" class="row-label" style="background:#e9ecef;"><\/td>`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;"><\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
     }
@@ -620,7 +618,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody><tr></body></html>`;
+  html += `</tbody></table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
