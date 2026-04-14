@@ -170,6 +170,24 @@
   </div>
 </div>
 
+<!-- Модальное окно ввода пароля администратора -->
+<div id="adminPasswordModal" class="modal">
+  <div class="modal-content" style="max-width: 300px;">
+    <div class="modal-header">
+      <span class="close-admin-modal">&times;</span>
+      <h2>Пароль администратора</h2>
+    </div>
+    <div class="modal-body">
+      <input type="password" id="adminPasswordInput" placeholder="Введите пароль" style="width:100%;">
+      <div class="actions" style="margin-top: 15px;">
+        <button id="submitAdminPasswordBtn" class="primary">Войти</button>
+        <button id="cancelAdminPasswordBtn" class="secondary">Отмена</button>
+      </div>
+      <div id="adminPasswordError" style="color: red; margin-top: 10px;"></div>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 <script>
   // Авторизация с запоминанием
