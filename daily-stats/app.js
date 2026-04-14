@@ -323,7 +323,7 @@ async function loadReports() {
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += '<th>Итого</th></tr></thead><tbody>';
+  html += '<th>Итого</th><tr></thead><tbody>';
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -353,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></tr>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -576,7 +576,7 @@ async function exportToExcel() {
             <th>Этап / Сотрудник</th>
             <th>Показатель</th>`;
   for (const d of days) {
-    html += `<th>${formatHeader(d)}</th>`;
+    html += `<th style="mso-number-format:'@';">${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
   html += `</tr>`;
@@ -588,16 +588,16 @@ async function exportToExcel() {
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="count-cell">${val.count === 0 ? '' : val.count}<\/td>`;
+      html += `<td class="count-cell" style="mso-number-format:'@';">${val.count === 0 ? '' : val.count}<\/td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    html += `<td class="count-cell" style="mso-number-format:'@';">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
     html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
+      html += `<td class="amount-cell" style="mso-number-format:'@';">${val.amount === 0 ? '' : val.amount}<\/td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    html += `<td class="amount-cell" style="mso-number-format:'@';">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
     html += `<\/tr>`;
   }
 
@@ -606,13 +606,13 @@ async function exportToExcel() {
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
     html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) {
-      html += `<td><\/td>`;
+      html += `<td style="mso-number-format:'@';"><\/td>`;
     }
-    html += `<td class="count-cell">${totalText}<\/td>`;
+    html += `<td class="count-cell" style="mso-number-format:'@';">${totalText}<\/td>`;
     html += `<\/tr>`;
   }
 
-  html += `</tbody></tr></body></html>`;
+  html += `</tbody></table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
