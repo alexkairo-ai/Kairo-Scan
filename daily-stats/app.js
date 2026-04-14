@@ -327,7 +327,7 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
@@ -335,7 +335,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -353,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></tr>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -508,7 +508,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ЭКСПОРТ В EXCEL (С ТЕКСТОВЫМ ФОРМАТОМ) ==========
+// ========== ЭКСПОРТ В EXCEL (ТОЛЬКО АПОСТРОФЫ) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -571,7 +571,7 @@ async function exportToExcel() {
     </head>
     <body>
       <h2>Итоги за ${monthYear}</h2>
-      </table>
+      <table>
         <thead>
           <tr>
             <th>Этап / Сотрудник</th>
@@ -580,8 +580,8 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `</tr></thead>
-        <tbody>`;
+  html += `</tr>`;
+  html += `</thead><tbody>`;
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -595,7 +595,7 @@ async function exportToExcel() {
     const totalCountValue = row.totalCount === 0 ? '' : "'" + row.totalCount;
     html += `<td class="count-cell">${totalCountValue}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       const amountValue = val.amount === 0 ? '' : "'" + val.amount;
@@ -619,7 +619,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody></table></body></html>`;
+  html += `</tbody></tr></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
@@ -668,6 +668,7 @@ function showAdminPasswordModal() {
   adminPasswordInput.focus();
 }
 
+// Обработчик кнопки "Управление сотрудниками"
 adminBtn.addEventListener('click', () => {
   if (adminAuthenticated) {
     renderAdminModal();
@@ -678,6 +679,7 @@ adminBtn.addEventListener('click', () => {
   }
 });
 
+// Обработчик чекбокса "Режим администратора"
 adminModeCheckbox.addEventListener('change', (e) => {
   if (e.target.checked) {
     if (!adminAuthenticated) {
@@ -687,6 +689,7 @@ adminModeCheckbox.addEventListener('change', (e) => {
   }
 });
 
+// Проверка пароля
 submitAdminPasswordBtn.addEventListener('click', () => {
   const enteredPassword = adminPasswordInput.value;
   if (enteredPassword === ADMIN_PASSWORD) {
@@ -714,6 +717,7 @@ window.addEventListener('click', (e) => {
 
 adminBtn._pendingOpen = false;
 
+// ========== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ==========
 document.addEventListener('DOMContentLoaded', async () => {
   await loadEmployeesList();
   await migrateLinks();
