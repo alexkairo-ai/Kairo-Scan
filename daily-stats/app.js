@@ -28,6 +28,10 @@ const newEmployeeName = document.getElementById('newEmployeeName');
 const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
 const employeesListDiv = document.getElementById('employeesList');
 
+// Административная аутентификация
+let adminAuthenticated = false;
+const ADMIN_PASSWORD = '1990';
+
 const DEFAULT_EMPLOYEES = [
   "Олег", "Рауф", "Максим", "Виталий", "Андрей", "Борис", "Алексей",
   "Азамат", "Никита", "Владимир", "Сергей", "Дмитрий", "Расул",
@@ -504,7 +508,6 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ИСПРАВЛЕННЫЙ ЭКСПОРТ В EXCEL ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -537,27 +540,19 @@ async function exportToExcel() {
     if (row) row.daysMap[item.date] = { count: item.count, amount: item.amount };
   }
   for (const row of rows) {
-    let totalCount = 0, totalAmount = 0;
-    for (const d of days) {
-      totalCount += row.daysMap[d].count;
-      totalAmount += row.daysMap[d].amount;
-    }
-    row.totalCount = totalCount;
-    row.totalAmount = totalAmount;
+    let tc = 0, ta = 0;
+    for (const d of days) { tc += row.daysMap[d].count; ta += row.daysMap[d].amount; }
+    row.totalCount = tc; row.totalAmount = ta;
   }
-
   const stageTotals = new Map();
   for (const row of rows) {
     if (!stageTotals.has(row.stage)) stageTotals.set(row.stage, { totalCount: 0, totalAmount: 0 });
     const st = stageTotals.get(row.stage);
-    st.totalCount += row.totalCount;
-    st.totalAmount += row.totalAmount;
+    st.totalCount += row.totalCount; st.totalAmount += row.totalAmount;
   }
-
   const stageNames = { pila:'Пила', kromka:'Кромка', prisadka:'Присадка', upakovka:'Упаковка', hdf:'Пила ХДФ' };
   const monthYear = fromDateStr === toDateStr ? fromDateStr : `${fromDateStr} — ${toDateStr}`;
 
-  // Формируем HTML для Excel, точно повторяя структуру таблицы
   let html = `
     <html>
     <head>
@@ -567,112 +562,4 @@ async function exportToExcel() {
         body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
-        th { background-color: #f2c94c; font-weight: bold; }
-        .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
-        .row-sub-label { background-color: #e9ecef; font-weight: normal; text-align: left; font-style: italic; }
-        .count-cell, .amount-cell { text-align: center; }
-      </style>
-    </head>
-    <body>
-      <h2>Итоги за ${monthYear}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Этап / Сотрудник</th>
-            <th>Показатель</th>`;
-  for (const d of days) {
-    html += `<th>${formatHeader(d)}</th>`;
-  }
-  html += `<th>Итого</th>`;
-  html += `</tr>`;
-  html += `</thead><tbody>`;
-
-  // Строки для сотрудников (две строки: кол-во и метраж)
-  for (const row of rows) {
-    const stageDisplay = stageNames[row.stage] || row.stage;
-    // Строка "кол-во"
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}</td>`;
-    html += `<td class="row-sub-label">кол-во</td>`;
-    for (const d of days) {
-      const val = row.daysMap[d];
-      html += `<td class="count-cell">${val.count === 0 ? '' : val.count}</td>`;
-    }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}</td>`;
-    html += `</tr>`;
-    // Строка "метраж"
-    html += `<tr><td class="row-sub-label">метраж</td>`;
-    for (const d of days) {
-      const val = row.daysMap[d];
-      html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}</td>`;
-    }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}</td>`;
-    html += `</tr>`;
-  }
-
-  // Итоги по этапам (одна строка с дробью)
-  for (const [stageKey, totals] of stageTotals.entries()) {
-    const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)</td>`;
-    for (let i = 0; i < days.length; i++) {
-      html += `<td></td>`;
-    }
-    html += `<td class="count-cell">${totalText}</td>`;
-    html += `</tr>`;
-  }
-
-  html += `</tbody></table></body></html>`;
-
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `totals_${monthYear.replace(/[^0-9а-яё]/gi, '_')}.xls`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  setLoading(false);
-}
-
-function switchTab(tab) {
-  if (tab === 'input') {
-    inputPanel.style.display = 'block';
-    reportsPanel.style.display = 'none';
-    tabInput.classList.add('active');
-    tabReports.classList.remove('active');
-  } else {
-    inputPanel.style.display = 'none';
-    reportsPanel.style.display = 'block';
-    tabReports.classList.add('active');
-    tabInput.classList.remove('active');
-    loadReports();
-  }
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-}
-
-adminBtn.addEventListener('click', () => { renderAdminModal(); adminModal.style.display = 'block'; });
-closeModal.addEventListener('click', () => adminModal.style.display = 'none');
-window.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.style.display = 'none'; });
-addEmployeeBtn.addEventListener('click', () => {
-  const name = newEmployeeName.value.trim();
-  if (name) addEmployee(name);
-  newEmployeeName.value = '';
-});
-resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadEmployeesList();
-  await migrateLinks();
-  saveBtn.addEventListener('click', saveTotals);
-  applyFiltersBtn.addEventListener('click', loadReports);
-  exportExcelBtn.addEventListener('click', exportToExcel);
-  tabInput.addEventListener('click', () => switchTab('input'));
-  tabReports.addEventListener('click', () => switchTab('reports'));
-});
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js')
-    .then(reg => console.log('SW registered:', reg))
-    .catch(err => console.error('SW registration failed:', err));
-}
+        th { background-color: #f2c
