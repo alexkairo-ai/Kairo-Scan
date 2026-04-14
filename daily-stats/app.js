@@ -181,6 +181,10 @@ function renderAdminModal() {
   });
 }
 
+function closeAdminModal() {
+  adminModal.style.display = 'none';
+}
+
 async function saveTotals() {
   const date = reportDateInput.value;
   const employee = employeeSelect.value;
@@ -323,7 +327,7 @@ async function loadReports() {
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += '<th>Итого</th><tr></thead><tbody>';
+  html += '<th>Итого</th></tr></thead><tbody>';
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -612,7 +616,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody></table></body></html>`;
+  html += `</tbody>嗷</table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
@@ -647,7 +651,7 @@ const adminPasswordModal = document.getElementById('adminPasswordModal');
 const adminPasswordInput = document.getElementById('adminPasswordInput');
 const submitAdminPasswordBtn = document.getElementById('submitAdminPasswordBtn');
 const cancelAdminPasswordBtn = document.getElementById('cancelAdminPasswordBtn');
-const closeAdminModal = document.querySelector('.close-admin-modal');
+const closeAdminModalBtn = document.querySelector('.close-admin-modal');
 const adminPasswordError = document.getElementById('adminPasswordError');
 
 function closeAdminPasswordModal() {
@@ -703,7 +707,9 @@ submitAdminPasswordBtn.addEventListener('click', () => {
 });
 
 cancelAdminPasswordBtn.addEventListener('click', closeAdminPasswordModal);
-closeAdminModal.addEventListener('click', closeAdminPasswordModal);
+if (closeAdminModalBtn) {
+  closeAdminModalBtn.addEventListener('click', closeAdminPasswordModal);
+}
 window.addEventListener('click', (e) => {
   if (e.target === adminPasswordModal) closeAdminPasswordModal();
 });
@@ -719,6 +725,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   exportExcelBtn.addEventListener('click', exportToExcel);
   tabInput.addEventListener('click', () => switchTab('input'));
   tabReports.addEventListener('click', () => switchTab('reports'));
+  
+  // ========== ОБРАБОТЧИКИ ДЛЯ АДМИН-МОДАЛЬНОГО ОКНА ==========
+  // Закрытие модального окна
+  if (closeModal) {
+    closeModal.addEventListener('click', closeAdminModal);
+  }
+  
+  // Закрытие при клике вне окна
+  window.addEventListener('click', (e) => {
+    if (e.target === adminModal) {
+      closeAdminModal();
+    }
+  });
+  
+  // Кнопка добавления сотрудника
+  if (addEmployeeBtn) {
+    addEmployeeBtn.addEventListener('click', () => {
+      const newName = newEmployeeName.value.trim();
+      if (newName) {
+        addEmployee(newName);
+        newEmployeeName.value = '';
+      } else {
+        alert('Введите имя сотрудника');
+      }
+    });
+  }
+  
+  // Кнопка сброса списка сотрудников
+  if (resetEmployeesBtn) {
+    resetEmployeesBtn.addEventListener('click', resetToDefaultEmployees);
+  }
+  
+  // Обработчик нажатия Enter в поле ввода
+  if (newEmployeeName) {
+    newEmployeeName.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addEmployeeBtn.click();
+      }
+    });
+  }
 });
 
 if ('serviceWorker' in navigator) {
