@@ -28,6 +28,7 @@ const newEmployeeName = document.getElementById('newEmployeeName');
 const resetEmployeesBtn = document.getElementById('resetEmployeesBtn');
 const employeesListDiv = document.getElementById('employeesList');
 
+// Административная аутентификация
 let adminAuthenticated = false;
 const ADMIN_PASSWORD = '1990';
 
@@ -266,7 +267,6 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// ========== ВОССТАНОВЛЕННАЯ loadReports (РАБОЧАЯ ВЕРСИЯ) ==========
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -335,7 +335,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -508,7 +508,6 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ЭКСПОРТ В EXCEL (НЕ ТРОГАЙТЕ, ЭТО НЕ ВЛИЯЕТ НА ПРИЛОЖЕНИЕ) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -580,7 +579,7 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `<tr></thead>
+  html += `</tr></thead>
         <tbody>`;
 
   // Строки сотрудников
@@ -594,7 +593,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -609,7 +608,7 @@ async function exportToExcel() {
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
     const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
     
-    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    html += `<td><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
     }
