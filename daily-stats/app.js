@@ -323,7 +323,7 @@ async function loadReports() {
   let html = '<table class="matrix-table"><thead><tr>';
   html += '<th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) html += `<th>${formatHeader(d)}</th>`;
-  html += '<th>Итого</th></tr></thead><tbody>';
+  html += '<th>Итого</th><tr></thead><tbody>';
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -353,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></tr>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -601,9 +601,12 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
+  // ИТОГИ ПО ЭТАПАМ – ИСПРАВЛЕНЫ
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
+    const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
+    const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
+    const totalText = `${totalCount} / ${totalAmount}`;
     html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
@@ -612,7 +615,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody></tr></body></html>`;
+  html += `</tbody></table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
@@ -661,7 +664,6 @@ function showAdminPasswordModal() {
   adminPasswordInput.focus();
 }
 
-// Обработчик кнопки "Управление сотрудниками"
 adminBtn.addEventListener('click', () => {
   if (adminAuthenticated) {
     renderAdminModal();
@@ -672,7 +674,6 @@ adminBtn.addEventListener('click', () => {
   }
 });
 
-// Обработчик чекбокса "Режим администратора"
 adminModeCheckbox.addEventListener('change', (e) => {
   if (e.target.checked) {
     if (!adminAuthenticated) {
@@ -682,7 +683,6 @@ adminModeCheckbox.addEventListener('change', (e) => {
   }
 });
 
-// Проверка пароля
 submitAdminPasswordBtn.addEventListener('click', () => {
   const enteredPassword = adminPasswordInput.value;
   if (enteredPassword === ADMIN_PASSWORD) {
@@ -710,7 +710,6 @@ window.addEventListener('click', (e) => {
 
 adminBtn._pendingOpen = false;
 
-// ========== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ==========
 document.addEventListener('DOMContentLoaded', async () => {
   await loadEmployeesList();
   await migrateLinks();
