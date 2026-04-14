@@ -322,6 +322,7 @@ async function loadReports() {
 
   let html = '<table class="matrix-table"><thead>';
   
+  // Заголовок
   html += `<tr><th colspan="${days.length + 3}">Итоги за ${fromDateStr} — ${toDateStr}</th></tr>`;
   html += '<tr><th>Этап / Сотрудник</th><th>Показатель</th>';
   for (const d of days) {
@@ -330,12 +331,13 @@ async function loadReports() {
   html += '<th>Итого</th></tr>';
   html += '</thead><tbody>';
 
-  // Строки сотрудников: объединяем этап и имя в одной ячейке (rowspan=2)
+  // Строки сотрудников
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     const employeeName = escapeHtml(row.employee);
-    // Объединённая ячейка для этапа и имени
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${employeeName}<\/td>`;
+    // Формат: "Имя Этап"
+    const cellText = `${employeeName} ${stageDisplay}`;
+    html += `<tr><td rowspan="2" class="row-label">${cellText}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
@@ -343,7 +345,6 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    // Вторая строка: метраж
     html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
@@ -356,7 +357,7 @@ async function loadReports() {
   // Итоги по этапам
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    // Строка "кол-во" итогов
+    // Строка "кол-во"
     html += `<td><td class="row-label">${stageDisplay} (всего)<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (let i = 0; i < days.length; i++) {
@@ -364,7 +365,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
     html += `<\/tr>`;
-    // Строка "метраж" итогов
+    // Строка "метраж"
     html += `<td><td class="row-label"><\/td>`;
     html += '<td class="row-sub-label">метраж<\/td>';
     for (let i = 0; i < days.length; i++) {
@@ -604,13 +605,14 @@ async function exportToExcel() {
   for (const d of days) {
     html += `<th>${formatHeader(d)}</th>`;
   }
-  html += `<th>Итого</th></tr>`;
-  html += `</thead><tbody>`;
+  html += `<th>Итого</th>`;
+  html += `</tr></thead><tbody>`;
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     const employeeName = escapeHtml(row.employee);
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${employeeName}<\/td>`;
+    const cellText = `${employeeName} ${stageDisplay}`;
+    html += `<tr><td rowspan="2" class="row-label">${cellText}<\/td>`;
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
@@ -618,7 +620,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -636,7 +638,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${totals.totalCount === 0 ? '' : totals.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-label"><\/td>`;
+    html += `<tr><td class="row-label"><\/td>`;
     html += `<td class="row-sub-label">метраж<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
@@ -645,7 +647,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody><table></body></html>`;
+  html += `</tbody></table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
