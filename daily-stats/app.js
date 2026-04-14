@@ -335,7 +335,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -344,7 +344,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам (в двух строках, как и для сотрудников)
+  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, КАК И ДЛЯ СОТРУДНИКОВ)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
@@ -356,7 +356,7 @@ async function loadReports() {
     html += `<td class="count-cell">${totalCount}<\/td>`;
     html += `<\/tr>`;
     
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (let i = 0; i < days.length; i++) html += '<td><\/td>';
     html += `<td class="amount-cell">${totalAmount}<\/td>`;
     html += `<\/tr>`;
@@ -591,6 +591,7 @@ async function exportToExcel() {
   html += `</tr>`;
   html += `</thead><tbody>`;
 
+  // СТРОКИ СОТРУДНИКОВ (БЕЗ ИЗМЕНЕНИЙ)
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
@@ -610,13 +611,13 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // ИТОГИ ПО ЭТАПАМ – В ДВУХ СТРОКАХ
+  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, НЕ ЛОМАЕМ ВЕРХ)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
     const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
     
-    html += `<tr><td rowspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    html += `<td><td rowspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
