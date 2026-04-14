@@ -267,7 +267,6 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
-// ВОССТАНОВЛЕННАЯ ФУНКЦИЯ loadReports (рабочая версия)
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -345,7 +344,6 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам (одна строка с дробью) – оставляем как было, не ломаем
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
@@ -510,7 +508,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ФУНКЦИЯ exportToExcel – ИСПРАВЛЕНА ТОЛЬКО ДЛЯ ИТОГОВ ПО ЭТАПАМ
+// ========== ЭКСПОРТ В EXCEL (ПРАВИЛЬНАЯ СТРУКТУРА) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -585,7 +583,7 @@ async function exportToExcel() {
   html += `</tr>`;
   html += `</thead><tbody>`;
 
-  // Строки сотрудников (БЕЗ ИЗМЕНЕНИЙ)
+  // Строки сотрудников (две строки: кол-во, метраж)
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
@@ -596,7 +594,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -605,13 +603,13 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, ЧТОБЫ EXCEL НЕ ПРЕОБРАЗОВЫВАЛ В ДАТЫ)
+  // Итоги по этапам (две строки: кол-во, метраж) с объединённой ячейкой в первом столбце
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
     const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
     
-    html += `<td><td rowspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    html += `<tr><td rowspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
