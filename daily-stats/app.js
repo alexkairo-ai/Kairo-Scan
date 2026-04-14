@@ -353,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></table>';
+  html += '</tbody></tr>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -562,4 +562,167 @@ async function exportToExcel() {
         body { font-family: Calibri, Arial, sans-serif; margin: 20px; }
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #7f8c8d; padding: 6px; text-align: center; vertical-align: middle; }
-        th { background-color: #f2c
+        th { background-color: #f2c94c; font-weight: bold; }
+        .row-label { background-color: #e9ecef; font-weight: bold; text-align: left; }
+        .row-sub-label { background-color: #e9ecef; font-weight: normal; text-align: left; font-style: italic; }
+        .count-cell, .amount-cell { text-align: center; }
+      </style>
+    </head>
+    <body>
+      <h2>Итоги за ${monthYear}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Этап / Сотрудник</th>
+            <th>Показатель</th>`;
+  for (const d of days) {
+    html += `<th>${formatHeader(d)}</th>`;
+  }
+  html += `<th>Итого</th>`;
+  html += `</tr>`;
+  html += `</thead><tbody>`;
+
+  for (const row of rows) {
+    const stageDisplay = stageNames[row.stage] || row.stage;
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<td class="row-sub-label">кол-во<\/td>`;
+    for (const d of days) {
+      const val = row.daysMap[d];
+      html += `<td class="count-cell">${val.count === 0 ? '' : val.count}<\/td>`;
+    }
+    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    html += `<\/tr>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    for (const d of days) {
+      const val = row.daysMap[d];
+      html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
+    }
+    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    html += `<\/tr>`;
+  }
+
+  for (const [stageKey, totals] of stageTotals.entries()) {
+    const stageDisplay = stageNames[stageKey] || stageKey;
+    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
+    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
+    for (let i = 0; i < days.length; i++) {
+      html += `<td><\/td>`;
+    }
+    html += `<td class="count-cell">${totalText}<\/td>`;
+    html += `<\/tr>`;
+  }
+
+  html += `</tbody></tr></body></html>`;
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `totals_${monthYear.replace(/[^0-9а-яё]/gi, '_')}.xls`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setLoading(false);
+}
+
+function switchTab(tab) {
+  if (tab === 'input') {
+    inputPanel.style.display = 'block';
+    reportsPanel.style.display = 'none';
+    tabInput.classList.add('active');
+    tabReports.classList.remove('active');
+  } else {
+    inputPanel.style.display = 'none';
+    reportsPanel.style.display = 'block';
+    tabReports.classList.add('active');
+    tabInput.classList.remove('active');
+    loadReports();
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+// ==== АДМИНИСТРАТИВНАЯ ЗАЩИТА ====
+const adminPasswordModal = document.getElementById('adminPasswordModal');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const submitAdminPasswordBtn = document.getElementById('submitAdminPasswordBtn');
+const cancelAdminPasswordBtn = document.getElementById('cancelAdminPasswordBtn');
+const closeAdminModal = document.querySelector('.close-admin-modal');
+const adminPasswordError = document.getElementById('adminPasswordError');
+
+function closeAdminPasswordModal() {
+  adminPasswordModal.style.display = 'none';
+  adminPasswordInput.value = '';
+  adminPasswordError.textContent = '';
+}
+
+function showAdminPasswordModal() {
+  adminPasswordModal.style.display = 'block';
+  adminPasswordInput.focus();
+}
+
+// Обработчик кнопки "Управление сотрудниками"
+adminBtn.addEventListener('click', () => {
+  if (adminAuthenticated) {
+    renderAdminModal();
+    adminModal.style.display = 'block';
+  } else {
+    adminBtn._pendingOpen = true;
+    showAdminPasswordModal();
+  }
+});
+
+// Обработчик чекбокса "Режим администратора"
+adminModeCheckbox.addEventListener('change', (e) => {
+  if (e.target.checked) {
+    if (!adminAuthenticated) {
+      showAdminPasswordModal();
+      e.target.checked = false;
+    }
+  }
+});
+
+// Проверка пароля
+submitAdminPasswordBtn.addEventListener('click', () => {
+  const enteredPassword = adminPasswordInput.value;
+  if (enteredPassword === ADMIN_PASSWORD) {
+    adminAuthenticated = true;
+    closeAdminPasswordModal();
+    if (!adminModeCheckbox.checked) {
+      adminModeCheckbox.checked = true;
+    }
+    if (adminBtn._pendingOpen) {
+      renderAdminModal();
+      adminModal.style.display = 'block';
+      adminBtn._pendingOpen = false;
+    }
+    alert('Режим администратора активирован');
+  } else {
+    adminPasswordError.textContent = 'Неверный пароль';
+  }
+});
+
+cancelAdminPasswordBtn.addEventListener('click', closeAdminPasswordModal);
+closeAdminModal.addEventListener('click', closeAdminPasswordModal);
+window.addEventListener('click', (e) => {
+  if (e.target === adminPasswordModal) closeAdminPasswordModal();
+});
+
+adminBtn._pendingOpen = false;
+
+// ========== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ==========
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadEmployeesList();
+  await migrateLinks();
+  saveBtn.addEventListener('click', saveTotals);
+  applyFiltersBtn.addEventListener('click', loadReports);
+  exportExcelBtn.addEventListener('click', exportToExcel);
+  tabInput.addEventListener('click', () => switchTab('input'));
+  tabReports.addEventListener('click', () => switchTab('reports'));
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(reg => console.log('SW registered:', reg))
+    .catch(err => console.error('SW registration failed:', err));
+}
