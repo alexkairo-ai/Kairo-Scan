@@ -327,7 +327,7 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
@@ -508,7 +508,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
-// ========== ЭКСПОРТ В EXCEL (КОПИЯ loadReports С РАЗБИТЫМИ ИТОГАМИ) ==========
+// ========== ЭКСПОРТ В EXCEL (ВСЁ СДВИНУТО ВЛЕВО) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -580,9 +580,9 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `<tr></thead><tbody>`;
+  html += `</tr></thead><tbody>`;
 
-  // Строки сотрудников (полностью как в loadReports)
+  // Строки сотрудников (без лишней пустой колонки)
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
@@ -593,7 +593,7 @@ async function exportToExcel() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
+    html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -602,13 +602,12 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // Итоги по этапам (как в loadReports, но разбиты на две строки, чтобы Excel не портил)
+  // Итоги по этапам (две строки, выровнены влево)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
     const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
     
-    // Строка "кол-во"
     html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
@@ -616,8 +615,7 @@ async function exportToExcel() {
     html += `<td class="count-cell">${totalCount}<\/td>`;
     html += `<\/tr>`;
     
-    // Строка "метраж"
-    html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;"><\/td>`;
+    html += `<td><td colspan="2" class="row-label" style="background:#e9ecef;"><\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
     }
