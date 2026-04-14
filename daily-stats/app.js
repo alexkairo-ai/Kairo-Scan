@@ -347,13 +347,13 @@ async function loadReports() {
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
-    html += `<tr><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
+    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) html += '<td><\/td>';
     html += `<td class="count-cell">${totalText}<\/td>`;
     html += `<\/tr>`;
   }
 
-  html += '</tbody></tr>';
+  html += '</tbody></table>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -508,6 +508,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
+// ========== ЭКСПОРТ В EXCEL (С ТЕКСТОВЫМ ФОРМАТОМ) ==========
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -579,8 +580,8 @@ async function exportToExcel() {
     html += `<th>${formatHeader(d)}</th>`;
   }
   html += `<th>Итого</th>`;
-  html += `</tr>`;
-  html += `</thead><tbody>`;
+  html += `</tr></thead>
+        <tbody>`;
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
@@ -588,22 +589,28 @@ async function exportToExcel() {
     html += `<td class="row-sub-label">кол-во<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="count-cell">${val.count === 0 ? '' : val.count}<\/td>`;
+      const countValue = val.count === 0 ? '' : "'" + val.count;
+      html += `<td class="count-cell">${countValue}<\/td>`;
     }
-    html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
+    const totalCountValue = row.totalCount === 0 ? '' : "'" + row.totalCount;
+    html += `<td class="count-cell">${totalCountValue}<\/td>`;
     html += `<\/tr>`;
     html += `<tr><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
-      html += `<td class="amount-cell">${val.amount === 0 ? '' : val.amount}<\/td>`;
+      const amountValue = val.amount === 0 ? '' : "'" + val.amount;
+      html += `<td class="amount-cell">${amountValue}<\/td>`;
     }
-    html += `<td class="amount-cell">${row.totalAmount === 0 ? '' : row.totalAmount}<\/td>`;
+    const totalAmountValue = row.totalAmount === 0 ? '' : "'" + row.totalAmount;
+    html += `<td class="amount-cell">${totalAmountValue}<\/td>`;
     html += `<\/tr>`;
   }
 
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
+    const totalCount = totals.totalCount === 0 ? '' : "'" + totals.totalCount;
+    const totalAmount = totals.totalAmount === 0 ? '' : "'" + totals.totalAmount;
+    const totalText = totalCount === '' && totalAmount === '' ? '' : `${totalCount} / ${totalAmount}`;
     html += `<tr><td colspan="2" class="row-label" style="background:#e9ecef;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) {
       html += `<td><\/td>`;
@@ -612,7 +619,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  html += `</tbody></tr></body></html>`;
+  html += `</tbody></table></body></html>`;
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
@@ -661,7 +668,6 @@ function showAdminPasswordModal() {
   adminPasswordInput.focus();
 }
 
-// Обработчик кнопки "Управление сотрудниками"
 adminBtn.addEventListener('click', () => {
   if (adminAuthenticated) {
     renderAdminModal();
@@ -672,7 +678,6 @@ adminBtn.addEventListener('click', () => {
   }
 });
 
-// Обработчик чекбокса "Режим администратора"
 adminModeCheckbox.addEventListener('change', (e) => {
   if (e.target.checked) {
     if (!adminAuthenticated) {
@@ -682,7 +687,6 @@ adminModeCheckbox.addEventListener('change', (e) => {
   }
 });
 
-// Проверка пароля
 submitAdminPasswordBtn.addEventListener('click', () => {
   const enteredPassword = adminPasswordInput.value;
   if (enteredPassword === ADMIN_PASSWORD) {
@@ -710,7 +714,6 @@ window.addEventListener('click', (e) => {
 
 adminBtn._pendingOpen = false;
 
-// ========== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ==========
 document.addEventListener('DOMContentLoaded', async () => {
   await loadEmployeesList();
   await migrateLinks();
