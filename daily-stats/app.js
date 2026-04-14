@@ -353,7 +353,7 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  html += '</tbody></table>';
+  html += '</tbody></tr>';
   matrixContainer.innerHTML = html;
   setLoading(false);
 }
@@ -571,7 +571,7 @@ async function exportToExcel() {
     </head>
     <body>
       <h2>Итоги за ${monthYear}</h2>
-      <table>
+      </table>
         <thead>
           <tr>
             <th>Этап / Сотрудник</th>
