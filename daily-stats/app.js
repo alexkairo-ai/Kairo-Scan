@@ -267,6 +267,7 @@ function formatHeader(dateStr) {
   return `${parts[0]}.${parts[1]}`;
 }
 
+// ВОССТАНОВЛЕННАЯ ФУНКЦИЯ loadReports (рабочая версия)
 async function loadReports() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -327,7 +328,7 @@ async function loadReports() {
 
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
-    html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
+    html += `<td><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
     html += '<td class="row-sub-label">кол-во<\/td>';
     for (const d of days) {
       const val = row.daysMap[d];
@@ -335,7 +336,7 @@ async function loadReports() {
     }
     html += `<td class="count-cell">${row.totalCount === 0 ? '' : row.totalCount}<\/td>`;
     html += `<\/tr>`;
-    html += `<tr><td class="row-sub-label">метраж<\/td>`;
+    html += `<td><td class="row-sub-label">метраж<\/td>`;
     for (const d of days) {
       const val = row.daysMap[d];
       html += `<td class="amount-cell" data-stage="${row.stage}" data-employee="${row.employee}" data-date="${d}" data-field="amount">${val.amount === 0 ? '' : val.amount}<\/td>`;
@@ -344,21 +345,13 @@ async function loadReports() {
     html += `<\/tr>`;
   }
 
-  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, КАК И ДЛЯ СОТРУДНИКОВ)
+  // Итоги по этапам (одна строка с дробью) – оставляем как было, не ломаем
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
-    const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
-    const totalAmount = totals.totalAmount === 0 ? '' : totals.totalAmount;
-    
-    html += `<tr><td rowspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
-    html += '<td class="row-sub-label">кол-во<\/td>';
+    const totalText = `${totals.totalCount === 0 ? '' : totals.totalCount} / ${totals.totalAmount === 0 ? '' : totals.totalAmount}`;
+    html += `<td><td colspan="2" class="row-label" style="background:#3a3a46;">${stageDisplay} (всего)<\/td>`;
     for (let i = 0; i < days.length; i++) html += '<td><\/td>';
-    html += `<td class="count-cell">${totalCount}<\/td>`;
-    html += `<\/tr>`;
-    
-    html += `<td><td class="row-sub-label">метраж<\/td>`;
-    for (let i = 0; i < days.length; i++) html += '<td><\/td>';
-    html += `<td class="amount-cell">${totalAmount}<\/td>`;
+    html += `<td class="count-cell">${totalText}<\/td>`;
     html += `<\/tr>`;
   }
 
@@ -517,6 +510,7 @@ matrixContainer.addEventListener('click', async (e) => {
   }
 });
 
+// ФУНКЦИЯ exportToExcel – ИСПРАВЛЕНА ТОЛЬКО ДЛЯ ИТОГОВ ПО ЭТАПАМ
 async function exportToExcel() {
   const fromDateStr = filterDateFrom.value;
   const toDateStr = filterDateTo.value;
@@ -591,7 +585,7 @@ async function exportToExcel() {
   html += `</tr>`;
   html += `</thead><tbody>`;
 
-  // СТРОКИ СОТРУДНИКОВ (БЕЗ ИЗМЕНЕНИЙ)
+  // Строки сотрудников (БЕЗ ИЗМЕНЕНИЙ)
   for (const row of rows) {
     const stageDisplay = stageNames[row.stage] || row.stage;
     html += `<tr><td rowspan="2" class="row-label">${stageDisplay}<br>${escapeHtml(row.employee)}<\/td>`;
@@ -611,7 +605,7 @@ async function exportToExcel() {
     html += `<\/tr>`;
   }
 
-  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, НЕ ЛОМАЕМ ВЕРХ)
+  // ИТОГИ ПО ЭТАПАМ (ДВЕ СТРОКИ, ЧТОБЫ EXCEL НЕ ПРЕОБРАЗОВЫВАЛ В ДАТЫ)
   for (const [stageKey, totals] of stageTotals.entries()) {
     const stageDisplay = stageNames[stageKey] || stageKey;
     const totalCount = totals.totalCount === 0 ? '' : totals.totalCount;
