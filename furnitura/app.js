@@ -1,10 +1,12 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на ваш URL
+const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec'; // замените на свой URL
 
 let stream = null, locked = false, starting = false, stopTimer = null;
 let currentOrder = null;
 let currentClient = null;
 
 const video = document.getElementById('video');
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startCam');
 const msg = document.getElementById('msg');
 const scanOverlay = document.getElementById('scanOverlay');
@@ -84,6 +86,7 @@ const detector = hasBarcodeDetector ? new BarcodeDetector({ formats: ['qr_code']
 function scan() {
   if (locked) return;
   if (!isStreamActive()) return;
+
   if (hasBarcodeDetector) {
     detector.detect(video).then(codes => {
       if (codes && codes.length) {
@@ -96,7 +99,21 @@ function scan() {
     }).catch(() => requestAnimationFrame(scan));
     return;
   }
-  // jsQR fallback (если нужно – подключите библиотеку)
+
+  // jsQR fallback (нужна библиотека, подключена в index.html)
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
+    if (code) {
+      const data = code.data;
+      processQR(data);
+      freezeCamera();
+      return;
+    }
+  }
   requestAnimationFrame(scan);
 }
 
