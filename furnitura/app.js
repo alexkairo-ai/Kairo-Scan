@@ -100,7 +100,6 @@ function scan() {
     return;
   }
 
-  // jsQR fallback (нужна библиотека, подключена в index.html)
   if (video.readyState === video.HAVE_ENOUGH_DATA) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -118,7 +117,6 @@ function scan() {
 }
 
 function processQR(qrData) {
-  // Ожидаем формат "КЛИЕНТ|НОМЕР"
   const parts = qrData.split('|');
   if (parts.length !== 2) {
     msg.innerHTML = '⚠️ Неверный формат QR (ожидается КЛИЕНТ|НОМЕР)';
@@ -188,13 +186,12 @@ function sendMark(stage, comment = '') {
   }, (res) => {
     if (res.ok) {
       alert('Отмечено!');
-      // Сброс состояния
       orderInfo.classList.add('hidden');
       buttonsPanel.classList.add('hidden');
       currentClient = null;
       currentOrder = null;
       hideScanOverlay();
-      startCamera(); // возобновляем сканирование
+      startCamera();
     } else {
       alert('Ошибка: ' + res.msg);
     }
@@ -212,3 +209,8 @@ orangeBtn.onclick = () => {
     sendMark('orange', comment);
   }
 };
+
+// Регистрация Service Worker для PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW registration failed:', err));
+}
