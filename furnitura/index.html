@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ФУРНИТУРА</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111111">
+</head>
+<body>
+  <div class="container">
+    <h1>🔩 ФУРНИТУРА</h1>
+    <div class="video-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="scanOverlay" class="scan-overlay hidden"></div>
+    </div>
+    <div id="msg" class="small"></div>
+    <button id="startCam">СКАНИРОВАТЬ</button>
+    <div id="orderInfo" class="order-info hidden">
+      <div>Заказ: <span id="orderNumber"></span></div>
+      <div>Клиент: <span id="clientName"></span></div>
+    </div>
+    <div id="buttonsPanel" class="buttons-panel hidden">
+      <button id="greenBtn" class="green-btn">✅ ГОТОВО</button>
+      <button id="orangeBtn" class="orange-btn">⚠️ ПРОБЛЕМА</button>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
