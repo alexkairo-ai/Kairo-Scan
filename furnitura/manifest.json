@@ -1,8 +1,8 @@
 {
   "name": "ФУРНИТУРА",
   "short_name": "Фурнитура",
-  "start_url": "./furnitura/",
-  "scope": "./furnitura/",
+  "start_url": "./index.html",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#0a0c0f",
   "theme_color": "#caa24f",
