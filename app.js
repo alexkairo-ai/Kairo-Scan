@@ -95,12 +95,11 @@ function parseDbOrderClient(raw) {
   return { db: '', order: s };
 }
 
-// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ startCamera ==========
+// ========== ФУНКЦИЯ startCamera ==========
 async function startCamera() {
   if (starting) return;
   starting = true;
-  
-  // Предварительная проверка разрешений (если поддерживается)
+
   if (navigator.permissions && navigator.permissions.query) {
     try {
       const perm = await navigator.permissions.query({ name: 'camera' });
@@ -112,7 +111,7 @@ async function startCamera() {
       }
     } catch (e) {}
   }
-  
+
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -132,7 +131,6 @@ async function startCamera() {
 
   try {
     video.srcObject = stream;
-    // Принудительно устанавливаем muted и autoplay для обхода политик автоплея
     video.muted = true;
     video.autoplay = true;
     await video.play();
@@ -145,7 +143,7 @@ async function startCamera() {
   } catch (e3) {
     msg.innerHTML = "Не удалось запустить видео. Обновите страницу и попробуйте снова.";
     console.log(e3);
-    stopCamera(); // останавливаем, чтобы можно было повторить попытку
+    stopCamera();
   } finally {
     starting = false;
   }
@@ -175,7 +173,8 @@ function flashStage(btn) {
   setTimeout(() => btn.classList.remove('stage-active'), 700);
 }
 
-function sendStage(stage, color, btn, photoUrl, facades) {
+// ========== ИЗМЕНЕНА: sendStage с параметром packages ==========
+function sendStage(stage, color, btn, photoUrl, facades, packages) {
   const parsed = parseDbOrderClient(orderInput.value);
   const raw = parsed.order;
   const db = parsed.db;
@@ -192,7 +191,8 @@ function sendStage(stage, color, btn, photoUrl, facades) {
     color: color || '',
     db: db,
     photo_url: photoUrl || '',
-    facades: (facades === true ? '1' : facades === false ? '0' : '')
+    facades: (facades === true ? '1' : facades === false ? '0' : ''),
+    packages: packages || ''
   },
     res => { statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
     err => { statusEl.innerHTML = err; }
@@ -202,11 +202,9 @@ function sendStage(stage, color, btn, photoUrl, facades) {
 const hasBarcodeDetector = ('BarcodeDetector' in window);
 const detector = hasBarcodeDetector ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
 
-// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ scan ==========
 function scan() {
   if (locked) return;
   if (!isStreamActive()) {
-    // Камера не активна – не сканируем, пользователь должен нажать кнопку заново
     return;
   }
 
@@ -283,6 +281,7 @@ function openFacadesDialog(onChoose) {
   document.getElementById('facadesNo').onclick = () => { overlay.remove(); onChoose(false); };
 }
 
+// ========== ИЗМЕНЕНА: openPhotoDialog с полем "Количество упаковок" ==========
 function openPhotoDialog(stage, color, btn) {
   const overlay = document.createElement('div');
   overlay.id = 'photoOverlay';
@@ -290,6 +289,13 @@ function openPhotoDialog(stage, color, btn) {
     <div class="photo-modal">
       <div class="photo-title">Загрузите фото для этапа</div>
       <input id="photoInput" type="file" accept="image/*" multiple />
+      ${stage === 'upakovka' ? `
+        <div style="margin-top:14px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;">Количество упаковок:</label>
+          <input id="packageCount" type="number" min="0" step="1" placeholder="Введите количество"
+            style="width:100%;padding:10px;border-radius:10px;border:2px solid #caa24f;background:#0f1216;color:#fff;font-size:18px;font-weight:bold;text-align:center;" />
+        </div>
+      ` : ''}
       <div class="photo-actions">
         <button id="photoUpload">Загрузить</button>
         <button id="photoSkip">Продолжить без фото</button>
@@ -301,27 +307,32 @@ function openPhotoDialog(stage, color, btn) {
 
   const input = document.getElementById('photoInput');
   const msgEl = document.getElementById('photoMsg');
+  const packageInput = document.getElementById('packageCount');
 
   document.getElementById('photoCancel').onclick = () => overlay.remove();
+
   document.getElementById('photoSkip').onclick = () => {
+    const packages = packageInput ? packageInput.value.trim() : '';
     overlay.remove();
     if (stage === 'prisadka') {
-      openFacadesDialog(hasFacades => sendStage(stage, color, btn, '', hasFacades));
+      openFacadesDialog(hasFacades => sendStage(stage, color, btn, '', hasFacades, ''));
     } else {
-      sendStage(stage, color, btn, '');
+      sendStage(stage, color, btn, '', '', packages);
     }
   };
+
   document.getElementById('photoUpload').onclick = async () => {
     const files = Array.from(input.files || []);
     if (!files.length) { msgEl.textContent = 'Выберите фото'; return; }
+    const packages = packageInput ? packageInput.value.trim() : '';
     msgEl.textContent = 'Загрузка...';
     const folderUrl = await uploadPhotos(files, stage).catch(err => { msgEl.textContent = err; return null; });
     if (folderUrl) {
       overlay.remove();
       if (stage === 'prisadka') {
-        openFacadesDialog(hasFacades => sendStage(stage, color, btn, folderUrl, hasFacades));
+        openFacadesDialog(hasFacades => sendStage(stage, color, btn, folderUrl, hasFacades, ''));
       } else {
-        sendStage(stage, color, btn, folderUrl);
+        sendStage(stage, color, btn, folderUrl, '', packages);
       }
     }
   };
