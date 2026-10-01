@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzYYvI0mrWuqm7BypwLcoJaRz7446I9G6DD71BsCAvblSJVm6nZUVtmqLYbDMu3_NS41Q/exec';
 const EDIT_PASS = '1990';
 const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
 const photoStages = new Set(['hdf','prisadka','upakovka']);
